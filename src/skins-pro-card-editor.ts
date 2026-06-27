@@ -70,10 +70,11 @@ export class SkinsProCardEditor extends HTMLElement {
   }
 
   private themeCssUrl(): string {
+    const skin = this._config.resource_pack?.skin || 'modern';
     try {
-      return new URL('modern/theme.css', import.meta.url).toString();
+      return new URL(`${skin}/theme.css`, import.meta.url).toString();
     } catch {
-      return '/local/community/skins-pro/modern/theme.css';
+      return `/local/community/skins-pro/${skin}/theme.css`;
     }
   }
 

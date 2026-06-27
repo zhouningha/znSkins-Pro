@@ -1,0 +1,20 @@
+{
+  "title_zh": "欢迎回家，冒险家！",
+  "title_en": "Welcome home, adventurer!",
+  "subtitle_zh": "Minecraft Home",
+  "subtitle_en": "Minecraft Home",
+  "profile_name_zh": "冒险家",
+  "profile_name_en": "Adventurer",
+  "profile_subtitle_zh": "Minecraft Home",
+  "profile_subtitle_en": "Minecraft Home",
+  "icon_map": {
+    "light": "light",
+    "climate": "climate",
+    "media_player": "speaker",
+    "lock": "lock",
+    "binary_sensor": "lock",
+    "switch": "garden",
+    "fan": "garden",
+    "cover": "garden"
+  }
+}

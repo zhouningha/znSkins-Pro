@@ -202,12 +202,12 @@ export class SkinsProCardEditor extends HTMLElement {
       <link rel="stylesheet" href="${this.themeCssUrl()}">
       <div class="sp-wrap">
         <div class="sp-card sp-card-row">
-          <div class="sp-field">
+          <label class="sp-field">
             <span>Skin</span>
             <select data-text-path="resource_pack.skin">
               ${SKINS.map((s: string) => `<option value="${s}"${s === (c.resource_pack?.skin || 'modern') ? ' selected' : ''}>${s}</option>`).join('')}
             </select>
-          </div>
+          </label>
           ${this.entityPicker('Weather', 'weather.entity', c.weather?.entity || hs.weather_entity || '', ['weather'])}
           ${this.entityPicker('信息展示 / Info', 'info.entity', c.info?.entity || '', ['input_text', 'sensor'])}
           <label class="sp-field">

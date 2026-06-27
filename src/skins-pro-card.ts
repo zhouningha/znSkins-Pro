@@ -1566,7 +1566,7 @@ export class MinecraftDashboardCard extends LitElement {
     return html`${securityEntities.map((entity, index) => {
       const stateLabel = this.deviceStateLabel(entity.state, language);
       const domain = entity.entity_id.split('.')[0] || 'sensor';
-      const icon = String(entity.attributes?.icon || this.iconForDomain(domain));
+      const assetKey = this.assetKeyForDomain(domain);
       if (domain === 'camera') {
         const stateObj = this._hass?.states?.[entity.entity_id];
         const entityPicture = stateObj?.attributes?.entity_picture;
@@ -1597,7 +1597,7 @@ export class MinecraftDashboardCard extends LitElement {
       return html`
         <button class="device ${statusClass}" @click=${() => this.handleAction(entity.entity_id, 'more-info')}>
           <div class="device-top">
-            <div class="item-icon"><ha-icon icon=${icon}></ha-icon></div>
+            ${this.renderImage(assetKey, entity.attributes?.friendly_name || entity.entity_id, 'item-img')}
             <div class="tag-stack"><div class="status">${stateLabel}</div></div>
           </div>
           <div class="device-copy"><p class="device-name">${String(entity.attributes?.friendly_name || entity.entity_id)}</p><p class="muted">${domain}</p></div>

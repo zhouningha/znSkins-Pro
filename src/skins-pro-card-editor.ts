@@ -211,11 +211,11 @@ export class SkinsProCardEditor extends HTMLElement {
               </select>
             </label>
             ${this.entityPicker('Weather', 'weather.entity', c.weather?.entity || hs.weather_entity || '', ['weather'])}
-            ${this.entityPicker('信息展示 / Info', 'info.entity', c.info?.entity || '', ['input_text', 'sensor'])}
-            <label class="sp-field">
-              <span>全屏</span>
-              <input type="checkbox" data-path="fullscreen"${c.fullscreen ? ' checked' : ''}>
-            </label>
+          ${this.entityPicker('信息展示 / Info', 'info.entity', c.info?.entity || '', ['input_text', 'sensor'])}
+          <label>
+            <input type="checkbox" data-path="fullscreen"${c.fullscreen ? ' checked' : ''}>
+            <span>全屏</span>
+          </label>
           </div>
         </div>
 

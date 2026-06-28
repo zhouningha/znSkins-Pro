@@ -12,6 +12,11 @@ Anyone may freely copy, modify, and distribute this software for personal or non
 本软件可用于商业目的，但必须获得版权所有者的明确书面许可。
 Commercial use of this software is permitted only with prior written permission from the copyright holder.
 
+禁止内置在改版 Home Assistant 中 / No Embedding in Modified Home Assistant
+---
+未经版权所有者书面同意，禁止将本软件内置在任何修改版、分支版或非官方的 Home Assistant 发行版中。
+Embedding, bundling, or pre-installing this software in any modified, forked, or unofficial Home Assistant distribution is prohibited without written permission from the copyright holder.
+
 免责声明 / Disclaimer
 ---
 本软件按"原样"提供，不提供任何明示或暗示的担保。

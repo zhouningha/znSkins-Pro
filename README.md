@@ -145,6 +145,21 @@ Build output: `dist/`
 2. 将 `dist/` 复制到 HA 的 `www/community/skins-pro/` / Copy `dist/` to HA's `www/community/skins-pro/`
 3. 硬刷新浏览器（Ctrl+Shift+R）/ Hard refresh
 
+## 贡献主题 / Contributing a Skin
+
+欢迎提交你的皮肤到 Skins Pro！需满足以下要求：  
+We welcome skin contributions! Requirements:
+
+1. 在 `skins-pro/<皮肤名>/` 下创建皮肤目录 / Create a folder under `skins-pro/<skin-name>/
+2. 提供 `theme.css`（全部样式通过 CSS 变量定义）/ Provide `theme.css` (all styles via CSS variables)
+3. 提供 `strings.json`（含标题、问候语、`icon_map`）/ Provide `strings.json` with greeting text and `icon_map`
+4. 提供至少 `avatar.jpg`、`background.jpg`、`decoration.jpg` 三张图片 / Provide at least avatar, background, and decoration images
+5. 在 `screenshots/` 添加一张 <皮肤名>.png 预览图（.png, 1920×1080 为宜）/ Add a `<skin-name>.png` screenshot in `screenshots/`
+6. PR 提交到本仓库 / Submit a PR to this repo
+
+构建时会自动处理图片，无需手动压缩。  
+Images are auto-processed on build — no manual optimization needed.
+
 ## 致谢 / Credits
 
 - 架构启发自 [dwains-dashboard-next](https://github.com/dwainscheeren/dwains-dashboard-next) / Architecture inspired by dwains-dashboard-next

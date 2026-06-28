@@ -17,7 +17,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -69,6 +69,13 @@ jobs:
           git push origin --tags
           git push
 
+      - name: Generate changelog
+        if: steps.version.outputs.changed == 'true'
+        id: changelog
+        uses: Desmond-Dong/actions/bilingual-changelog@v1
+        with:
+          llm-api-key: ${{ secrets.LLM_API_KEY }}
+
       - name: Create Release
         if: steps.version.outputs.changed == 'true'
         uses: softprops/action-gh-release@v3
@@ -83,6 +90,10 @@ jobs:
             3. Category: **Dashboard**
             4. Search for "Skins Pro" and install
             5. Clear browser cache and refresh (Ctrl+Shift+R / Cmd+Shift+R)
+
+            ---
+
+            ${{ steps.changelog.outputs.changelog }}
           draft: false
           prerelease: false
         env:

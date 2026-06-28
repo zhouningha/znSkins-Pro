@@ -5,7 +5,7 @@ on:
     types: [opened, synchronize, labeled, unlabeled]
 
 permissions:
-  pulls: write
+  pull-requests: write
   contents: read
 
 jobs:

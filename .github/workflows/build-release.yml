@@ -58,6 +58,15 @@ jobs:
           git diff --staged --quiet || git commit -m "chore: build dist assets [skip ci]"
           git push
 
+      - name: Generate changelog
+        if: steps.version.outputs.changed == 'true'
+        id: changelog
+        uses: Desmond-Dong/actions/bilingual-changelog@v1
+        with:
+          llm-api-key: ${{ secrets.LLM_API_KEY }}
+          llm-api-url: ${{ secrets.LLM_API_URL }}
+          llm-model: ${{ secrets.LLM_MODEL }}
+
       - name: Tag and release
         if: steps.version.outputs.changed == 'true'
         run: |
@@ -68,15 +77,6 @@ jobs:
           git tag "v${{ steps.version.outputs.new }}"
           git push origin --tags
           git push
-
-      - name: Generate changelog
-        if: steps.version.outputs.changed == 'true'
-        id: changelog
-        uses: Desmond-Dong/actions/bilingual-changelog@v1
-        with:
-          llm-api-key: ${{ secrets.LLM_API_KEY }}
-          llm-api-url: ${{ secrets.LLM_API_URL }}
-          llm-model: ${{ secrets.LLM_MODEL }}
 
       - name: Create Release
         if: steps.version.outputs.changed == 'true'

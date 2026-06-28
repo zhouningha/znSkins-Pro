@@ -8,3 +8,4 @@
 /tsconfig.json   export-ignore
 /rollup.config.js export-ignore
 /package-lock.json export-ignore
+/screenshots      export-ignore

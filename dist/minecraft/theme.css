@@ -115,7 +115,7 @@ button { font:inherit; }
 .chip { min-height:38px; border:var(--sp-border-width) solid var(--sp-border-chip); border-radius:var(--sp-radius-pill); padding:0 14px; background:var(--sp-glass-dim); color:var(--sp-text-main); cursor:pointer; }
 .chip.active { background:var(--sp-accent-green-active); border-color:var(--sp-accent-green-border); }
 .device-group { display:grid; gap:var(--sp-space-md); margin-bottom:var(--sp-space-lg); }
-.devices-page-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--sp-space-sm); }
+.devices-page-grid { grid-template-columns:repeat(4,minmax(0,1fr)); gap:var(--sp-space-sm); }
 .settings-grid { display:grid; gap:var(--sp-space-md); grid-template-columns:1fr 1fr; align-items:start; }
 .settings-grid > div { display:grid; gap:var(--sp-space-xs); }
 .settings-grid > div > span { font-size:var(--sp-font-2xs); font-weight:700; color:var(--sp-text-muted-bright); }
@@ -227,7 +227,7 @@ button { font:inherit; }
 .mc-app[data-view="devices"] .side { display:none; }
 .mc-app[data-view="devices"] .bottom-stack { grid-template-rows:auto; align-self:stretch; }
 .mc-app[data-view="devices"] .panel-devices { display:block; }
-.mc-app[data-view="devices"] .devices { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.mc-app[data-view="devices"] .devices { grid-template-columns:repeat(4,minmax(0,1fr)); }
 .mc-app[data-view="rooms"] .welcome,
 .mc-app[data-view="rooms"] .panel-devices,
 .mc-app[data-view="rooms"] .panel-environment,

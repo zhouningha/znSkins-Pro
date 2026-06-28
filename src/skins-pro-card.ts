@@ -654,7 +654,8 @@ export class MinecraftDashboardCard extends LitElement {
     const weatherIcon = this.weatherIcon(weatherState);
     const quote = this.stateValue(this._config.info?.entity) || translate('loadingQuote');
     const energyValue = this._config.energy?.entity ? this.formatNumber(this.stateValue(this._config.energy.entity), 1) : '--';
-    const energyUnit = this._config.energy?.unit || 'kWh';
+    const entityId = this._config.energy?.entity || '';
+    const energyUnit = this._hass?.states[entityId]?.attributes?.unit_of_measurement || this._config.energy?.unit || 'kWh';
     const compareValue = this._energyYesterday || '';
     const energyBars = this.renderBars(this._energyHistory || []);
     return html`
@@ -1152,10 +1153,38 @@ export class MinecraftDashboardCard extends LitElement {
   private renderShortcutDevices(language: 'zh-CN' | 'en'): TemplateResult[] {
     const limit = this._config?.home_limits?.devices || 5;
     const selectedEntities = this._config?.home_selection?.devices || [];
-    const allRealDevices = this.getRealDevicesForRender();
-    const realDevices = (selectedEntities.length > 0
-      ? allRealDevices.filter((device) => selectedEntities.includes(device.entityId))
-      : allRealDevices).slice(0, limit);
+
+    let realDevices: Array<{
+      entityId: string;
+      name: string;
+      subtitle: string;
+      detail: string;
+      state: string;
+      icon: string;
+      color: 'yellow' | 'green' | 'blue' | 'purple' | 'red' | 'brown';
+    }>;
+
+    if (selectedEntities.length > 0) {
+      const colors: Array<'yellow' | 'green' | 'blue' | 'purple' | 'red' | 'brown'> = ['yellow', 'green', 'blue', 'purple', 'red', 'brown'];
+      realDevices = [];
+      for (const entityId of selectedEntities) {
+        const stateObj = this._hass?.states[entityId];
+        if (!stateObj) continue;
+        const domain = entityId.split('.')[0] || '';
+        realDevices.push({
+          entityId,
+          name: String(stateObj.attributes?.friendly_name || entityId),
+          subtitle: '',
+          detail: domain,
+          state: stateObj.state,
+          icon: String(stateObj.attributes?.icon || ''),
+          color: colors[realDevices.length % colors.length],
+        });
+      }
+    } else {
+      const allRealDevices = this.getRealDevicesForRender();
+      realDevices = allRealDevices.slice(0, limit);
+    }
 
     return realDevices.map((device) => {
       const stateLabel = this.deviceStateLabel(device.state, language);
@@ -1779,54 +1808,55 @@ export class MinecraftDashboardCard extends LitElement {
         const gridEntity = this._config?.energy?.entity;
         const ids: string[] = [];
         const entries: Array<{ key: TranslationKey; entityId: string; icon: string; unit: string }> = [];
+        const added = new Set<string>();
 
         for (const src of prefs.energy_sources) {
           if (src.type === 'grid') {
             if (src.flow_from || src.flow_to) {
               for (const f of src.flow_from ?? []) {
-                if (f.stat_energy_from && !gridEntity) {
-                  ids.push(f.stat_energy_from);
+                if (f.stat_energy_from && !added.has(f.stat_energy_from)) {
+                  added.add(f.stat_energy_from); ids.push(f.stat_energy_from);
                   entries.push({ key: 'todayEnergy', entityId: f.stat_energy_from, icon: 'mdi:lightning-bolt', unit: 'kWh' });
                 }
               }
               for (const f of src.flow_to ?? []) {
-                if (f.stat_energy_to) {
-                  ids.push(f.stat_energy_to);
+                if (f.stat_energy_to && !added.has(f.stat_energy_to)) {
+                  added.add(f.stat_energy_to); ids.push(f.stat_energy_to);
                   entries.push({ key: 'gridReturn', entityId: f.stat_energy_to, icon: 'mdi:export-variant', unit: 'kWh' });
                 }
               }
             } else {
-              if (src.stat_energy_from && !gridEntity) {
-                ids.push(src.stat_energy_from);
+              if (src.stat_energy_from && !added.has(src.stat_energy_from)) {
+                added.add(src.stat_energy_from); ids.push(src.stat_energy_from);
                 entries.push({ key: 'todayEnergy', entityId: src.stat_energy_from, icon: 'mdi:lightning-bolt', unit: 'kWh' });
               }
-              if (src.stat_energy_to) {
-                ids.push(src.stat_energy_to);
+              if (src.stat_energy_to && !added.has(src.stat_energy_to)) {
+                added.add(src.stat_energy_to); ids.push(src.stat_energy_to);
                 entries.push({ key: 'gridReturn', entityId: src.stat_energy_to, icon: 'mdi:export-variant', unit: 'kWh' });
               }
             }
-          } else if (src.type === 'solar' && src.stat_energy_from) {
-            ids.push(src.stat_energy_from);
+          } else if (src.type === 'solar' && src.stat_energy_from && !added.has(src.stat_energy_from)) {
+            added.add(src.stat_energy_from); ids.push(src.stat_energy_from);
             entries.push({ key: 'solar', entityId: src.stat_energy_from, icon: 'mdi:solar-power', unit: 'kWh' });
           } else if (src.type === 'battery') {
-            if (src.stat_energy_from) {
-              ids.push(src.stat_energy_from);
+            if (src.stat_energy_from && !added.has(src.stat_energy_from)) {
+              added.add(src.stat_energy_from); ids.push(src.stat_energy_from);
               entries.push({ key: 'battery', entityId: src.stat_energy_from, icon: 'mdi:battery', unit: 'kWh' });
             }
-            if (src.stat_energy_to) {
-              ids.push(src.stat_energy_to);
+            if (src.stat_energy_to && !added.has(src.stat_energy_to)) {
+              added.add(src.stat_energy_to); ids.push(src.stat_energy_to);
               entries.push({ key: 'battery', entityId: src.stat_energy_to, icon: 'mdi:battery-charging', unit: 'kWh' });
             }
-          } else if (src.type === 'gas' && src.stat_energy_from) {
-            ids.push(src.stat_energy_from);
+          } else if (src.type === 'gas' && src.stat_energy_from && !added.has(src.stat_energy_from)) {
+            added.add(src.stat_energy_from); ids.push(src.stat_energy_from);
             entries.push({ key: 'gas', entityId: src.stat_energy_from, icon: 'mdi:fire', unit: 'm³' });
-          } else if (src.type === 'water' && src.stat_energy_from) {
-            ids.push(src.stat_energy_from);
+          } else if (src.type === 'water' && src.stat_energy_from && !added.has(src.stat_energy_from)) {
+            added.add(src.stat_energy_from); ids.push(src.stat_energy_from);
             entries.push({ key: 'water', entityId: src.stat_energy_from, icon: 'mdi:water', unit: 'm³' });
           }
         }
 
-        if (gridEntity) {
+        if (gridEntity && !added.has(gridEntity)) {
           ids.unshift(gridEntity);
           entries.unshift({ key: 'todayEnergy', entityId: gridEntity, icon: 'mdi:lightning-bolt', unit: this._config?.energy?.unit || 'kWh' });
         }
@@ -1838,39 +1868,63 @@ export class MinecraftDashboardCard extends LitElement {
         start.setDate(start.getDate() - 30);
         start.setHours(0, 0, 0, 0);
 
-        const stats = await this._hass!.connection!.sendMessagePromise<Record<string, { statistics: Array<{ sum: number | null; state: number | null }> }>>({
-          type: 'statistics_during_period',
-          start_time: start.toISOString(),
-          end_time: now.toISOString(),
-          statistic_ids: ids,
-          period: 'day',
-        });
+        let stats: Record<string, Array<{ change?: number | null; sum?: number | null; state?: number | null }>> = {};
+        try {
+          stats = await this._hass!.connection!.sendMessagePromise({
+            type: 'recorder/statistics_during_period',
+            start_time: start.toISOString(),
+            end_time: now.toISOString(),
+            types: ['change'],
+            statistic_ids: ids,
+            period: 'day',
+          });
+        } catch {
+          // statistics unavailable, continue with empty history
+        }
 
         const result: EnergySourceData[] = entries.map((e) => {
-          const raw = stats?.[e.entityId]?.statistics ?? [];
-          const history = raw.map((entry) => {
+          const raw = stats?.[e.entityId] ?? [];
+          const history = raw.map((entry: { change?: number | null; sum?: number | null; state?: number | null }) => {
+            if (entry.change !== null && entry.change !== undefined) return Math.round(entry.change * 100) / 100;
             if (entry.sum !== null && entry.sum !== undefined) return Math.round(entry.sum * 100) / 100;
             if (entry.state !== null && entry.state !== undefined) return Math.round(entry.state * 100) / 100;
             return 0;
           });
           const yesterday = history.length >= 2 ? history[history.length - 2] : (history.length === 1 ? history[0] : undefined);
-          const state = this.stateValue(e.entityId);
+          const latest = history.length > 0 ? history[history.length - 1] : undefined;
           return {
             key: e.key,
             entityId: e.entityId,
             icon: e.icon,
-            unit: e.unit,
+            unit: this._hass?.states[e.entityId]?.attributes?.unit_of_measurement || e.unit,
             history,
             yesterday: yesterday !== undefined ? this.formatNumber(String(yesterday), 1) : undefined,
-            today: state !== 'unavailable' && state !== 'unknown' && state ? this.formatNumber(state, 1) : '--',
+            today: latest !== undefined
+              ? this.formatNumber(String(latest), 1)
+              : '--',
           };
         });
 
         this._energySources = result;
 
-        const primary = result.find((r) => r.key === 'todayEnergy') || result[0];
-        this._energyHistory = primary.history;
-        this._energyYesterday = primary.yesterday;
+        // compute combined yesterday/history across all sources
+        const combinedHistory: number[] = [];
+        let yesterdaySum = 0;
+        let yesterdayCount = 0;
+        for (const src of result) {
+          for (let i = 0; i < src.history.length; i++) {
+            combinedHistory[i] = (combinedHistory[i] || 0) + src.history[i];
+          }
+          if (src.history.length >= 2) {
+            yesterdaySum += src.history[src.history.length - 2];
+            yesterdayCount++;
+          } else if (src.history.length === 1) {
+            yesterdaySum += src.history[0];
+            yesterdayCount++;
+          }
+        }
+        this._energyHistory = combinedHistory;
+        this._energyYesterday = yesterdayCount > 0 ? this.formatNumber(String(yesterdaySum), 1) : undefined;
 
         return true;
       } catch {
@@ -1897,7 +1951,7 @@ export class MinecraftDashboardCard extends LitElement {
     }
     if (this._energyPrefsRequest) {
       await this._energyPrefsRequest;
-      return;
+      if (this._energySources.length > 0) return;
     }
     if (this._energySources.length > 0) return;
     if (this._energyHistoryRequest) {
@@ -1911,15 +1965,19 @@ export class MinecraftDashboardCard extends LitElement {
     start.setHours(0, 0, 0, 0);
 
     this._energyHistoryEntity = entityId;
-    this._energyHistoryRequest = this._hass.connection.sendMessagePromise<Record<string, { statistics: Array<{ sum: number | null; state: number | null }> }>>({
-      type: 'statistics_during_period',
+    this._energyHistoryRequest = this._hass.connection.sendMessagePromise<Record<string, Array<{ change?: number | null; sum?: number | null; state?: number | null }>>>({
+      type: 'recorder/statistics_during_period',
       start_time: start.toISOString(),
       end_time: now.toISOString(),
+      types: ['change'],
       statistic_ids: [entityId],
       period: 'day',
     }).then((data) => {
-      const stats = data?.[entityId]?.statistics ?? [];
-      const daily: number[] = stats.map((entry) => {
+      const stats = data?.[entityId] ?? [];
+      const daily: number[] = stats.map((entry: { change?: number | null; sum?: number | null; state?: number | null }) => {
+        if (entry.change !== null && entry.change !== undefined) {
+          return Math.round(entry.change * 100) / 100;
+        }
         if (entry.sum !== null && entry.sum !== undefined) {
           return Math.round(entry.sum * 100) / 100;
         }

@@ -66,7 +66,7 @@ skins-pro/
     strings.json         # 皮肤专属文本 + icon_map（可选 / optional）
     avatar.jpg     # 头像（可选，建议 300×300） / Avatar
     base-texture.jpg     # 背景纹理（可选，自动缩放到 2560×1440 16:9）
-    stage-background.jpg # 主区域背景（可选，自动缩放到 2560×1440 16:9）
+    background.jpg # 主区域背景（可选，自动缩放到 2560×1440 16:9）
     decoration.jpg  # 侧边装饰图（可选，宽 ≤ 800px）
     room-living.jpg      # 房间图（可选，宽 ≤ 1200px）
     room-bedroom.jpg     # 同上 / same

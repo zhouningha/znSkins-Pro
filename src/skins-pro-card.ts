@@ -190,7 +190,7 @@ type TranslationKey =
 
 const DEFAULT_ASSETS: Record<string, string> = {
   base: 'base-texture.jpg',
-  stage: 'stage-background.jpg',
+  stage: 'background.jpg',
   theme_css: 'theme.css',
   avatar: 'avatar.jpg',
   decor: 'decoration.jpg',

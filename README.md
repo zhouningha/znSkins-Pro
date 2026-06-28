@@ -13,6 +13,9 @@ Skins Pro is a community Lovelace card with a multi-skin architecture featuring 
 - 按房间区域展示设备 / Area-based room display
 - 设备自动按 domain 匹配对应图标 / Auto icon matching by entity domain
 
+> 说明 / Note: 当前所有主题图片资源均由 AI 生成，因此部分图片中可能会出现 AI 水印或类似生成痕迹。  
+> All current theme image assets are AI-generated, so some images may contain AI watermarks or similar generation artifacts.
+
 ## 安装 / Installation
 
 [![Open your Home Assistant instance and add this repository in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ha-china&repository=Skins-Pro&category=plugin)

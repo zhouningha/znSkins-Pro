@@ -192,7 +192,7 @@ const DEFAULT_ASSETS: Record<string, string> = {
   base: 'base-texture.jpg',
   stage: 'stage-background.jpg',
   theme_css: 'theme.css',
-  avatar: 'avatar-steve.jpg',
+  avatar: 'avatar.jpg',
   decor: 'decor-wolf-lantern.jpg',
   light: 'icon-light.jpg',
   switch: 'icon-switch.jpg',

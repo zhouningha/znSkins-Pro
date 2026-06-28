@@ -189,8 +189,9 @@ button { font:inherit; }
 .energy-value small { font-size:var(--sp-font-2xs); color:var(--sp-text-muted-dim); }
 .bars { height:82px; display:flex; align-items:end; gap:1px; margin-top:14px; padding:0 var(--sp-space-3xs); }
 .compact-energy-bars { height:56px; margin-top:var(--sp-space-sm); }
-.compact-energy-card { max-width:420px; }
-.maintenance-card { max-width:420px; }
+.compact-energy-card { flex:1 1 200px; max-width:420px; min-width:200px; }
+.maintenance-card { width:100%; max-width:none; }
+.page-body.single-column > .maintenance-card { flex:1 1 200px; max-width:420px; min-width:200px; }
 .compact-energy-list { margin-top:var(--sp-space-xs); }
 .home-energy-card { max-width:none; width:100%; min-width:0; }
 .maintenance-block { margin-top:var(--sp-space-md); padding-top:var(--sp-space-md); border-top:var(--sp-border-width) solid var(--sp-maintenance-divider); }

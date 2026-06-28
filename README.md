@@ -42,6 +42,10 @@ Switch via the "Skin" field in the card editor.
 |---|---|---|
 | ![modern](screenshots/modern.png) | ![AEON](screenshots/AEON.png) | ![minecraft](screenshots/minecraft.png) |
 
+### 皮肤切换演示 / Skin Switching Demo
+
+<video src="screenshots/skin.mp4" controls width="100%"></video>
+
 ## 功能 / Features
 
 - ☀️ 天气与问候 / Weather & greeting

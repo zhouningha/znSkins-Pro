@@ -185,8 +185,7 @@ type TranslationKey =
   | 'on'
   | 'off'
   | 'open'
-  | 'closed'
-  | 'confirmScene';
+  | 'closed';
 
 const DEFAULT_ASSETS: Record<string, string> = {
   base: 'base-texture.jpg',
@@ -240,7 +239,6 @@ const STRINGS: Record<'zh-CN' | 'en', Record<TranslationKey, string>> = {
     off: '关闭',
     open: '打开',
     closed: '关闭',
-    confirmScene: '确认执行场景：{name}？',
   },
   en: {
     home: 'Home',
@@ -269,7 +267,6 @@ const STRINGS: Record<'zh-CN' | 'en', Record<TranslationKey, string>> = {
     off: 'Off',
     open: 'Open',
     closed: 'Closed',
-    confirmScene: 'Run scene: {name}?',
   },
 };
 
@@ -1100,7 +1097,7 @@ export class MinecraftDashboardCard extends LitElement {
       const statusClass = active ? `device-on-${device.color}` : (device.state === 'unavailable' ? 'device-unavailable' : 'device-off');
       const assetKey = this.assetKeyForDomain(device.entityId.split('.')[0] || 'sensor');
       const domain = device.entityId.split('.')[0] || '';
-      const action = (domain === 'light' || domain === 'switch') ? 'toggle' : 'more-info';
+      const action = (domain === 'light' || domain === 'switch' || domain === 'fan' || domain === 'valve' || domain === 'cover') ? 'toggle' : 'more-info';
       return html`
         <button class="device ${statusClass}" @click=${() => this.handleAction(device.entityId, action)}>
           <div class="device-top">
@@ -1507,7 +1504,6 @@ export class MinecraftDashboardCard extends LitElement {
         <button class="scene ${tones[index % tones.length]}" @click=${() => this.runScene(scene.entity_id)}>
           <ha-icon icon="mdi:creation"></ha-icon>
           <strong>${name}</strong>
-          <span>${language === 'zh-CN' ? '点击执行场景' : 'Tap to run scene'}</span>
         </button>
       `;
     })}`;

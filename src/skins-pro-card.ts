@@ -21,6 +21,7 @@ type HomeAssistant = {
   callApi?: (method: string, path: string, body?: unknown) => Promise<unknown>;
   connection?: {
     sendMessagePromise: <T>(message: Record<string, any>) => Promise<T>;
+    subscribeMessage?: <T>(callback: (data: T) => void, message: Record<string, any>, options?: { resubscribe?: boolean }) => Promise<() => Promise<void>>;
   };
   auth?: { data?: { access_token?: string } };
 };
@@ -567,6 +568,9 @@ export class MinecraftDashboardCard extends LitElement {
   private _energyHistoryRequest?: Promise<void>;
   @state() private _energySources: EnergySourceData[] = [];
   private _energyPrefsRequest?: Promise<void>;
+  @state() private _weatherForecast?: Array<{ datetime?: string; condition?: string; temperature?: number | null; templow?: number | null; precipitation?: number | null }>;
+  private _weatherForecastEntity?: string;
+  private _weatherForecastUnsub?: () => Promise<void>;
   private _autoFullscreenDone = false;
   private readonly _handleWindowResize = () => this.applyLayoutHeight();
 
@@ -583,11 +587,16 @@ export class MinecraftDashboardCard extends LitElement {
   public connectedCallback(): void {
     super.connectedCallback();
     window.addEventListener('resize', this._handleWindowResize);
+    // Re-subscribe to forecast when reconnected (resubscribe:false in options means we must do this manually)
+    if (this._hass && this._config?.weather?.entity && this._weatherForecastEntity !== this._config.weather.entity) {
+      void this.loadWeatherForecast();
+    }
   }
 
   public disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('resize', this._handleWindowResize);
+    void this.unsubscribeWeatherForecast();
   }
 
   public setConfig(config: DashboardConfig): void {
@@ -600,6 +609,9 @@ export class MinecraftDashboardCard extends LitElement {
     this._energyYesterday = undefined;
     this._energyHistoryEntity = undefined;
     this._energySources = [];
+    this._weatherForecast = undefined;
+    this._weatherForecastEntity = undefined;
+    void this.unsubscribeWeatherForecast();
     this.requestUpdate();
   }
 
@@ -613,6 +625,11 @@ export class MinecraftDashboardCard extends LitElement {
         void this.loadEntityRegistry();
         void this.loadDeviceRegistry();
         void this.loadEnergyHistory();
+      }
+      // Subscribe to weather forecast when hass becomes available or weather entity changes
+      const weatherEntity = this._config?.weather?.entity;
+      if (weatherEntity && this._weatherForecastEntity !== weatherEntity) {
+        void this.loadWeatherForecast();
       }
     }
   }
@@ -725,10 +742,7 @@ export class MinecraftDashboardCard extends LitElement {
             <h1>${this._config?.title || this.localizedText(undefined, this._config?.title_zh || this.skinString('title_zh'), this._config?.title_en || this.skinString('title_en'), language)}</h1>
             <p class="quote">${quote}</p>
           </section>
-          <div class="weather-row" @click=${() => this.moreInfo(this._config?.weather?.entity || '')}>
-            <div class="weather-state-icon"><ha-icon icon="${weatherIcon}"></ha-icon></div>
-            <div class="weather-text">${this.weatherDisplayText(this._config?.weather?.entity)} ${this.weatherTemperature(this._config?.weather?.entity)}</div>
-          </div>
+          ${this.renderWeather(weatherIcon)}
         </div>
         <section class="bottom-stack">
           <section class="bottom-block bottom-devices">
@@ -1425,7 +1439,56 @@ export class MinecraftDashboardCard extends LitElement {
     }
 
     const temp = this._hass.states[entityId]?.attributes?.temperature;
-    return temp !== undefined && temp !== null ? `${this.formatNumber(String(temp), 1)}°C` : '';
+    return temp !== undefined && temp !== null ? `${this.formatNumber(String(temp), 0)}°` : '';
+  }
+
+  private renderWeather(weatherIcon: string): TemplateResult {
+    const entityId = this._config?.weather?.entity || '';
+    const condition = this.weatherDisplayText(entityId);
+    const temp = this.weatherTemperature(entityId);
+
+    if (!entityId) {
+      return html``;
+    }
+
+    const allForecast = this._weatherForecast || [];
+    const forecast = allForecast.slice(0, 5);
+    const today = allForecast[0];
+    const locale = this._hass?.locale?.language || this._hass?.language || 'en';
+    const weekdayFmt: Intl.DateTimeFormatOptions = { weekday: 'short' };
+
+    const todayHigh = today?.temperature !== undefined && today?.temperature !== null ? `${Math.round(Number(today.temperature))}°` : '';
+    const todayLow = today?.templow !== undefined && today?.templow !== null ? `${Math.round(Number(today.templow))}°` : '';
+    const todayPrecip = today?.precipitation !== undefined && today?.precipitation !== null ? `${Math.round(Number(today.precipitation))}mm` : '';
+
+    return html`
+      <div class="weather-block" @click=${() => this.moreInfo(entityId)}>
+        <div class="weather-current">
+          <div class="weather-state-icon"><ha-icon icon="${weatherIcon}"></ha-icon></div>
+          <div class="weather-current-info">
+            <div class="weather-current-temp">${temp || '--'}${todayHigh && todayLow ? html` <span class="weather-current-hl">${todayHigh}/${todayLow}</span>` : ''}</div>
+            <div class="weather-current-cond">${condition}${todayPrecip ? html` · ${todayPrecip}` : ''}</div>
+          </div>
+        </div>
+        ${forecast.length > 0 ? html`
+          <div class="weather-forecast">
+            ${forecast.map((day) => {
+              const dt = day.datetime ? new Date(day.datetime) : null;
+              const dayLabel = dt ? dt.toLocaleDateString(locale, weekdayFmt) : '';
+              const high = day.temperature !== undefined && day.temperature !== null ? `${Math.round(Number(day.temperature))}°` : '--';
+              const low = day.templow !== undefined && day.templow !== null ? `${Math.round(Number(day.templow))}°` : '';
+              return html`
+                <div class="forecast-day">
+                  <div class="forecast-weekday">${dayLabel}</div>
+                  <div class="forecast-icon"><ha-icon icon="${this.weatherIcon(day.condition || '')}"></ha-icon></div>
+                  <div class="forecast-temps"><span class="forecast-high">${high}</span><span class="forecast-low">${low}</span></div>
+                </div>
+              `;
+            })}
+          </div>
+        ` : nothing}
+      </div>
+    `;
   }
 
   private areaSummaryById(areaId: string, language: 'zh-CN' | 'en'): string {
@@ -2074,6 +2137,74 @@ export class MinecraftDashboardCard extends LitElement {
     });
 
     await this._energyHistoryRequest;
+  }
+
+  private async loadWeatherForecast(): Promise<void> {
+    const entityId = this._config?.weather?.entity;
+    if (!entityId || !this._hass) {
+      return;
+    }
+    // Skip if already subscribed to (or attempted) this entity
+    if (this._weatherForecastEntity === entityId) {
+      return;
+    }
+    // Clean up any existing subscription
+    await this.unsubscribeWeatherForecast();
+    this._weatherForecastEntity = entityId;
+
+    const weather = this._hass.states[entityId];
+    if (!weather) {
+      return;
+    }
+
+    // Forecast type support flags (bitmask): 1=daily, 2=hourly, 4=twice_daily
+    const supportedFeatures: number = (weather.attributes?.supported_features as number) || 0;
+    const supportsDaily = (supportedFeatures & 1) !== 0;
+    const supportsHourly = (supportedFeatures & 2) !== 0;
+    const supportsTwiceDaily = (supportedFeatures & 4) !== 0;
+
+    // Legacy fallback: no forecast-support flags → read attributes.forecast directly
+    if (!supportsDaily && !supportsHourly && !supportsTwiceDaily) {
+      const legacy = weather.attributes?.forecast;
+      if (Array.isArray(legacy)) {
+        this._weatherForecast = legacy as Array<{ datetime?: string; condition?: string; temperature?: number | null; templow?: number | null; precipitation?: number | null }>;
+      }
+      return;
+    }
+
+    // Subscription-based forecasts require connection.subscribeMessage
+    if (!this._hass.connection?.subscribeMessage) {
+      return;
+    }
+
+    const forecastType: 'daily' | 'hourly' | 'twice_daily' = supportsDaily ? 'daily' : (supportsTwiceDaily ? 'twice_daily' : 'hourly');
+
+    const callback = (event: { forecast?: Array<{ datetime?: string; condition?: string; temperature?: number | null; templow?: number | null; precipitation?: number | null }> }): void => {
+      this._weatherForecast = event.forecast || undefined;
+      this.requestUpdate();
+    };
+
+    try {
+      this._weatherForecastUnsub = await this._hass.connection.subscribeMessage(callback, {
+        type: 'weather/subscribe_forecast',
+        entity_id: entityId,
+        forecast_type: forecastType,
+      }, { resubscribe: false });
+    } catch (e) {
+      console.error('Skins Pro - Failed to subscribe to weather forecast', e);
+    }
+  }
+
+  private async unsubscribeWeatherForecast(): Promise<void> {
+    if (this._weatherForecastUnsub) {
+      try {
+        await this._weatherForecastUnsub();
+      } catch {
+        // Connection may already be closed - ignore
+      } finally {
+        this._weatherForecastUnsub = undefined;
+      }
+    }
   }
 
   private renderEnvironment(_language: 'zh-CN' | 'en'): TemplateResult[] {

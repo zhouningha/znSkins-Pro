@@ -220,7 +220,7 @@ button { font:inherit; }
 .energy-bar-level-10 { height:90%; }
 .energy-footer { display:flex; justify-content:space-between; align-items:center; margin-top:var(--sp-space-sm); }
 .down { color:var(--sp-text-down); font-weight:950; }
-.scene-grid { grid-template-columns:repeat(4,1fr); align-content:end; }
+.scene-grid { grid-template-columns:repeat(2,1fr); align-content:end; gap:var(--sp-space-sm); }
 .scene { min-height:84px; border:var(--sp-border-width) solid var(--sp-border-light); border-radius:var(--sp-radius-scene); color:var(--sp-text-main); padding:var(--sp-space-md); background:var(--sp-glass-light); text-align:center; cursor:pointer; box-shadow:var(--sp-shadow-scene); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--sp-space-2xs); }
 .scene.morning { background:var(--sp-scene-morning); }
 .scene.night { background:var(--sp-scene-night); }

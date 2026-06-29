@@ -255,7 +255,7 @@ button { font:inherit; }
   .welcome-group .weather-row { width:100%; margin-top:16px; }
   .side { height:auto; grid-template-rows:auto; overflow:visible; }
   .bottom-stack { gap:var(--sp-space-xs); }
-  .mobile-nav { display:flex; position:fixed; bottom:0; left:0; right:0; z-index:100; background:var(--sp-card-bg); border-top:var(--sp-border-width) solid var(--sp-border-glass); padding:var(--sp-space-xs) var(--sp-space-sm); justify-content:space-around; box-shadow:0 -2px 12px rgba(0,0,0,.25); }
+  .mobile-nav { display:flex; flex-direction:row; flex-wrap:nowrap; position:fixed; bottom:0; left:0; right:0; width:100%; z-index:100; background:var(--sp-card-bg); border-top:var(--sp-border-width) solid var(--sp-border-glass); padding:var(--sp-space-xs) var(--sp-space-sm); justify-content:space-around; box-shadow:0 -2px 12px rgba(0,0,0,.25); }
   .mobile-nav .nav-button { display:flex; flex-direction:column; align-items:center; gap:4px; background:transparent; border:0; color:var(--sp-text-muted); cursor:pointer; padding:8px 12px; font-size:var(--sp-font-xs); font-weight:600; min-width:48px; }
   .mobile-nav .nav-button.active { color:var(--sp-accent); }
   .mobile-nav .nav-button ha-icon { --mdc-icon-size:24px; }

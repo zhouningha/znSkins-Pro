@@ -252,7 +252,7 @@ button { font:inherit; }
   .side { height:auto; grid-template-rows:auto; overflow:visible; }
   .page-header { flex-direction:column; align-items:stretch; }
   .bottom-stack { gap:var(--sp-space-xs); }
-  .devices,.rooms,.scene-grid,.devices-page-grid,.rooms-page,.rooms-page-medium,.rooms-page-dense,.scenes-page,.security-grid { grid-template-columns:1fr 1fr; }
+  .devices,.rooms,.scene-grid,.devices-page-grid,.rooms-page,.rooms-page-medium,.rooms-page-dense,.security-grid { grid-template-columns:1fr 1fr; }
   .panel-energy,
   .mc-app[data-view="energy"] .side { max-width:none; width:100%; }
   .energy-detail-page { grid-template-columns:repeat(2,1fr); }
@@ -274,7 +274,7 @@ button { font:inherit; }
     --sp-space-xs:3px; --sp-space-2xs:2px; --sp-space-3xs:2px;
     --sp-app-padding:6px;
   }
-  .devices,.rooms,.scene-grid,.devices-page-grid,.rooms-page,.rooms-page-medium,.rooms-page-dense,.scenes-page,.security-grid { grid-template-columns:1fr; }
+  .devices,.rooms,.scene-grid,.devices-page-grid,.rooms-page,.rooms-page-medium,.rooms-page-dense,.security-grid { grid-template-columns:1fr; }
   .energy-detail-page { grid-template-columns:1fr; }
   .profile-img { width:36px; height:36px; }
   .item-img,.item-icon { width:36px; height:36px; }

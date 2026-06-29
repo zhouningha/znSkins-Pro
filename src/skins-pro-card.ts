@@ -1295,11 +1295,13 @@ export class MinecraftDashboardCard extends LitElement {
         .filter((area): area is AreaRegistryEntry => Boolean(area))
       : this._areas;
     const rooms = filteredAreas.slice(0, limit || filteredAreas.length).map((area, index) => ({
+      areaId: area.area_id,
       name: area.name,
       image: images[index % images.length],
       picture: area.picture,
       summary: this.areaSummaryById(area.area_id, language),
       counts: this.areaCounts(area.area_id),
+      scenes: this.areaScenes(area.area_id, area.name),
     }));
 
     if (requireRealAreas && rooms.length === 0) {
@@ -1315,6 +1317,15 @@ export class MinecraftDashboardCard extends LitElement {
         return html`
           <button class="room">
             ${roomImg}
+            ${room.scenes.length > 0 ? html`
+              <div class="room-scenes">
+                ${room.scenes.map((scene) => html`
+                  <button class="room-scene-chip" @click=${(e: Event) => { e.stopPropagation(); this.runScene(scene.entity_id); }}>
+                    ${scene.name}
+                  </button>
+                `)}
+              </div>
+            ` : nothing}
             <div class="room-label">
               <h3>${room.name}</h3>
               <p class="muted">${room.summary}</p>
@@ -1328,6 +1339,15 @@ export class MinecraftDashboardCard extends LitElement {
       return html`
         <button class="room">
           ${roomImg}
+          ${room.scenes.length > 0 ? html`
+            <div class="room-scenes">
+              ${room.scenes.map((scene) => html`
+                <button class="room-scene-chip" @click=${(e: Event) => { e.stopPropagation(); this.runScene(scene.entity_id); }}>
+                  ${scene.name}
+                </button>
+              `)}
+            </div>
+          ` : nothing}
           <div class="room-label">
             <h3>${room.name}</h3>
             <p class="muted">${room.summary}</p>
@@ -1476,6 +1496,60 @@ export class MinecraftDashboardCard extends LitElement {
       });
 
     return { devices: deviceIds.size, entities: areaEntities.length };
+  }
+
+  private areaScenes(areaId: string, roomName?: string): Array<{ entity_id: string; name: string }> {
+    if (!this._hass) return [];
+
+    const found = new Set<string>();
+    const result: Array<{ entity_id: string; name: string }> = [];
+
+    // Method 1: exact area match via entity registry
+    if (areaId && this._entityRegistry && this._deviceRegistry) {
+      const areaDeviceIds = new Set(
+        this._deviceRegistry
+          .filter((d) => d.area_id === areaId && !d.disabled_by)
+          .map((d) => d.id)
+      );
+
+      for (const entry of this._entityRegistry) {
+        if (entry.hidden_by || entry.disabled_by) continue;
+        if (!entry.entity_id.startsWith('scene.')) continue;
+        if (!(entry.area_id === areaId || (entry.device_id && areaDeviceIds.has(entry.device_id)))) continue;
+        if (found.has(entry.entity_id)) continue;
+        found.add(entry.entity_id);
+        const state = this._hass.states[entry.entity_id];
+        result.push({
+          entity_id: entry.entity_id,
+          name: String(state?.attributes?.friendly_name || entry.entity_id.split('.')[1] || entry.entity_id),
+        });
+        if (result.length >= 4) break;
+      }
+    }
+
+    // Method 2: name-based fallback - match scenes whose name/entity_id contains the room name
+    if (roomName && result.length < 4) {
+      const roomLower = roomName.toLowerCase();
+
+      for (const state of Object.values(this._hass.states)) {
+        if (!state) continue;
+        if (!state.entity_id.startsWith('scene.')) continue;
+        if (found.has(state.entity_id)) continue;
+
+        const sceneName = String(state.attributes?.friendly_name || state.entity_id.split('.')[1] || '');
+        const sceneLower = sceneName.toLowerCase();
+        const entityLower = state.entity_id.toLowerCase();
+        const roomKey = roomLower.replace(/\s+/g, '_');
+
+        if (sceneLower.includes(roomLower) || entityLower.includes(roomKey)) {
+          found.add(state.entity_id);
+          result.push({ entity_id: state.entity_id, name: sceneName });
+          if (result.length >= 4) break;
+        }
+      }
+    }
+
+    return result;
   }
 
   private getRealDevicesForRender(): Array<{

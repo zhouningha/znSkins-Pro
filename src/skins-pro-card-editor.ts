@@ -1,20 +1,9 @@
 import { SKINS } from './skins.generated';
+import type { AreaRegistryEntry, HomeAssistant } from './types';
 
-type HassEntity = {
-  entity_id: string;
-  state: string;
-  attributes?: Record<string, any>;
-};
+type DashboardConfigRecord = Record<string, any>;
 
-type HomeAssistant = {
-  states: Record<string, HassEntity | undefined>;
-  localize?: (key: string, ...args: any[]) => string;
-  auth?: { data?: { access_token?: string } };
-};
-
-type DashboardConfig = Record<string, any>;
-
-const fire = (el: HTMLElement, config: DashboardConfig) => {
+const fire = (el: HTMLElement, config: DashboardConfigRecord) => {
   el.dispatchEvent(new CustomEvent('config-changed', {
     bubbles: true,
     composed: true,
@@ -22,15 +11,21 @@ const fire = (el: HTMLElement, config: DashboardConfig) => {
   }));
 };
 
-const clone = (obj: any) => JSON.parse(JSON.stringify(obj));
+const deepClone = <T,>(obj: T): T => {
+  try {
+    return structuredClone(obj);
+  } catch {
+    return JSON.parse(JSON.stringify(obj)) as T;
+  }
+};
 
 const ENTITY_PICKER_TAG = 'ha-entity-picker';
 const CONTROLLABLE_DOMAINS = ['light', 'switch', 'fan', 'cover', 'lock', 'climate', 'media_player', 'vacuum', 'humidifier', 'water_heater', 'valve', 'siren', 'automation', 'group', 'input_boolean'];
 
 export class SkinsProCardEditor extends HTMLElement {
-  private _config: DashboardConfig = { type: 'custom:skins-pro-card' };
+  private _config: DashboardConfigRecord = { type: 'custom:skins-pro-card' };
   private _hass?: HomeAssistant;
-  private _areas: Array<{area_id: string; name: string}> = [];
+  private _areas: AreaRegistryEntry[] = [];
   private _areasLoaded = false;
 
   public constructor() {
@@ -38,7 +33,7 @@ export class SkinsProCardEditor extends HTMLElement {
     this.attachShadow({ mode: 'open' });
   }
 
-  public setConfig(config: DashboardConfig): void {
+  public setConfig(config: DashboardConfigRecord): void {
     const next = { type: 'custom:skins-pro-card', ...config };
     if (JSON.stringify(next) === JSON.stringify(this._config)) return;
     this._config = next;
@@ -49,10 +44,10 @@ export class SkinsProCardEditor extends HTMLElement {
     this._hass = hass;
     if (this.shadowRoot) {
       this.shadowRoot.querySelectorAll(ENTITY_PICKER_TAG).forEach((el: any) => {
-        el.hass = hass;
+        if (el) el.hass = hass;
       });
     }
-    this._loadAreas();
+    void this._loadAreas();
   }
 
   private async _loadAreas(): Promise<void> {
@@ -60,7 +55,7 @@ export class SkinsProCardEditor extends HTMLElement {
     try {
       const conn = (this._hass as any).connection;
       if (!conn?.sendMessagePromise) return;
-      const areas: Array<{area_id: string; name: string}> = await conn.sendMessagePromise({ type: 'config/area_registry/list' });
+      const areas: AreaRegistryEntry[] = await conn.sendMessagePromise({ type: 'config/area_registry/list' });
       if (Array.isArray(areas)) {
         this._areas = areas;
         this._areasLoaded = true;
@@ -79,7 +74,7 @@ export class SkinsProCardEditor extends HTMLElement {
   }
 
   private setField(path: string, value: any): void {
-    const next = clone(this._config);
+    const next = deepClone(this._config);
     const parts = path.split('.');
     let cur: Record<string, any> = next;
     for (let i = 0; i < parts.length - 1; i += 1) {
@@ -95,7 +90,7 @@ export class SkinsProCardEditor extends HTMLElement {
   }
 
   private setListItem(path: string, index: number, value: string): void {
-    const next = clone(this._config);
+    const next = deepClone(this._config);
     const parts = path.split('.');
     let cur: Record<string, any> = next;
     for (let i = 0; i < parts.length - 1; i += 1) {
@@ -122,7 +117,7 @@ export class SkinsProCardEditor extends HTMLElement {
   }
 
   private addListItem(path: string, max?: number): void {
-    const next = clone(this._config);
+    const next = deepClone(this._config);
     const parts = path.split('.');
     let cur: Record<string, any> = next;
     for (let i = 0; i < parts.length - 1; i += 1) {
@@ -147,7 +142,7 @@ export class SkinsProCardEditor extends HTMLElement {
     return `
       <label>
         <span>${label}</span>
-        <${ENTITY_PICKER_TAG} data-path="${path}"${filter} .hass="${this._hass ? 'this._hass' : ''}" value="${value || ''}"></${ENTITY_PICKER_TAG}>
+        <${ENTITY_PICKER_TAG} data-path="${path}"${filter} value="${value || ''}"></${ENTITY_PICKER_TAG}>
       </label>
     `;
   }
@@ -207,7 +202,7 @@ export class SkinsProCardEditor extends HTMLElement {
             <label class="sp-field">
               <span>Skin</span>
               <select data-text-path="resource_pack.skin">
-                ${SKINS.map((s: string) => `<option value="${s}"${s === (c.resource_pack?.skin || 'modern') ? ' selected' : ''}>${s}</option>`).join('')}
+                ${(SKINS as readonly string[]).map((s: string) => `<option value="${s}"${s === (c.resource_pack?.skin || 'modern') ? ' selected' : ''}>${s}</option>`).join('')}
               </select>
             </label>
             ${this.entityPicker('Weather', 'weather.entity', c.weather?.entity || hs.weather_entity || '', ['weather'])}
@@ -257,7 +252,6 @@ export class SkinsProCardEditor extends HTMLElement {
       </div>
     `;
 
-    // Wire entity pickers
     this.shadowRoot.querySelectorAll(ENTITY_PICKER_TAG).forEach((el: any) => {
       if (this._hass) el.hass = this._hass;
       el.addEventListener('value-changed', (ev: CustomEvent) => {
@@ -271,7 +265,6 @@ export class SkinsProCardEditor extends HTMLElement {
       });
     });
 
-    // Wire area selects
     this.shadowRoot.querySelectorAll<HTMLSelectElement>('select[data-area-path]').forEach((el) => {
       el.addEventListener('change', () => {
         const path = el.dataset.areaPath;
@@ -280,13 +273,12 @@ export class SkinsProCardEditor extends HTMLElement {
       });
     });
 
-    // Text inputs - skip re-render for selects to avoid closing the dropdown
     this.shadowRoot.querySelectorAll<HTMLInputElement>('input[data-text-path], select[data-text-path]').forEach((el) => {
       el.addEventListener('change', () => {
-        const path = el.dataset.textPath || '';
+        const path = el.getAttribute('data-text-path') || '';
         const value: any = el.value;
         if (path === 'resource_pack.skin') {
-          const next = clone(this._config);
+          const next = deepClone(this._config);
           next.resource_pack = next.resource_pack || {};
           next.resource_pack.skin = value;
           next.resource_pack.base_path = '__AUTO__';
@@ -298,27 +290,24 @@ export class SkinsProCardEditor extends HTMLElement {
       });
     });
 
-    // Checkbox inputs
     this.shadowRoot.querySelectorAll<HTMLInputElement>('input[type="checkbox"][data-path]').forEach((el) => {
       el.addEventListener('change', () => {
-        this.setField(el.dataset.path || '', el.checked);
+        this.setField(el.getAttribute('data-path') || '', el.checked);
       });
     });
 
-    // Add/Remove list items (entity picker lists)
     this.shadowRoot.querySelectorAll<HTMLElement>('[data-add-path]').forEach((btn) => {
-      btn.addEventListener('click', () => this.addListItem(btn.dataset.addPath || '', Number(btn.dataset.addMax) || undefined));
+      btn.addEventListener('click', () => this.addListItem(btn.getAttribute('data-add-path') || '', Number(btn.getAttribute('data-add-max')) || undefined));
     });
     this.shadowRoot.querySelectorAll<HTMLElement>('[data-del-path]').forEach((btn) => {
-      btn.addEventListener('click', () => this.setListItem(btn.dataset.delPath || '', Number(btn.dataset.delIndex), ''));
+      btn.addEventListener('click', () => this.setListItem(btn.getAttribute('data-del-path') || '', Number(btn.getAttribute('data-del-index')), ''));
     });
 
-    // Add/Remove area rows
     this.shadowRoot.querySelectorAll<HTMLElement>('[data-add-area-path]').forEach((btn) => {
-      btn.addEventListener('click', () => this.addListItem(btn.dataset.addAreaPath || '', Number(btn.dataset.addMax) || undefined));
+      btn.addEventListener('click', () => this.addListItem(btn.getAttribute('data-add-area-path') || '', Number(btn.getAttribute('data-add-max')) || undefined));
     });
     this.shadowRoot.querySelectorAll<HTMLElement>('[data-del-area-path]').forEach((btn) => {
-      btn.addEventListener('click', () => this.setListItem(btn.dataset.delAreaPath || '', Number(btn.dataset.delAreaIndex), ''));
+      btn.addEventListener('click', () => this.setListItem(btn.getAttribute('data-del-area-path') || '', Number(btn.getAttribute('data-del-area-index')), ''));
     });
   }
 }

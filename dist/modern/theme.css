@@ -216,10 +216,7 @@ button { font:inherit; }
 .mc-app[data-view="rooms"] .panel-scenes,
 .mc-app[data-view="rooms"] .side { display:none; }
 .mc-app[data-view="rooms"] .bottom-stack { grid-template-rows:auto; align-self:stretch; }
-.mc-app[data-view="rooms"] { height:auto !important; min-height:100vh !important; overflow:visible; }
-.mc-app[data-view="rooms"] .stage { height:auto; overflow:visible; }
-.mc-app[data-view="rooms"] .page-shell { height:auto; min-height:100%; }
-.mc-app[data-view="rooms"] .page-body { overflow:visible; }
+.mc-app[data-view="rooms"] .page-body { overflow:auto; }
 .mc-app[data-view="rooms"] .rooms { grid-template-columns:repeat(4,minmax(0,1fr)); }
 .mc-app[data-view="rooms"] .room { min-height:clamp(108px, 13vh, 150px); }
 .mc-app[data-view="scenes"] .welcome,

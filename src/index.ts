@@ -1,7 +1,8 @@
 // Skins Pro — standalone rewrite inspired by dwains-dashboard-next concepts
 // Architecture reference: https://github.com/dwainscheeren/dwains-dashboard-next
 
-import { buildAutoConfig, MinecraftDashboardCard } from './skins-pro-card';
+import { buildAutoConfig } from './config';
+import { MinecraftDashboardCard } from './skins-pro-card';
 import './skins-pro-card-editor';
 
 const CARD_TYPE = 'skins-pro-card';

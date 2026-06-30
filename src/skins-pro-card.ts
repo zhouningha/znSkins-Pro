@@ -12,18 +12,18 @@ import type {
   EnvironmentMetricConfig,
   HomeAssistant,
   HassEntity,
-  Language,
   MaintenanceItem,
   RenderedDevice,
   RoomConfig,
-  TranslationKey,
   ViewName,
   WeatherForecastDay,
 } from './types';
+import type { TranslationKey } from './types';
+import type { Language } from './i18n.generated';
+import { STRINGS } from './i18n.generated';
 
 import {
   DEFAULT_ROOMS,
-  STRINGS,
 } from './constants';
 
 import {

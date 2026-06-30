@@ -176,7 +176,19 @@ export interface DashboardConfig {
   home_selection?: HomeSelectionConfig;
 }
 
-export type Language = 'zh-CN' | 'en';
+export type DeviceColor = 'yellow' | 'green' | 'blue' | 'purple' | 'red' | 'brown';
+
+export type ViewName = 'home' | 'devices' | 'rooms' | 'scenes' | 'automations' | 'security' | 'energy';
+
+export interface RenderedDevice {
+  entityId: string;
+  name: string;
+  subtitle: string;
+  detail: string;
+  state: string;
+  icon: string;
+  color: DeviceColor;
+}
 
 export type TranslationKey =
   | 'home'
@@ -215,20 +227,6 @@ export type TranslationKey =
   | 'turnOnAll'
   | 'turnOffAll'
   | 'confirmAction';
-
-export type DeviceColor = 'yellow' | 'green' | 'blue' | 'purple' | 'red' | 'brown';
-
-export type ViewName = 'home' | 'devices' | 'rooms' | 'scenes' | 'automations' | 'security' | 'energy';
-
-export interface RenderedDevice {
-  entityId: string;
-  name: string;
-  subtitle: string;
-  detail: string;
-  state: string;
-  icon: string;
-  color: DeviceColor;
-}
 
 export interface EnergySourceData {
   key: TranslationKey;

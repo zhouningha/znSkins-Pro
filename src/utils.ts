@@ -1,14 +1,55 @@
-import type { HomeAssistant, Language, TranslationKey, DashboardConfig } from './types';
+import type { HomeAssistant, DashboardConfig, TranslationKey } from './types';
+import type { Language } from './i18n.generated';
 import { SKINS, DEFAULT_SKIN, SKIN_STRINGS, SKIN_ICON_MAPS } from './skins.generated';
-import { STRINGS, DEFAULT_ASSETS } from './constants';
+import { DEFAULT_ASSETS } from './constants';
+import { STRINGS } from './i18n.generated';
 
 export const BUNDLED_SKINS: readonly string[] = SKINS;
+
+export type { Language } from './i18n.generated';
+export type { TranslationKey } from './types';
 
 export function normalizeLanguage(language?: string): Language {
   if ((language || '').toLowerCase().startsWith('zh')) {
     return 'zh-CN';
   }
   return 'en';
+}
+
+export function localizedText(
+  base: string | undefined,
+  zh: string | undefined,
+  en: string | undefined,
+  language: Language,
+  fallback = '',
+): string {
+  if (language === 'zh-CN') {
+    return zh || base || en || fallback;
+  }
+  return en || base || zh || fallback;
+}
+
+export function deviceStateLabel(state: string, language: Language): string {
+  if (state === 'unavailable' || state === 'unknown') {
+    return STRINGS[language].offline;
+  }
+  if (state === 'on' || state === 'playing' || state === 'cool' || state === 'heat' || state === 'armed') {
+    return STRINGS[language].on;
+  }
+  if (state === 'open' || state === 'unlocked') {
+    return STRINGS[language].open;
+  }
+  if (state === 'locked' || state === 'closed') {
+    return STRINGS[language].closed;
+  }
+  if (state === 'off' || state === 'idle' || state === 'standby') {
+    return STRINGS[language].off;
+  }
+  return state || '--';
+}
+
+export function getTranslate(language: Language): (key: TranslationKey) => string {
+  return (key: TranslationKey): string => STRINGS[language][key];
 }
 
 export function defaultResourceBasePath(): string {
@@ -37,19 +78,6 @@ export function stateValue(hass: HomeAssistant | undefined, entityId?: string): 
     return '';
   }
   return hass.states[entityId]?.state || '';
-}
-
-export function localizedText(
-  base: string | undefined,
-  zh: string | undefined,
-  en: string | undefined,
-  language: Language,
-  fallback = '',
-): string {
-  if (language === 'zh-CN') {
-    return zh || base || en || fallback;
-  }
-  return en || base || zh || fallback;
 }
 
 export function timeText(hass: HomeAssistant | undefined, language: Language): string {
@@ -85,25 +113,6 @@ export function weatherIcon(state: string): string {
     lightning: 'mdi:weather-lightning',
   };
   return iconMap[state] || 'mdi:weather-partly-cloudy';
-}
-
-export function deviceStateLabel(state: string, language: Language): string {
-  if (state === 'unavailable' || state === 'unknown') {
-    return STRINGS[language].offline;
-  }
-  if (state === 'on' || state === 'playing' || state === 'cool' || state === 'heat' || state === 'armed') {
-    return STRINGS[language].on;
-  }
-  if (state === 'open' || state === 'unlocked') {
-    return STRINGS[language].open;
-  }
-  if (state === 'locked' || state === 'closed') {
-    return STRINGS[language].closed;
-  }
-  if (state === 'off' || state === 'idle' || state === 'standby') {
-    return STRINGS[language].off;
-  }
-  return state || '--';
 }
 
 export function iconForDomain(domain: string): string {
@@ -183,6 +192,3 @@ export function skinString(skin: string, key: string): string {
   return data[key] || '';
 }
 
-export function getTranslate(language: Language): (key: TranslationKey) => string {
-  return (key: TranslationKey): string => STRINGS[language][key];
-}

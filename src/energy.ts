@@ -4,8 +4,8 @@ import type {
   EnergyPrefsResponse,
   HomeAssistant,
   StatisticsResponse,
-  TranslationKey,
 } from './types';
+import type { TranslationKey } from './types';
 import { formatNumber } from './utils';
 
 export async function fetchEnergySources(

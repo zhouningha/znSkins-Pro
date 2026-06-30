@@ -129,6 +129,8 @@ All styles are customized via CSS variables on `:host`. Each skin has its own `t
 
 Maps entity domains to icon image filenames. Unmapped domains fall back automatically.<br>`icon_map` 定义实体域→图标图片的映射，未覆盖的域自动 fallback。
 
+> **Best reference / 最佳参考** — Use [`skins-pro/visionOS/`](skins-pro/visionOS/) as the starting point when creating a new skin. It has the most complete `icon_map`, `theme.css`, and icon assets.<br>创建新皮肤时请以 [`skins-pro/visionOS/`](skins-pro/visionOS/) 为起点，它拥有最完整的 `icon_map`、`theme.css` 和图标资源。
+
 ## Development / 开发
 
 ```bash

@@ -1217,7 +1217,7 @@ export class MinecraftDashboardCard extends LitElement {
             <div class="tag-stack"><div class="status">${stateLabel}</div></div>
           </div>
           <div class="device-copy"><p class="device-name">${String(entity.attributes?.friendly_name || entity.entity_id)}</p><p class="muted">${domain}</p></div>
-          <div class="control-row"><span class="state-word">${entity.state}</span><span class="switch${['on', 'armed_away', 'armed_home', 'locked'].includes(entity.state) ? ' on' : ''}"></span></div>
+          <div class="control-row"><span class="state-word">${stateLabel}</span><span class="switch${['on', 'armed_away', 'armed_home', 'locked'].includes(entity.state) ? ' on' : ''}"></span></div>
         </button>
       `;
     });

@@ -45,7 +45,11 @@ export function deviceStateLabel(state: string, language: Language): string {
   if (state === 'off' || state === 'idle' || state === 'standby') {
     return STRINGS[language].off;
   }
-  return state || '--';
+  const num = Number(state);
+  if (Number.isFinite(num)) {
+    return parseFloat(num.toFixed(2)).toString();
+  }
+  return state.replace(/\.\d+/, '') || '--';
 }
 
 export function getTranslate(language: Language): (key: TranslationKey) => string {

@@ -32,10 +32,10 @@ Click the button above, or manually:
 
 | Skin / 皮肤 | Style / 风格 | Features / 特点 |
 |---|---|---|
-| **modern**（default / 默认） | White glassmorphism / 白色玻璃 | Frosted glass, high-res images, clean blue-white palette / 毛玻璃效果，高分辨率图片，温润蓝白配色 |
-| **AEON** | Dark luxury / 暗色奢华 | Deep blacks, blue glow, glassmorphism, cinematic shadows / 深邃黑底，蓝色辉光，毛玻璃卡片，影院级阴影 |
-| **visionOS** | Frosted glass / 毛玻璃 | Apple VisionOS-inspired, flat glass, white text, immersive blur / Apple VisionOS 灵感，纯平玻璃，白色文字，沉浸式模糊 |
-| **minecraft** | Minecraft theme / Minecraft 主题 | Dark textured background, warm tones, Steve avatar / 深色纹理背景，暖色调，Steve 头像 |
+| **modern**（default<br>默认） | White glassmorphism<br>白色玻璃 | Frosted glass, high-res images, clean blue-white palette<br>毛玻璃效果，高分辨率图片，温润蓝白配色 |
+| **AEON** | Dark luxury<br>暗色奢华 | Deep blacks, blue glow, glassmorphism, cinematic shadows<br>深邃黑底，蓝色辉光，毛玻璃卡片，影院级阴影 |
+| **visionOS** | Frosted glass<br>毛玻璃 | Apple VisionOS-inspired, flat glass, white text, immersive blur<br>Apple VisionOS 灵感，纯平玻璃，白色文字，沉浸式模糊 |
+| **minecraft** | Minecraft theme<br>Minecraft 主题 | Dark textured background, warm tones, Steve avatar<br>深色纹理背景，暖色调，Steve 头像 |
 
 Switch via the "Skin" field in the card editor.  
 在卡片编辑器的「皮肤 / Skin」字段切换。
@@ -92,12 +92,12 @@ skins-pro/
 
 | Pattern / 文件名 | Recommended source / 建议源尺寸 | Notes / 说明 |
 |---|---|---|
-| `room-*` | width ≥ 1200px / 宽 ≥ 1200px | Maintain ratio, downscale to 1200px / 保持比例，缩放至 1200px |
-| `icon-*` | longest edge ≥ 300px / 最长边 ≥ 300px | Maintain ratio, downscale to 300px / 保持比例，缩放至 300px |
-| `avatar.*` | longest edge ≥ 300px / 最长边 ≥ 300px | Maintain ratio, downscale to 300px / 保持比例，缩放至 300px |
-| `decoration.*` | width ≥ 800px / 宽 ≥ 800px | Maintain ratio, downscale to 800px / 保持比例，缩放至 800px |
-| `background.*`, `base-*`, `stage-*` | width ≥ 2560px / 宽 ≥ 2560px | Maintain ratio, downscale to 2560px / 保持比例，缩放至 2560px |
-| others / 其他 | width ≥ 1200px / 宽 ≥ 1200px | Maintain ratio, downscale to 1200px / 保持比例，缩放至 1200px |
+| `room-*` | width ≥ 1200px / 宽 ≥ 1200px | Maintain ratio, downscale to 1200px<br>保持比例，缩放至 1200px |
+| `icon-*` | longest edge ≥ 300px / 最长边 ≥ 300px | Maintain ratio, downscale to 300px<br>保持比例，缩放至 300px |
+| `avatar.*` | longest edge ≥ 300px / 最长边 ≥ 300px | Maintain ratio, downscale to 300px<br>保持比例，缩放至 300px |
+| `decoration.*` | width ≥ 800px / 宽 ≥ 800px | Maintain ratio, downscale to 800px<br>保持比例，缩放至 800px |
+| `background.*`, `base-*`, `stage-*` | width ≥ 2560px / 宽 ≥ 2560px | Maintain ratio, downscale to 2560px<br>保持比例，缩放至 2560px |
+| others / 其他 | width ≥ 1200px / 宽 ≥ 1200px | Maintain ratio, downscale to 1200px<br>保持比例，缩放至 1200px |
 
 Supports PNG / JPG / BMP / WebP input, outputs JPG. Never upscales.  
 源文件支持 PNG / JPG / BMP / WebP，一律输出 JPG，不大于原图。

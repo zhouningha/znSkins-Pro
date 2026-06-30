@@ -15,10 +15,10 @@ function getResizeOptions(filename) {
   if (name.startsWith('icon-')) {
     return { width: 300, height: 300, fit: 'inside' };
   }
-  if (name.startsWith('avatar-')) {
+  if (name.startsWith('avatar')) {
     return { width: 300, height: 300, fit: 'inside' };
   }
-  if (name.startsWith('decor-')) {
+  if (name.startsWith('decor')) {
     return { width: 800 };
   }
   if (name.startsWith('base-') || name.startsWith('stage-') || name.startsWith('background.')) {
@@ -27,12 +27,19 @@ function getResizeOptions(filename) {
   return { width: 1200 };
 }
 
+function getOutputFormat(filename) {
+  const name = path.basename(filename).toLowerCase();
+  if (name.startsWith('icon-') || name.startsWith('avatar') || name.startsWith('decor')) return 'png';
+  return 'jpg';
+}
+
 async function processImage(srcPath, destDir) {
   const ext = path.extname(srcPath).toLowerCase();
   if (!IMAGE_EXTENSIONS.includes(ext)) return;
 
   const opts = getResizeOptions(path.basename(srcPath));
-  const outName = path.basename(srcPath, ext) + '.jpg';
+  const fmt = getOutputFormat(path.basename(srcPath));
+  const outName = path.basename(srcPath, ext) + '.' + fmt;
   const outPath = path.join(destDir, outName);
 
   const pipeline = sharp(srcPath);
@@ -43,7 +50,11 @@ async function processImage(srcPath, destDir) {
     pipeline.resize({ width: opts.width, withoutEnlargement: true });
   }
 
-  await pipeline.jpeg({ quality: 85, mozjpeg: true }).toFile(outPath);
+  if (fmt === 'png') {
+    await pipeline.png().toFile(outPath);
+  } else {
+    await pipeline.jpeg({ quality: 85, mozjpeg: true }).toFile(outPath);
+  }
 }
 
 const dirs = fs.readdirSync(src, { withFileTypes: true })

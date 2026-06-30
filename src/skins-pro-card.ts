@@ -1110,11 +1110,13 @@ export class MinecraftDashboardCard extends LitElement {
       const lastTriggered = automation.attributes?.last_triggered
         ? String(automation.attributes.last_triggered)
         : (language === 'zh-CN' ? '未触发' : 'Not triggered');
+      const skin = selectedSkin(this._config);
+      const assetKey = assetKeyForDomain(skin, 'automation');
 
       return html`
         <button class="device ${statusClass}" @click=${() => this.handleAction(automation.entity_id, 'more-info')}>
           <div class="device-top">
-            <div class="item-icon"><ha-icon icon="mdi:robot"></ha-icon></div>
+            ${this.renderImage(assetKey, 'Automation', 'item-img')}
             <div class="tag-stack"><div class="status">${stateLabel}</div></div>
           </div>
           <div class="device-copy"><p class="device-name">${String(automation.attributes?.friendly_name || automation.entity_id)}</p><p class="muted">${lastTriggered}</p></div>

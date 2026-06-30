@@ -311,7 +311,7 @@ export class MinecraftDashboardCard extends LitElement {
             <nav class="menu">
               ${this.renderNav(language)}
             </nav>
-            <div class="sidebar-art" @click=${() => toggleKiosk()}>${this.renderImage('decor', 'Decor', '')}</div>
+                        <div class="sidebar-art" @click=${() => { const host=this.shadowRoot?.host as HTMLElement|undefined;if(document.body.classList.contains('skins-pro-kiosk')){toggleKiosk();if(host)requestAnimationFrame(()=>{const r=host.getBoundingClientRect();const h=Math.max(560,Math.floor(window.innerHeight-r.top));host.style.setProperty('--sp-runtime-height',`${h}px`);host.style.setProperty('--sp-runtime-min-height',`${h}px`)})}else{if(host){const h=Math.max(560,Math.floor(window.innerHeight));host.style.setProperty('--sp-runtime-height',`${h}px`);host.style.setProperty('--sp-runtime-min-height',`${h}px`)}toggleKiosk()}}}>${this.renderImage('decor', 'Decor', '')}</div>
           </aside>
           <main class="stage">
             ${this.renderStageContent(language, translate, weatherIconName, quote, energyValue, energyUnit, compareValue, energyBars)}
@@ -1244,6 +1244,12 @@ export class MinecraftDashboardCard extends LitElement {
     this.applyLayoutHeight();
     if (this._config?.fullscreen && !this._autoFullscreenDone) {
       this._autoFullscreenDone = true;
+      const host = this.shadowRoot?.host as HTMLElement | undefined;
+      if (host) {
+        const h = Math.max(560, Math.floor(window.innerHeight));
+        host.style.setProperty('--sp-runtime-height', `${h}px`);
+        host.style.setProperty('--sp-runtime-min-height', `${h}px`);
+      }
       toggleKiosk();
     }
   }

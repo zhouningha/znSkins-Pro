@@ -231,6 +231,7 @@ button {
   background: rgba(255,255,255,0.22);
   border: var(--sp-border-w) solid var(--sp-border-glass);
   box-shadow: var(--sp-shadow-glass);
+  box-sizing: border-box;
   transition:
     background var(--sp-duration-base) var(--sp-ease-glass),
     box-shadow var(--sp-duration-base) var(--sp-ease-glass),
@@ -691,7 +692,20 @@ button {
 }
 
 .security-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-space-sm);
+}
+
+.security-cameras {
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-space-sm);
+}
+
+.security-devices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: var(--sp-space-sm);
 }
 
@@ -1662,7 +1676,7 @@ button {
   .rooms-page,
   .rooms-page-medium,
   .rooms-page-dense,
-  .security-grid {
+  .security-cameras {
     grid-template-columns: 1fr 1fr;
   }
 

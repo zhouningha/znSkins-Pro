@@ -1129,7 +1129,7 @@ export class MinecraftDashboardCard extends LitElement {
   private renderSecurityCards(language: Language): TemplateResult | typeof nothing {
     if (!this._hass) return nothing;
 
-    const securityEntities = Object.values(this._hass.states)
+    const entities = Object.values(this._hass.states)
       .filter((entity): entity is HassEntity => Boolean(entity?.entity_id && /^(camera|lock|alarm_control_panel|binary_sensor)\./.test(entity.entity_id)))
       .filter((entity) => {
         if (entity.entity_id.startsWith('binary_sensor.')) {
@@ -1139,38 +1139,42 @@ export class MinecraftDashboardCard extends LitElement {
       })
       .slice(0, 12);
 
-    if (securityEntities.length === 0) return nothing;
+    if (entities.length === 0) return nothing;
+
+    const cameras = entities.filter(e => e.entity_id.startsWith('camera.'));
+    const others = entities.filter(e => !e.entity_id.startsWith('camera.'));
 
     const skin = selectedSkin(this._config);
 
-    return html`${securityEntities.map((entity, index) => {
+    const cameraCards = cameras.map(entity => {
+      const stateLabel = deviceStateLabel(entity.state, language);
+      const stateObj = this._hass?.states?.[entity.entity_id];
+      const entityPicture = String(stateObj?.attributes?.entity_picture || '');
+      const accessToken = String(stateObj?.attributes?.access_token || '');
+      const baseUrl = entityPicture
+        || (accessToken
+          ? `/api/camera_proxy/${entity.entity_id}?token=${encodeURIComponent(accessToken)}`
+          : '');
+      const sep = baseUrl.includes('?') ? '&' : '?';
+      const snapshotUrl = baseUrl ? `${baseUrl}${sep}ts=${Date.now()}` : '';
+      return html`
+        <button class="camera-card" @click=${() => this.handleAction(entity.entity_id, 'more-info')}>
+          <div class="camera-preview"><img alt=${String(entity.attributes?.friendly_name || entity.entity_id)} src=${snapshotUrl}></div>
+          <div class="camera-meta">
+            <div>
+              <p class="device-name">${String(entity.attributes?.friendly_name || entity.entity_id)}</p>
+              <p class="muted">${language === 'zh-CN' ? '实时快照' : 'Snapshot'}</p>
+            </div>
+            <div class="status">${stateLabel}</div>
+          </div>
+        </button>
+      `;
+    });
+
+    const otherCards = others.map((entity, index) => {
       const stateLabel = deviceStateLabel(entity.state, language);
       const domain = entity.entity_id.split('.')[0] || 'sensor';
       const assetKey = assetKeyForDomain(skin, domain);
-      if (domain === 'camera') {
-        const stateObj = this._hass?.states?.[entity.entity_id];
-        const entityPicture = String(stateObj?.attributes?.entity_picture || '');
-        const accessToken = String(stateObj?.attributes?.access_token || '');
-        const baseUrl = entityPicture
-          || (accessToken
-            ? `/api/camera_proxy/${entity.entity_id}?token=${encodeURIComponent(accessToken)}`
-            : '');
-        const sep = baseUrl.includes('?') ? '&' : '?';
-        const snapshotUrl = baseUrl ? `${baseUrl}${sep}ts=${Date.now()}` : '';
-        return html`
-          <button class="camera-card" @click=${() => this.handleAction(entity.entity_id, 'more-info')}>
-            <div class="camera-preview"><img alt=${String(entity.attributes?.friendly_name || entity.entity_id)} src=${snapshotUrl}></div>
-            <div class="camera-meta">
-              <div>
-                <p class="device-name">${String(entity.attributes?.friendly_name || entity.entity_id)}</p>
-                <p class="muted">${language === 'zh-CN' ? '实时快照' : 'Snapshot'}</p>
-              </div>
-              <div class="status">${stateLabel}</div>
-            </div>
-          </button>
-        `;
-      }
-
       const tones: RenderedDevice['color'][] = ['red', 'green', 'blue', 'purple', 'yellow', 'brown'];
       const statusClass = entity.state === 'unavailable' ? 'device-unavailable' : `device-on-${tones[index % tones.length]}`;
       return html`
@@ -1183,7 +1187,12 @@ export class MinecraftDashboardCard extends LitElement {
           <div class="control-row"><span class="state-word">${entity.state}</span><span class="switch${['on', 'armed_away', 'armed_home', 'locked'].includes(entity.state) ? ' on' : ''}"></span></div>
         </button>
       `;
-    })}`;
+    });
+
+    return html`
+      ${cameraCards.length > 0 ? html`<div class="security-cameras">${cameraCards}</div>` : nothing}
+      ${otherCards.length > 0 ? html`<div class="security-devices">${otherCards}</div>` : nothing}
+    `;
   }
 
   // ─── Environment ────────────────────────────────────────

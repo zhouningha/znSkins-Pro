@@ -13,7 +13,7 @@ Skins Pro 是一款社区 Lovelace 卡片，采用多皮肤架构，内置 **mod
 - Area-based room display<br>按房间区域展示设备
 - Auto icon matching by entity domain<br>设备自动按 domain 匹配对应图标
 
-> Note<br>说明<br>All current theme image assets are AI-generated, so some images may contain AI watermarks or similar generation artifacts.<br>当前所有主题图片资源均由 AI 生成，因此部分图片中可能会出现 AI 水印或类似生成痕迹。
+> Note / 说明 — All current theme image assets are AI-generated, so some images may contain AI watermarks or similar generation artifacts. 当前所有主题图片资源均由 AI 生成，因此部分图片中可能会出现 AI 水印或类似生成痕迹。
 
 ## Philosophy / 设计理念
 

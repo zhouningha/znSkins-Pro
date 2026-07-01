@@ -40,6 +40,8 @@ const zh: Record<TranslationKey, string> = {
   uploadBackground: '上传背景图',
   clearBackground: '清除背景图',
   mediaPlayer: '媒体播放器',
+  showAll: '显示全部',
+  hideUnassigned: '隐藏未分配',
 };
 
 export default zh;

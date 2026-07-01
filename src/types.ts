@@ -235,7 +235,9 @@ export type TranslationKey =
   | 'confirmAction'
   | 'uploadBackground'
   | 'clearBackground'
-  | 'mediaPlayer';
+  | 'mediaPlayer'
+  | 'showAll'
+  | 'hideUnassigned';
 
 export interface EnergySourceData {
   key: TranslationKey;

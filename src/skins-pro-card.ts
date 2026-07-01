@@ -66,6 +66,7 @@ export class MinecraftDashboardCard extends LitElement {
   @state() private _deviceGrouping: 'area' | 'domain' = 'area';
   @state() private _filterRoom = '';
   @state() private _filterType = '';
+  @state() private _hideUnassigned = true;
 
   @state() private _areas?: AreaRegistryEntry[];
   @state() private _entityRegistry?: EntityRegistryEntry[];
@@ -491,6 +492,10 @@ export class MinecraftDashboardCard extends LitElement {
           <select class="filter-select" @change=${(e: Event) => { this._filterType = (e.target as HTMLSelectElement).value; }}>
             <option value="">${translate('allTypes')}</option>
             ${types.map((t) => html`<option value="${t}" .selected=${t === this._filterType}>${t}</option>`)}
+          </select>
+          <select class="filter-select" @change=${(e: Event) => { this._hideUnassigned = (e.target as HTMLSelectElement).value === 'true'; }}>
+            <option value="true" .selected=${this._hideUnassigned}>${translate('hideUnassigned')}</option>
+            <option value="false" .selected=${!this._hideUnassigned}>${translate('showAll')}</option>
           </select>
           <button class="action-btn" @click=${() => this.batchControl('on', translate)}>${translate('turnOnAll')}</button>
           <button class="action-btn" @click=${() => this.batchControl('off', translate)}>${translate('turnOffAll')}</button>
@@ -1082,6 +1087,7 @@ export class MinecraftDashboardCard extends LitElement {
         if (ignoreFilter) return true;
         if (this._filterRoom && d.subtitle !== this._filterRoom) return false;
         if (this._filterType && d.detail !== this._filterType) return false;
+        if (this._hideUnassigned && !d.subtitle) return false;
         return true;
       });
   }

@@ -40,6 +40,8 @@ const en: Record<TranslationKey, string> = {
   uploadBackground: 'Upload background',
   clearBackground: 'Clear background',
   mediaPlayer: 'Media Player',
+  showAll: 'Show all',
+  hideUnassigned: 'Hide unassigned',
 };
 
 export default en;

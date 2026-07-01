@@ -1,5 +1,7 @@
 import { SKINS } from './skins.generated';
-import type { AreaRegistryEntry, HomeAssistant } from './types';
+import { STRINGS } from './i18n.generated';
+import type { AreaRegistryEntry, HomeAssistant, TranslationKey } from './types';
+import { normalizeLanguage } from './utils';
 
 type DashboardConfigRecord = Record<string, any>;
 
@@ -62,6 +64,11 @@ export class SkinsProCardEditor extends HTMLElement {
         this.render();
       }
     } catch { /* area registry not available */ }
+  }
+
+  private _loc(key: TranslationKey): string {
+    const lang = normalizeLanguage(this._hass?.language);
+    return STRINGS[lang][key];
   }
 
   private themeCssUrl(): string {
@@ -196,10 +203,10 @@ export class SkinsProCardEditor extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <link rel="stylesheet" href="${this.themeCssUrl()}">
-      <style>.bg-preview{max-width:100%;max-height:100px;border-radius:8px;margin-top:8px;display:block}.sp-card input[type=checkbox]{width:auto;min-height:auto;margin:0}.sp-card label:has(input[type=checkbox]){display:flex;align-items:center;gap:8px}</style>
+      <style>.bg-preview{max-width:120px;max-height:60px;border-radius:6px;display:block;flex-shrink:0}.sp-card input[type=checkbox]{width:auto;min-height:auto;margin:0}.sp-card label:has(input[type=checkbox]){display:flex;align-items:center;gap:8px}</style>
       <div class="sp-wrap">
         <div class="sp-card">
-          <h3>皮肤 / Skin</h3>
+          <h3>${this._loc('editorSkin')}</h3>
           <div class="sp-card-row">
             <label class="sp-field">
               <span>Skin</span>
@@ -208,41 +215,41 @@ export class SkinsProCardEditor extends HTMLElement {
               </select>
             </label>
             ${this.entityPicker('Weather', 'weather.entity', c.weather?.entity || hs.weather_entity || '', ['weather'])}
-          ${this.entityPicker('信息展示 / Info', 'info.entity', c.info?.entity || '', ['input_text', 'sensor'])}
+          ${this.entityPicker(this._loc('editorInfo'), 'info.entity', c.info?.entity || '', ['input_text', 'sensor'])}
           <label>
             <input type="checkbox" data-path="fullscreen"${c.fullscreen ? ' checked' : ''}>
-            <span>全屏</span>
+            <span>${this._loc('editorFullscreen')}</span>
           </label>
           </div>
         </div>
 
-        <div class="sp-row">
+        <div class="sp-row" style="grid-template-columns:1fr 1fr 1fr">
           <div class="sp-card">
-            <h3>能源 / Energy</h3>
+            <h3>${this._loc('editorEnergy')}</h3>
             ${this.entityPicker('Energy Entity', 'energy.entity', c.energy?.entity || hs.energy_entity || '', ['sensor'])}
           </div>
           <div class="sp-card">
-            <h3>媒体播放器 / Media Player</h3>
+            <h3>${this._loc('editorMediaPlayer')}</h3>
             ${this.entityPicker('Media Player', 'media_player.entity', c.media_player?.entity || '', ['media_player'])}
           </div>
           <div class="sp-card">
-            <h3>摄像头 / Camera</h3>
+            <h3>${this._loc('editorCamera')}</h3>
             ${this.entityPicker('Camera', 'camera.entity', c.camera?.entity || '', ['camera'])}
           </div>
         </div>
 
         <div class="sp-row">
           <div class="sp-card">
-            <h3>房间图片 / Room Images</h3>
+            <h3>${this._loc('editorRoomImages')}</h3>
             <label>
               <input type="checkbox" data-path="use_area_pictures"${c.use_area_pictures ? ' checked' : ''}>
-              <span>使用 Home Assistant 区域图片</span>
+              <span>${this._loc('editorUseAreaPictures')}</span>
             </label>
           </div>
           <div class="sp-card">
-            <h3>背景图 / Background</h3>
-            <div class="sp-card-row">
-              <input type="file" accept="image/*" data-bg-upload>
+            <h3>${this._loc('editorBackground')}</h3>
+            <div class="sp-card-row" style="display:flex;flex-wrap:nowrap;align-items:center;gap:8px">
+              <input type="file" accept="image/*" data-bg-upload style="flex:1;min-width:0">
               ${c.background_image ? `<img class="bg-preview" src="${c.background_image}"><button class="sp-del" data-bg-clear>✕</button>` : ''}
               ${!c.background_image ? '' : ''}
             </div>
@@ -251,22 +258,22 @@ export class SkinsProCardEditor extends HTMLElement {
 
         <div class="sp-row">
           <div class="sp-card">
-            <h3>首页设备 / Home Devices</h3>
+            <h3>${this._loc('editorHomeDevices')}</h3>
             ${this.listPicker('Devices', 'home_selection.devices', hs.devices || [], CONTROLLABLE_DOMAINS, hl.devices || 5)}
           </div>
           <div class="sp-card">
-            <h3>首页房间 / Home Rooms</h3>
+            <h3>${this._loc('editorHomeRooms')}</h3>
             ${this.areaPicker(hs.rooms || [], hl.rooms || 4)}
           </div>
         </div>
 
         <div class="sp-row">
           <div class="sp-card">
-            <h3>首页场景 / Home Scenes</h3>
+            <h3>${this._loc('editorHomeScenes')}</h3>
             ${this.listPicker('Scenes', 'home_selection.scenes', hs.scenes || [], ['scene'], hl.scenes || 6)}
           </div>
           <div class="sp-card">
-            <h3>首页环境 / Home Environment</h3>
+            <h3>${this._loc('editorHomeEnv')}</h3>
             ${this.listPicker('Environment', 'home_selection.environment', hs.environment || [], ['sensor'], hl.environment || 5)}
           </div>
         </div>

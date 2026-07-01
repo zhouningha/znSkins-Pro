@@ -42,6 +42,19 @@ const zh: Record<TranslationKey, string> = {
   mediaPlayer: '媒体播放器',
   showAll: '显示全部',
   hideUnassigned: '隐藏未分配',
+  editorSkin: '皮肤',
+  editorEnergy: '能源',
+  editorMediaPlayer: '媒体播放器',
+  editorCamera: '摄像头',
+  editorRoomImages: '房间图片',
+  editorBackground: '背景图',
+  editorHomeDevices: '首页设备',
+  editorHomeRooms: '首页房间',
+  editorHomeScenes: '首页场景',
+  editorHomeEnv: '首页环境',
+  editorInfo: '信息展示',
+  editorFullscreen: '全屏',
+  editorUseAreaPictures: '使用 Home Assistant 区域图片',
 };
 
 export default zh;

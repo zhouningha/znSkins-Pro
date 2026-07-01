@@ -8,7 +8,7 @@
   --sp-stage-overlay:none;
   --sp-room-overlay:linear-gradient(180deg,transparent 30%,rgba(0,0,0,.75));
   --sp-bar-gradient:linear-gradient(180deg,#3B82F6,#5B8CFF,#22D3EE);
-  --sp-text-primary:#F5F7FA; --sp-text-main:var(--sp-text-primary); --sp-text-muted:rgba(245,247,250,.42); --sp-text-muted-dim:rgba(245,247,250,.28);
+  --sp-text-primary:#F5F7FA; --sp-text-main:var(--sp-text-primary);   --sp-text-tertiary:rgba(245,247,250,.48); --sp-text-muted:rgba(245,247,250,.42); --sp-text-muted-dim:rgba(245,247,250,.28);
   --sp-text-muted-bright:rgba(245,247,250,.62); --sp-text-alt:#3B82F6; --sp-text-dark:var(--sp-text-primary);
   --sp-text-dark-dim:rgba(245,247,250,.48); --sp-text-dark-alpha:rgba(255,255,255,.06);
   --sp-text-down:#3B82F6;

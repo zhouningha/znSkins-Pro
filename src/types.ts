@@ -242,7 +242,20 @@ export type TranslationKey =
   | 'clearBackground'
   | 'mediaPlayer'
   | 'showAll'
-  | 'hideUnassigned';
+  | 'hideUnassigned'
+  | 'editorSkin'
+  | 'editorEnergy'
+  | 'editorMediaPlayer'
+  | 'editorCamera'
+  | 'editorRoomImages'
+  | 'editorBackground'
+  | 'editorHomeDevices'
+  | 'editorHomeRooms'
+  | 'editorHomeScenes'
+  | 'editorHomeEnv'
+  | 'editorInfo'
+  | 'editorFullscreen'
+  | 'editorUseAreaPictures';
 
 export interface EnergySourceData {
   key: TranslationKey;

@@ -93,6 +93,7 @@ export class MinecraftDashboardCard extends LitElement {
   private _weatherForecastUnsub?: () => Promise<void>;
 
   private _autoFullscreenDone = false;
+  private _preMuteVolume = 0.3;
   private readonly _handleWindowResize = () => this.applyLayoutHeight();
 
   public get hass(): HomeAssistant | undefined {
@@ -666,12 +667,22 @@ export class MinecraftDashboardCard extends LitElement {
     const source = (attrs.app_name as string) || (attrs.source as string) || '';
     const isPlaying = state === 'playing';
     const vol = attrs.volume_level as number | undefined;
-    const isMuted = attrs.is_volume_muted as boolean | undefined;
+    const volZero = vol !== undefined && vol === 0;
     const volPct = vol !== undefined ? Math.round(vol * 100) : undefined;
     const handleVolTrack = (e: MouseEvent) => {
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       this._hass?.callService('media_player', 'volume_set', { entity_id: entityId, volume_level: pct });
+    };
+    const handleMute = () => {
+      if (vol !== undefined) {
+        if (vol > 0) {
+          this._preMuteVolume = vol;
+          this._hass?.callService('media_player', 'volume_set', { entity_id: entityId, volume_level: 0 });
+        } else {
+          this._hass?.callService('media_player', 'volume_set', { entity_id: entityId, volume_level: this._preMuteVolume });
+        }
+      }
     };
     return html`
       <section class="glass-card panel-media">
@@ -692,7 +703,7 @@ export class MinecraftDashboardCard extends LitElement {
           </div>
           ${volPct !== undefined ? html`
           <div class="media-row media-volrow">
-            <button class="media-volbtn" @click=${() => this._hass?.callService('media_player', 'volume_mute', { entity_id: entityId, is_volume_muted: !isMuted })}><ha-icon icon=${isMuted ? 'mdi:volume-off' : 'mdi:volume-high'}></ha-icon></button>
+            <button class="media-volbtn" @click=${handleMute}><ha-icon icon=${volZero ? 'mdi:volume-off' : 'mdi:volume-high'}></ha-icon></button>
             <div class="media-voltrack" @click=${handleVolTrack}><div class="media-volfill" style="width:${volPct}%"></div></div>
           </div>` : ''}
         </div>

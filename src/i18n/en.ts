@@ -42,6 +42,19 @@ const en: Record<TranslationKey, string> = {
   mediaPlayer: 'Media Player',
   showAll: 'Show all',
   hideUnassigned: 'Hide unassigned',
+  editorSkin: 'Skin',
+  editorEnergy: 'Energy',
+  editorMediaPlayer: 'Media Player',
+  editorCamera: 'Camera',
+  editorRoomImages: 'Room Images',
+  editorBackground: 'Background',
+  editorHomeDevices: 'Home Devices',
+  editorHomeRooms: 'Home Rooms',
+  editorHomeScenes: 'Home Scenes',
+  editorHomeEnv: 'Home Environment',
+  editorInfo: 'Info',
+  editorFullscreen: 'Fullscreen',
+  editorUseAreaPictures: 'Use Home Assistant Area Pictures',
 };
 
 export default en;

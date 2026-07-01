@@ -9,7 +9,7 @@
   --sp-room-overlay:linear-gradient(180deg,transparent 40%,rgba(0,0,0,.38));
   --sp-bar-gradient:linear-gradient(180deg,#8ab8cc,#6a9eb0);
   --sp-text-main:#1e2235; --sp-text-muted:rgba(30,34,53,.55); --sp-text-muted-dim:rgba(30,34,53,.42);
-  --sp-text-muted-bright:rgba(30,34,53,.70); --sp-text-alt:#8ab8cc; --sp-text-dark:#0f111a;
+  --sp-text-tertiary:rgba(30,34,53,.42); --sp-text-muted-bright:rgba(30,34,53,.70); --sp-text-alt:#8ab8cc; --sp-text-dark:#0f111a;
   --sp-text-dark-dim:rgba(15,17,26,.55); --sp-text-dark-alpha:rgba(15,17,26,.07);
   --sp-text-down:#8ab8cc;
   --sp-accent:#8ab8cc; --sp-accent-alpha:rgba(138,184,204,.12); --sp-accent-active:rgba(138,184,204,.18); --sp-accent-border:rgba(138,184,204,.28);

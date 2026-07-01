@@ -12,7 +12,7 @@
   --sp-bar-gradient:linear-gradient(180deg,#8fe36f,#477b35);
   /* text */
   --sp-text-main:#ffffff; --sp-text-muted:rgba(255,255,255,.72); --sp-text-muted-dim:rgba(255,255,255,.62);
-  --sp-text-muted-bright:rgba(255,255,255,.84); --sp-text-alt:#ffd45d; --sp-text-dark:#2a221e;
+  --sp-text-tertiary:rgba(255,255,255,.48); --sp-text-muted-bright:rgba(255,255,255,.84); --sp-text-alt:#ffd45d; --sp-text-dark:#2a221e;
   --sp-text-dark-dim:rgba(42,34,30,.62); --sp-text-dark-alpha:rgba(42,34,30,.10);
   --sp-text-dropdown:#f0ebe0; --sp-text-down:#7bd85f;
   /* accent colors */

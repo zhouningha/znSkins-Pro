@@ -63,7 +63,7 @@ const e={base:"base-texture.jpg",stage:"background.jpg",theme_css:"theme.css",av
             <div class="bars">${o}</div>
             <div class="energy-footer"><span class="muted">${Me(this._config?.energy?.compare_text,this._config?.energy?.compare_text_zh,this._config?.energy?.compare_text_en,e,t("compareYesterday"))}</span><span class="down">${a||"--"}</span></div>
           </section>`:""}
-          ${this.renderMediaPlayer(e,t)}
+          ${this.renderMediaPlayer(t)}
           ${this.renderMaintenanceCard(e,t)}
           <section class="glass-card panel-scenes" data-section="scenes">
             <div class="section-title"><h2>${t("scenes")}</h2><p class="muted">${t("modes")}</p></div>
@@ -127,22 +127,28 @@ const e={base:"base-texture.jpg",stage:"background.jpg",theme_css:"theme.css",av
             `})}
           ${this.renderMaintenanceCard(e,t)}
         </div>
-      `)}renderSecurityPage(e,t){const i=this.renderSecurityCards(e);return this.renderPageShell(t("security"),t("securityOverview"),Q``,i!==X?Q`<div class="page-scroll themed-scrollbar"><div class="devices security-grid">${i}</div></div>`:Q`<div class="empty-state">${t("offline")}</div>`)}renderMediaPlayer(e,t){const i=this._config?.media_player?.entity;if(!i)return X;const s=this._hass?.states?.[i];if(!s)return X;const n=s.state,r=s.attributes||{},a=r.media_title||r.friendly_name||i,o=r.media_artist,c=r.entity_picture,d="playing"===n,l="off"===n||"unavailable"===n;return Q`
+      `)}renderSecurityPage(e,t){const i=this.renderSecurityCards(e);return this.renderPageShell(t("security"),t("securityOverview"),Q``,i!==X?Q`<div class="page-scroll themed-scrollbar"><div class="devices security-grid">${i}</div></div>`:Q`<div class="empty-state">${t("offline")}</div>`)}renderMediaPlayer(e){const t=this._config?.media_player?.entity;if(!t)return X;const i=this._hass?.states?.[t];if(!i)return X;const s=i.state;if("off"===s||"unavailable"===s)return X;const n=i.attributes||{},r=n.media_title||n.friendly_name||t,a=n.media_artist,o=n.entity_picture,c=n.app_name||n.source||"",d="playing"===s,l=n.volume_level,h=n.is_volume_muted,u=void 0!==l?Math.round(100*l):void 0;return Q`
       <section class="glass-card panel-media">
-        <div class="section-title"><h2>${t("mediaPlayer")}</h2></div>
-        ${l?Q`<div class="media-off muted">${Le(n,e)}</div>`:Q`
-        <div class="media-info">
-          ${c?Q`<div class="media-thumb"><img alt="" src=${c}></div>`:""}
-          <div class="media-meta">
-            <div class="media-title">${a}</div>
-            ${o?Q`<div class="media-artist muted">${o}</div>`:""}
+        <div class="section-title"><h2>${e("mediaPlayer")}</h2></div>
+        <div class="media-content">
+          ${o?Q`<div class="media-cover"><img alt="" src=${o}></div>`:Q`<div class="media-cover media-cover-null"><ha-icon icon="mdi:music"></ha-icon></div>`}
+          <div class="media-body">
+            <div class="media-title">${r}</div>
+            ${a?Q`<div class="media-artist">${a}</div>`:""}
+            ${c?Q`<div class="media-source">${c}</div>`:""}
           </div>
         </div>
-        <div class="media-controls">
-          <button class="media-btn" @click=${()=>this._hass?.callService("media_player","media_previous_track",{entity_id:i})}><ha-icon icon="mdi:skip-previous"></ha-icon></button>
-          <button class="media-btn media-play" @click=${()=>this._hass?.callService("media_player","media_play_pause",{entity_id:i})}><ha-icon icon=${d?"mdi:pause":"mdi:play"}></ha-icon></button>
-          <button class="media-btn" @click=${()=>this._hass?.callService("media_player","media_next_track",{entity_id:i})}><ha-icon icon="mdi:skip-next"></ha-icon></button>
-        </div>`}
+        <div class="media-actions">
+          <button class="media-btn" @click=${()=>this._hass?.callService("media_player","media_previous_track",{entity_id:t})} title="Previous"><ha-icon icon="mdi:skip-previous"></ha-icon></button>
+          <button class="media-btn media-playbtn" @click=${()=>this._hass?.callService("media_player","media_play_pause",{entity_id:t})} title=${d?"Pause":"Play"}><ha-icon icon=${d?"mdi:pause-circle":"mdi:play-circle"}></ha-icon></button>
+          <button class="media-btn" @click=${()=>this._hass?.callService("media_player","media_next_track",{entity_id:t})} title="Next"><ha-icon icon="mdi:skip-next"></ha-icon></button>
+        </div>
+        ${void 0!==u?Q`
+        <div class="media-volume">
+          <button class="media-volbtn" @click=${()=>this._hass?.callService("media_player","volume_mute",{entity_id:t,is_volume_muted:!h})}><ha-icon icon=${h?"mdi:volume-off":"mdi:volume-high"}></ha-icon></button>
+          <div class="media-voltrack"><div class="media-volfill" style="width:${u}%"></div></div>
+          <span class="media-volpct">${u}%</span>
+        </div>`:""}
       </section>
     `}renderMaintenanceCard(e,t){const i=this.getMaintenanceItemsInternal(e);return 0===i.length?X:Q`
       <section class="glass-card maintenance-card">

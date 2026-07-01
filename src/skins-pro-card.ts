@@ -388,7 +388,7 @@ export class MinecraftDashboardCard extends LitElement {
             <div class="bars">${energyBars}</div>
             <div class="energy-footer"><span class="muted">${localizedText(this._config?.energy?.compare_text, this._config?.energy?.compare_text_zh, this._config?.energy?.compare_text_en, language, translate('compareYesterday'))}</span><span class="down">${compareValue || '--'}</span></div>
           </section>` : ''}
-          ${this.renderMediaPlayer(language, translate)}
+          ${this.renderMediaPlayer(translate)}
           ${this.renderMaintenanceCard(language, translate)}
           <section class="glass-card panel-scenes" data-section="scenes">
             <div class="section-title"><h2>${translate('scenes')}</h2><p class="muted">${translate('modes')}</p></div>
@@ -614,34 +614,44 @@ export class MinecraftDashboardCard extends LitElement {
 
   // ─── Maintenance ────────────────────────────────────────
 
-  private renderMediaPlayer(language: Language, translate: (key: TranslationKey) => string): TemplateResult | typeof nothing {
+  private renderMediaPlayer(translate: (key: TranslationKey) => string): TemplateResult | typeof nothing {
     const entityId = this._config?.media_player?.entity;
     if (!entityId) return nothing;
     const stateObj = this._hass?.states?.[entityId];
     if (!stateObj) return nothing;
     const state = stateObj.state;
+    if (state === 'off' || state === 'unavailable') return nothing;
     const attrs = stateObj.attributes || {};
     const title = (attrs.media_title as string) || (attrs.friendly_name as string) || entityId;
     const artist = attrs.media_artist as string | undefined;
     const albumArt = attrs.entity_picture as string | undefined;
+    const source = (attrs.app_name as string) || (attrs.source as string) || '';
     const isPlaying = state === 'playing';
-    const isOff = state === 'off' || state === 'unavailable';
+    const vol = attrs.volume_level as number | undefined;
+    const isMuted = attrs.is_volume_muted as boolean | undefined;
+    const volPct = vol !== undefined ? Math.round(vol * 100) : undefined;
     return html`
       <section class="glass-card panel-media">
         <div class="section-title"><h2>${translate('mediaPlayer')}</h2></div>
-        ${isOff ? html`<div class="media-off muted">${deviceStateLabel(state, language)}</div>` : html`
-        <div class="media-info">
-          ${albumArt ? html`<div class="media-thumb"><img alt="" src=${albumArt}></div>` : ''}
-          <div class="media-meta">
+        <div class="media-content">
+          ${albumArt ? html`<div class="media-cover"><img alt="" src=${albumArt}></div>` : html`<div class="media-cover media-cover-null"><ha-icon icon="mdi:music"></ha-icon></div>`}
+          <div class="media-body">
             <div class="media-title">${title}</div>
-            ${artist ? html`<div class="media-artist muted">${artist}</div>` : ''}
+            ${artist ? html`<div class="media-artist">${artist}</div>` : ''}
+            ${source ? html`<div class="media-source">${source}</div>` : ''}
           </div>
         </div>
-        <div class="media-controls">
-          <button class="media-btn" @click=${() => this._hass?.callService('media_player', 'media_previous_track', { entity_id: entityId })}><ha-icon icon="mdi:skip-previous"></ha-icon></button>
-          <button class="media-btn media-play" @click=${() => this._hass?.callService('media_player', 'media_play_pause', { entity_id: entityId })}><ha-icon icon=${isPlaying ? 'mdi:pause' : 'mdi:play'}></ha-icon></button>
-          <button class="media-btn" @click=${() => this._hass?.callService('media_player', 'media_next_track', { entity_id: entityId })}><ha-icon icon="mdi:skip-next"></ha-icon></button>
-        </div>`}
+        <div class="media-actions">
+          <button class="media-btn" @click=${() => this._hass?.callService('media_player', 'media_previous_track', { entity_id: entityId })} title="Previous"><ha-icon icon="mdi:skip-previous"></ha-icon></button>
+          <button class="media-btn media-playbtn" @click=${() => this._hass?.callService('media_player', 'media_play_pause', { entity_id: entityId })} title=${isPlaying ? 'Pause' : 'Play'}><ha-icon icon=${isPlaying ? 'mdi:pause-circle' : 'mdi:play-circle'}></ha-icon></button>
+          <button class="media-btn" @click=${() => this._hass?.callService('media_player', 'media_next_track', { entity_id: entityId })} title="Next"><ha-icon icon="mdi:skip-next"></ha-icon></button>
+        </div>
+        ${volPct !== undefined ? html`
+        <div class="media-volume">
+          <button class="media-volbtn" @click=${() => this._hass?.callService('media_player', 'volume_mute', { entity_id: entityId, is_volume_muted: !isMuted })}><ha-icon icon=${isMuted ? 'mdi:volume-off' : 'mdi:volume-high'}></ha-icon></button>
+          <div class="media-voltrack"><div class="media-volfill" style="width:${volPct}%"></div></div>
+          <span class="media-volpct">${volPct}%</span>
+        </div>` : ''}
       </section>
     `;
   }

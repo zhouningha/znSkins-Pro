@@ -37,7 +37,7 @@ Click the button above, or manually:
 3. Refresh Home Assistant frontend<br>刷新 Home Assistant 前端
 4. Settings → Dashboards → Add Dashboard → Select "Skins Pro"<br>设置 → 仪表盘 → 添加新仪表盘 → 选 "Skins Pro"
 
-![New Dashboard](screenshots/New_dashboard.png)
+![New Dashboard](screenshots/add_dashboard.png)
 
 ## Built-in Skins / 内置皮肤
 

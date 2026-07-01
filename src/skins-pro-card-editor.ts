@@ -331,25 +331,19 @@ export class SkinsProCardEditor extends HTMLElement {
         const formData = new FormData();
         formData.append('file', file);
         try {
-          const resp = await fetch('/api/file_upload', {
+          const resp = await fetch('/api/image/upload', {
             method: 'POST',
             headers: { Authorization: `Bearer ${this._hass?.auth?.data?.access_token || ''}` },
             body: formData,
           });
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-          const text = await resp.text();
-          let path = text.trim();
-          try {
-            const j = JSON.parse(text);
-            path = j.path || j.content_id || path;
-          } catch { /* plain text response */ }
-          if (path && !path.startsWith('{') && !path.startsWith('<')) {
-            this.setField('background_image', path);
+          const item = await resp.json();
+          if (item?.id) {
+            this.setField('background_image', `/api/image/serve/${item.id}/original`);
             return;
           }
-          throw new Error('Invalid path');
+          throw new Error('No id in response');
         } catch {
-          // fallback: read as data URL if upload API fails
           const reader = new FileReader();
           reader.onload = () => {
             const dataUrl = reader.result as string;

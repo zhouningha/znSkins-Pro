@@ -87,6 +87,7 @@ export class SkinsProCardEditor extends HTMLElement {
     if (last) cur[last] = value;
     this._config = next;
     fire(this, this._config);
+    this.render();
   }
 
   private setListItem(path: string, index: number, value: string): void {
@@ -335,7 +336,12 @@ export class SkinsProCardEditor extends HTMLElement {
             headers: { Authorization: `Bearer ${this._hass?.auth?.data?.access_token || ''}` },
             body: formData,
           });
-          const path = await resp.text();
+          const text = await resp.text();
+          let path = text.trim();
+          try {
+            const j = JSON.parse(text);
+            if (j.path) path = j.path;
+          } catch { /* plain text response */ }
           if (path) this.setField('background_image', path);
         } catch {
           // fallback: read as data URL if upload API fails

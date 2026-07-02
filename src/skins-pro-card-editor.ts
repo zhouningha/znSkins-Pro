@@ -439,15 +439,17 @@ export class SkinsProCardEditor extends HTMLElement {
       saveBtn.addEventListener('click', () => {
         const checkboxes = this.shadowRoot?.querySelectorAll<HTMLInputElement>('[data-nav-key]');
         if (!checkboxes) return;
+        const existingNav: NavItemConfig[] = this._config?.nav ?? [];
         const dialogNav: NavItemConfig[] = [];
         let allEnabled = true;
         checkboxes.forEach(cb => {
           const key = cb.getAttribute('data-nav-key') || '';
           const checked = cb.checked;
           if (!checked) allEnabled = false;
-          dialogNav.push({ key, ...(checked ? {} : { enabled: false }) });
+          const existingItem = existingNav.find(n => n.key === key);
+          const defaultItem = DEFAULT_NAV.find(d => d.key === key);
+          dialogNav.push({ key, icon: existingItem?.icon || defaultItem?.icon, ...(checked ? {} : { enabled: false }) });
         });
-        const existingNav: NavItemConfig[] = this._config?.nav ?? [];
         const customNav = existingNav.filter(n => !DEFAULT_NAV.some(d => d.key === n.key));
         const mergedNav = [...dialogNav, ...customNav];
         if (allEnabled && customNav.length === 0) {

@@ -50,7 +50,7 @@
   --sp-time-icon-bg:rgba(59,130,246,.08); --sp-maintenance-divider:rgba(255,255,255,.04);
   --sp-weather-bg:rgba(59,130,246,.08);
 }
-ha-card { overflow:hidden; border:0; background:transparent; box-shadow:none; }
+ha-card { overflow:hidden; border:0; background:transparent; box-shadow:none; box-sizing:border-box; }
 .loading-state { padding:var(--sp-space-lg); color:var(--sp-text-main); }
 .mc-app { width:100%; height:var(--sp-runtime-height); min-height:var(--sp-runtime-min-height); padding:var(--sp-app-padding); box-sizing:border-box; color:var(--sp-text-main); display:grid; grid-template-columns:var(--sp-sidebar-width) minmax(0,1fr); gap:16px; background-image:var(--sp-app-overlay),var(--sp-base-texture); background-size:cover,cover; background-position:center,center; background-repeat:no-repeat,no-repeat; background-color:transparent; overflow:hidden; }
 h1,h2,h3,p { margin:0; font:inherit; }

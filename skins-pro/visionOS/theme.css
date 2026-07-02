@@ -142,10 +142,11 @@
    ========================================================================== */
 
 ha-card {
-  overflow: visible;
+  overflow: hidden;
   border: 0;
   background: transparent;
   box-shadow: none;
+  box-sizing: border-box;
 }
 
 h1, h2, h3, p {

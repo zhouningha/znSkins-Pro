@@ -452,12 +452,12 @@ export class SkinsProCardEditor extends HTMLElement {
         });
         const customNav = existingNav.filter(n => !DEFAULT_NAV.some(d => d.key === n.key));
         const mergedNav = [...dialogNav, ...customNav];
+        this._navDialogOpen = false;
         if (allEnabled && customNav.length === 0) {
           this.setField('nav', undefined);
         } else {
           this.setField('nav', mergedNav);
         }
-        this._navDialogOpen = false;
       });
     }
   }

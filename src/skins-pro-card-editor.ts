@@ -1,6 +1,7 @@
 import { SKINS } from './skins.generated';
 import { STRINGS } from './i18n.generated';
-import type { AreaRegistryEntry, HomeAssistant, TranslationKey } from './types';
+import type { AreaRegistryEntry, HomeAssistant, TranslationKey, NavItemConfig } from './types';
+import { DEFAULT_NAV } from './constants';
 import { normalizeLanguage } from './utils';
 
 type DashboardConfigRecord = Record<string, any>;
@@ -29,6 +30,7 @@ export class SkinsProCardEditor extends HTMLElement {
   private _hass?: HomeAssistant;
   private _areas: AreaRegistryEntry[] = [];
   private _areasLoaded = false;
+  private _navDialogOpen = false;
 
   public constructor() {
     super();
@@ -195,6 +197,33 @@ export class SkinsProCardEditor extends HTMLElement {
     `;
   }
 
+  private _navItemChecked(key: string): boolean {
+    const navItems: NavItemConfig[] = this._config?.nav ?? [];
+    const item = navItems.find(n => n.key === key);
+    return item ? item.enabled !== false : true;
+  }
+
+  private _renderNavDialog(): string {
+    const lang = normalizeLanguage(this._hass?.language);
+    return `
+      <div class="nav-overlay" data-nav-overlay>
+        <div class="nav-dialog">
+          <h3>${this._loc('editorNavigation')}</h3>
+          ${DEFAULT_NAV.map(item => `
+            <label class="nav-dialog-item">
+              <span>${STRINGS[lang][(item.key || 'home') as TranslationKey] || item.key}</span>
+              <input type="checkbox" data-nav-key="${item.key}" ${this._navItemChecked(item.key || '') ? 'checked' : ''}>
+            </label>
+          `).join('')}
+          <div class="nav-dialog-actions">
+            <button data-nav-cancel>Cancel</button>
+            <button class="nav-save" data-nav-save>Save</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   private render(): void {
     if (!this.shadowRoot) return;
     const c = this._config || {};
@@ -203,7 +232,7 @@ export class SkinsProCardEditor extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <link rel="stylesheet" href="${this.themeCssUrl()}">
-      <style>.bg-preview{max-width:120px;max-height:60px;border-radius:6px;display:block;flex-shrink:0}.sp-card input[type=checkbox]{width:auto;min-height:auto;margin:0}.sp-card label:has(input[type=checkbox]){display:flex;align-items:center;gap:8px}</style>
+      <style>.bg-preview{max-width:120px;max-height:60px;border-radius:6px;display:block;flex-shrink:0}.sp-card input[type=checkbox]{width:auto;min-height:auto;margin:0}.sp-card label:has(input[type=checkbox]){display:flex;align-items:center;gap:8px}.sp-btn-configure{cursor:pointer}.nav-overlay{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.5);display:${this._navDialogOpen ? 'flex' : 'none'};align-items:center;justify-content:center}.nav-dialog{background:var(--sp-card-bg,var(--ha-card-background,var(--card-background-color,#fff)));border-radius:12px;padding:24px;min-width:280px;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,0.3)}.nav-dialog h3{margin:0 0 16px 0;font-size:16px;font-weight:600}.nav-dialog-item{display:flex;align-items:center;gap:8px;padding:6px 0}.nav-dialog-item input[type=checkbox]{width:auto;min-height:auto;margin:0;margin-left:auto}.nav-dialog-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}.nav-dialog-actions button{cursor:pointer;padding:6px 16px;border-radius:6px;border:1px solid var(--sp-border,var(--divider-color,rgba(0,0,0,0.12)));background:var(--sp-card-bg,var(--ha-card-background,var(--card-background-color,#fff)));font-size:14px}.nav-dialog-actions .nav-save{background:var(--sp-accent,var(--primary-color,#03a9f4));color:#fff;border-color:var(--sp-accent,var(--primary-color,#03a9f4))}</style>
       <div class="sp-wrap">
         <div class="sp-card">
           <h3>${this._loc('editorSkin')}</h3>
@@ -223,14 +252,20 @@ export class SkinsProCardEditor extends HTMLElement {
               <input type="checkbox" data-path="fullscreen"${c.fullscreen ? ' checked' : ''} style="width:18px;height:18px;margin:0">
             </label>
           </div>
-          <label class="sp-field">
-            <span>Background</span>
-            <div style="display:flex;flex-wrap:nowrap;align-items:center;gap:8px">
-              <input type="file" accept="image/*" data-bg-upload style="flex:1;min-width:0">
-              ${c.background_image ? `<img class="bg-preview" src="${c.background_image}"><button class="sp-del" data-bg-clear>✕</button>` : ''}
-              ${!c.background_image ? '' : ''}
-            </div>
-          </label>
+          <div class="sp-row" style="grid-template-columns:1fr 1fr;gap:12px">
+            <label class="sp-field">
+              <span>Background</span>
+              <div style="display:flex;flex-wrap:nowrap;align-items:center;gap:8px">
+                <input type="file" accept="image/*" data-bg-upload style="flex:1;min-width:0">
+                ${c.background_image ? `<img class="bg-preview" src="${c.background_image}"><button class="sp-del" data-bg-clear>✕</button>` : ''}
+                ${!c.background_image ? '' : ''}
+              </div>
+            </label>
+            <label class="sp-field">
+              <span>${this._loc('editorNavigation')}</span>
+              <button class="sp-btn-configure" data-nav-configure>${this._loc('editorNavigationConfigure')}</button>
+            </label>
+          </div>
         </div>
 
         <div class="sp-row">
@@ -274,6 +309,8 @@ export class SkinsProCardEditor extends HTMLElement {
             ${this.listPicker('Environment', 'home_selection.environment', hs.environment || [], ['sensor'], hl.environment || 5)}
           </div>
         </div>
+
+        ${this._renderNavDialog()}
       </div>
     `;
 
@@ -369,6 +406,57 @@ export class SkinsProCardEditor extends HTMLElement {
     const clearBtn = this.shadowRoot.querySelector<HTMLElement>('[data-bg-clear]');
     if (clearBtn) {
       clearBtn.addEventListener('click', () => this.setField('background_image', ''));
+    }
+
+    const configureBtn = this.shadowRoot.querySelector<HTMLElement>('[data-nav-configure]');
+    if (configureBtn) {
+      configureBtn.addEventListener('click', () => {
+        this._navDialogOpen = true;
+        this.render();
+      });
+    }
+
+    const overlay = this.shadowRoot.querySelector<HTMLElement>('[data-nav-overlay]');
+    if (overlay) {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          this._navDialogOpen = false;
+          this.render();
+        }
+      });
+    }
+
+    const cancelBtn = this.shadowRoot.querySelector<HTMLElement>('[data-nav-cancel]');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        this._navDialogOpen = false;
+        this.render();
+      });
+    }
+
+    const saveBtn = this.shadowRoot.querySelector<HTMLElement>('[data-nav-save]');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        const checkboxes = this.shadowRoot?.querySelectorAll<HTMLInputElement>('[data-nav-key]');
+        if (!checkboxes) return;
+        const dialogNav: NavItemConfig[] = [];
+        let allEnabled = true;
+        checkboxes.forEach(cb => {
+          const key = cb.getAttribute('data-nav-key') || '';
+          const checked = cb.checked;
+          if (!checked) allEnabled = false;
+          dialogNav.push({ key, ...(checked ? {} : { enabled: false }) });
+        });
+        const existingNav: NavItemConfig[] = this._config?.nav ?? [];
+        const customNav = existingNav.filter(n => !DEFAULT_NAV.some(d => d.key === n.key));
+        const mergedNav = [...dialogNav, ...customNav];
+        if (allEnabled && customNav.length === 0) {
+          this.setField('nav', undefined);
+        } else {
+          this.setField('nav', mergedNav);
+        }
+        this._navDialogOpen = false;
+      });
     }
   }
 }

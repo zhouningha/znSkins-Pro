@@ -499,7 +499,7 @@ export class MinecraftDashboardCard extends LitElement {
   // ─── Navigation ─────────────────────────────────────────
 
   private renderNav(language: Language): TemplateResult {
-    return html`${(this._config?.nav || []).map((item, index) => {
+    return html`${(this._config?.nav || []).filter(item => item.enabled !== false).map((item, index) => {
       const label = localizedText(item.label, item.label_zh, item.label_en, language, STRINGS[language][(item.key as TranslationKey) || 'home'] || item.key || '');
       const target = item.target || item.key || 'home';
       const isActive = target === this._view || (index === 0 && this._view === 'home' && target === 'home');

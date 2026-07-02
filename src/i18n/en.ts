@@ -53,6 +53,8 @@ const en: Record<TranslationKey, string> = {
   editorInfo: 'Info',
   editorFullscreen: 'Fullscreen',
   editorUseAreaPictures: 'Use Home Assistant Area Pictures',
+  editorNavigation: 'Navigation (optional)',
+  editorNavigationConfigure: 'Configure',
 };
 
 export default en;

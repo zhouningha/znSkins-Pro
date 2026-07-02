@@ -53,6 +53,8 @@ const zh: Record<TranslationKey, string> = {
   editorInfo: '信息展示',
   editorFullscreen: '全屏',
   editorUseAreaPictures: '使用 Home Assistant 区域图片',
+  editorNavigation: '导航菜单（可选）',
+  editorNavigationConfigure: '配置',
 };
 
 export default zh;

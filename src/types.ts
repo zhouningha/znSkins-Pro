@@ -58,6 +58,7 @@ export interface NavItemConfig {
   label_en?: string;
   icon?: string;
   target?: string;
+  enabled?: boolean;
 }
 
 export interface DeviceConfig {
@@ -252,7 +253,9 @@ export type TranslationKey =
   | 'editorHomeEnv'
   | 'editorInfo'
   | 'editorFullscreen'
-  | 'editorUseAreaPictures';
+  | 'editorUseAreaPictures'
+  | 'editorNavigation'
+  | 'editorNavigationConfigure';
 
 export interface EnergySourceData {
   key: TranslationKey;

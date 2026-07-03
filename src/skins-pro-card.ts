@@ -959,6 +959,7 @@ export class MinecraftDashboardCard extends LitElement {
       picture: area.picture,
       summary: this.areaSummaryById(area.area_id, language),
       counts: this.areaCounts(area.area_id),
+      activeCounts: this.areaActiveCounts(area.area_id),
       scenes: this.areaScenes(area.area_id, area.name),
     }));
 
@@ -980,6 +981,17 @@ export class MinecraftDashboardCard extends LitElement {
         </div>
       ` : nothing;
 
+      const activeCountsRow = room.activeCounts.length > 0 ? html`
+        <div class="room-active">
+          ${room.activeCounts.map((g) => html`
+            <button class="room-active-chip" @click=${(e: Event) => { e.stopPropagation(); this.turnOffAreaType(g.domain, g.entityIds); }}>
+              <span>${g.label} ${g.count}</span>
+              <span class="room-active-close">&times;</span>
+            </button>
+          `)}
+        </div>
+      ` : nothing;
+
       if (showSummary) {
         return html`
           <button class="room">
@@ -989,6 +1001,7 @@ export class MinecraftDashboardCard extends LitElement {
               <h3>${room.name}</h3>
               <p class="muted">${room.summary}</p>
             </div>
+            ${activeCountsRow}
           </button>
         `;
       }
@@ -1004,6 +1017,7 @@ export class MinecraftDashboardCard extends LitElement {
             <p class="muted">${room.summary}</p>
             <p class="room-stats">${countLabel}</p>
           </div>
+          ${activeCountsRow}
         </button>
       `;
     })}`;
@@ -1077,6 +1091,61 @@ export class MinecraftDashboardCard extends LitElement {
       });
 
     return { devices: deviceIds.size, entities: areaEntities.length };
+  }
+
+  private areaActiveCounts(areaId: string): Array<{ domain: string; label: string; count: number; entityIds: string[] }> {
+    if (!areaId || !this._hass) return [];
+
+    const areaDeviceIds = new Set(
+      (this._deviceRegistry || [])
+        .filter((d) => d.area_id === areaId && !d.disabled_by)
+        .map((d) => d.id)
+    );
+
+    const entries = (this._entityRegistry || [])
+      .filter((e) => {
+        if (e.hidden_by || e.disabled_by) return false;
+        return e.area_id === areaId || (e.device_id && areaDeviceIds.has(e.device_id));
+      })
+      .map((e) => e.entity_id);
+
+    const readonlyDomains = new Set(['sensor', 'binary_sensor', 'remote']);
+    const active = entries.filter((eid) => {
+      const state = this._hass?.states[eid]?.state;
+      if (!state || state !== 'on') return false;
+      const domain = eid.split('.')[0];
+      return domain && !readonlyDomains.has(domain);
+    });
+
+    const byDomain = new Map<string, string[]>();
+    for (const eid of active) {
+      const domain = eid.split('.')[0] || 'other';
+      const list = byDomain.get(domain) || [];
+      list.push(eid);
+      byDomain.set(domain, list);
+    }
+
+    const labelMap: Record<string, string> = {
+      light: '\u706F', switch: '\u5F00\u5173', climate: '\u7A7A\u8C03',
+      fan: '\u98CE\u6247', cover: '\u7A97\u5E18', lock: '\u95E8\u9501',
+      media_player: '\u97F3\u54CD', vacuum: '\u626B\u5730', humidifier: '\u52A0\u6E7F',
+      water_heater: '\u70ED\u6C34', valve: '\u9600\u95E8', automation: '\u81EA\u52A8\u5316',
+    };
+
+    return [...byDomain.entries()]
+      .map(([domain, entityIds]) => ({
+        domain,
+        label: labelMap[domain] || domain,
+        count: entityIds.length,
+        entityIds,
+      }))
+      .filter((g) => g.count > 0)
+      .sort((a, b) => b.count - a.count);
+  }
+
+  private turnOffAreaType(domain: string, entityIds: string[]): void {
+    const service = domain === 'lock' ? 'lock' : 'turn_off';
+    void this._hass?.callService(domain, service, { entity_id: entityIds });
   }
 
   private areaScenes(areaId: string, roomName?: string): Array<{ entity_id: string; name: string }> {

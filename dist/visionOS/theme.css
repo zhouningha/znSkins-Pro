@@ -1119,12 +1119,11 @@ button {
   position: absolute;
   top: 10px;
   right: 10px;
-  left: 10px;
   z-index: 2;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 4px;
-  justify-content: flex-end;
+  align-items: flex-end;
   pointer-events: none;
 }
 
@@ -1152,6 +1151,10 @@ button {
 .room-scene-chip:hover {
   background: rgba(255,255,255,0.85);
 }
+.room-active { position:absolute; z-index:2; top:10px; left:10px; display:flex; flex-direction:column; gap:4px; align-items:flex-start; pointer-events:none; }
+.room-active-chip { pointer-events:auto; display:inline-flex; align-items:center; gap:4px; border:0.5px solid var(--sp-border-subtle); border-radius:var(--sp-radius-infinite); padding:4px 14px; background:var(--glass-ultra-thick); color:var(--sp-text-primary); cursor:pointer; font-size:var(--sp-font-sm); font-weight:var(--sp-font-weight-medium); white-space:nowrap; backdrop-filter:var(--sp-blur-2xs); -webkit-backdrop-filter:var(--sp-blur-2xs); transition:background var(--sp-duration-fast) var(--sp-ease-glass); box-shadow:var(--glass-highlight); }
+.room-active-chip:hover { background:rgba(255,59,48,0.45); }
+.room-active-close { font-size:var(--sp-font-2xs); opacity:.8; margin-left:2px; }
 
 /* ==========================================================================
    16. Side Panel (Right Column)

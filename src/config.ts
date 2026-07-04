@@ -1,5 +1,15 @@
-import type { DashboardConfig, HomeAssistant, HassEntity } from './types';
+import type { DashboardConfig, HomeAssistant, HassEntity, SecurityConfig, DevicesPageConfig } from './types';
 import { DEFAULT_CONFIG, DEFAULT_DEVICES, DEFAULT_ENVIRONMENT, DEFAULT_SCENES } from './constants';
+
+export function normalizeSecurityEntities(security?: SecurityConfig): string[] {
+  const selected = (security?.entities || []).filter(Boolean);
+  if (selected.length > 0) return selected;
+  return (security?.cameras || []).filter(Boolean);
+}
+
+export function normalizeDevicesHidden(devicesPage?: DevicesPageConfig): string[] {
+  return [...new Set((devicesPage?.hidden || []).filter(Boolean))];
+}
 
 export function mergeConfig(config: DashboardConfig): DashboardConfig {
   return {
@@ -37,6 +47,16 @@ export function mergeConfig(config: DashboardConfig): DashboardConfig {
       ...DEFAULT_CONFIG.camera,
       ...config.camera,
     },
+    security: {
+      ...DEFAULT_CONFIG.security,
+      ...config.security,
+      entities: normalizeSecurityEntities(config.security),
+    },
+    devices_page: {
+      ...DEFAULT_CONFIG.devices_page,
+      ...config.devices_page,
+      hidden: normalizeDevicesHidden(config.devices_page),
+    },
     home_limits: {
       ...DEFAULT_CONFIG.home_limits,
       ...config.home_limits,
@@ -51,6 +71,7 @@ export function mergeConfig(config: DashboardConfig): DashboardConfig {
     environment: config.environment && config.environment.length > 0 ? config.environment : DEFAULT_CONFIG.environment,
     nav: config.nav && config.nav.length > 0
       ? [...config.nav, ...(DEFAULT_CONFIG.nav || []).filter((defaultItem) => !config.nav?.some((item) => (item.key || item.target) === (defaultItem.key || defaultItem.target)))]
+          .map((item) => ({ ...item, enabled: item.enabled !== false }))
       : DEFAULT_CONFIG.nav,
   };
 }

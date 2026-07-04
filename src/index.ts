@@ -59,6 +59,7 @@ class SkinsProStrategy {
           info: { ...autoConfig.info, ...sc('info') },
           resource_pack: { ...autoConfig.resource_pack, ...sc('resource_pack') },
           home_selection: { ...autoConfig.home_selection, ...sc('home_selection') },
+          devices_page: { ...autoConfig.devices_page, ...sc('devices_page') },
         };
       } catch (err) {
         console.error('[SkinsPro] generate error', err);

@@ -139,6 +139,20 @@ export interface CameraConfig {
   entity?: string;
 }
 
+export interface SecurityConfig {
+  /** Only these entities appear on the security page. */
+  entities?: string[];
+  /** @deprecated use entities */
+  exclude?: string[];
+  /** @deprecated use entities */
+  cameras?: string[];
+}
+
+export interface DevicesPageConfig {
+  /** Entity IDs hidden from the devices page (long-press to hide). */
+  hidden?: string[];
+}
+
 export interface HomeLimitsConfig {
   devices?: number;
   rooms?: number;
@@ -183,6 +197,8 @@ export interface DashboardConfig {
   energy?: EnergyConfig;
   media_player?: MediaPlayerConfig;
   camera?: CameraConfig;
+  security?: SecurityConfig;
+  devices_page?: DevicesPageConfig;
   home_limits?: HomeLimitsConfig;
   home_selection?: HomeSelectionConfig;
 }
@@ -243,10 +259,18 @@ export type TranslationKey =
   | 'mediaPlayer'
   | 'showAll'
   | 'hideUnassigned'
+  | 'hideDeviceHint'
+  | 'showHiddenDevices'
+  | 'deviceHidden'
+  | 'deviceHiddenDone'
+  | 'deviceRestored'
   | 'editorSkin'
   | 'editorEnergy'
   | 'editorMediaPlayer'
   | 'editorCamera'
+  | 'editorSecurity'
+  | 'editorSecurityEntities'
+  | 'editorSecurityEntitiesHint'
   | 'editorHomeDevices'
   | 'editorHomeRooms'
   | 'editorHomeScenes'

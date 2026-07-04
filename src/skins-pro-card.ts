@@ -31,6 +31,7 @@ import {
   assetHref,
   assetKeyForDomain,
   assetUrl,
+  cameraSnapshotUrl,
   dateText,
   deviceStateLabel,
   formatNumber,
@@ -38,6 +39,8 @@ import {
   iconForDomain,
   localizedText,
   normalizeLanguage,
+  refreshAssetVersionFromServer,
+  fetchCameraSnapshotUrl,
   selectedSkin,
   skinString,
   stateValue,
@@ -45,7 +48,7 @@ import {
   weatherIcon,
 } from './utils';
 
-import { mergeConfig } from './config';
+import { mergeConfig, normalizeDevicesHidden } from './config';
 
 import { fetchEnergyHistory, fetchEnergySources } from './energy';
 
@@ -68,6 +71,18 @@ export class MinecraftDashboardCard extends LitElement {
   @state() private _filterRoom = '';
   @state() private _filterType = '';
   @state() private _hideUnassigned = true;
+  @state() private _showHiddenDevices = false;
+  @state() private _deviceHideToast = '';
+
+  @state() private _cameraSnapshots: Record<string, string> = {};
+  private _cameraSnapshotBlobs = new Set<string>();
+  private _cameraSnapshotLoads = new Set<string>();
+
+  private _longPressEntity = '';
+  private _longPressTimer?: ReturnType<typeof setTimeout>;
+  private _longPressDone = false;
+  private _devicesHiddenHaSyncTimer?: ReturnType<typeof setTimeout>;
+  private _devicesHiddenHaSyncing = false;
 
   @state() private _areas?: AreaRegistryEntry[];
   @state() private _entityRegistry?: EntityRegistryEntry[];
@@ -109,15 +124,30 @@ export class MinecraftDashboardCard extends LitElement {
 
   public connectedCallback(): void {
     super.connectedCallback();
+    try {
+      const savedView = window.sessionStorage.getItem('skins-pro.view');
+      const valid: ViewName[] = ['home', 'devices', 'rooms', 'scenes', 'automations', 'security', 'energy'];
+      if (savedView && valid.includes(savedView as ViewName)) {
+        this._view = savedView as ViewName;
+      }
+    } catch {
+      // ignore
+    }
     window.addEventListener('resize', this._handleWindowResize);
+    void refreshAssetVersionFromServer().then((changed) => {
+      if (changed) this.requestUpdate();
+    });
     if (this._hass && this._config?.weather?.entity && this._weatherForecastEntity !== this._config.weather.entity) {
       void this.loadWeatherForecast();
     }
+    void this.refreshVisibleCameraSnapshots();
   }
 
   public disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('resize', this._handleWindowResize);
+    window.clearTimeout(this._devicesHiddenHaSyncTimer);
+    this._revokeCameraSnapshots();
     void this.unsubscribeWeatherForecast();
   }
 
@@ -125,7 +155,8 @@ export class MinecraftDashboardCard extends LitElement {
     if (!config || config.type !== 'custom:skins-pro-card') {
       throw new Error('Card type must be custom:skins-pro-card');
     }
-    this._config = mergeConfig(config);
+    const merged = this.mergeDevicesHiddenFromSources(config);
+    this._config = merged;
     this._energyHistory = undefined;
     this._energyYesterday = undefined;
     this._energyHistoryDone = false;
@@ -148,6 +179,7 @@ export class MinecraftDashboardCard extends LitElement {
       void this.loadEntityRegistry();
       void this.loadDeviceRegistry();
       void this.loadEnergyHistory();
+      void this.refreshVisibleCameraSnapshots();
     }
     const weatherEntity = this._config?.weather?.entity;
     if (weatherEntity && this._weatherForecastEntity !== weatherEntity) {
@@ -367,12 +399,11 @@ export class MinecraftDashboardCard extends LitElement {
     const alarmIcon = alarmIconMap[alarmState] || 'mdi:shield-lock';
 
     const cameraCard = hasCamera ? (() => {
-      const accessToken = String(cameraState?.attributes?.access_token || '');
-      const snapshotUrl = accessToken ? `/api/camera_proxy/${cameraEntityId}?token=${encodeURIComponent(accessToken)}&ts=${Date.now()}` : '';
+      const snapshotUrl = this.getCameraSnapshotSrc(cameraEntityId);
       return html`
         <section class="glass-card panel-camera" @click=${() => this.handleAction(cameraEntityId, 'more-info')}>
           <div class="section-title"><h2>${cameraState?.attributes?.friendly_name || cameraEntityId}</h2></div>
-          <div class="camera-preview"><img alt="" src=${snapshotUrl}></div>
+          <div class="camera-preview">${snapshotUrl ? html`<img alt="" src=${snapshotUrl}>` : html`<div class="camera-loading">${language === 'zh-CN' ? '加载中…' : 'Loading…'}</div>`}</div>
         </section>
       `;
     })() : nothing;
@@ -500,7 +531,7 @@ export class MinecraftDashboardCard extends LitElement {
   // ─── Navigation ─────────────────────────────────────────
 
   private renderNav(language: Language): TemplateResult {
-    return html`${(this._config?.nav || []).filter(item => item.enabled).map((item, index) => {
+    return html`${(this._config?.nav || []).filter(item => item.enabled !== false).map((item, index) => {
       const label = localizedText(item.label, item.label_zh, item.label_en, language, STRINGS[language][(item.key as TranslationKey) || 'home'] || item.key || '');
       const target = item.target || item.key || 'home';
       const isActive = target === this._view || (index === 0 && this._view === 'home' && target === 'home');
@@ -551,12 +582,15 @@ export class MinecraftDashboardCard extends LitElement {
             <option value="true" .selected=${this._hideUnassigned}>${translate('hideUnassigned')}</option>
             <option value="false" .selected=${!this._hideUnassigned}>${translate('showAll')}</option>
           </select>
+          <button class="chip${this._showHiddenDevices ? ' active' : ''}" @click=${() => { this._showHiddenDevices = !this._showHiddenDevices; }}>${translate('showHiddenDevices')}${this.getHiddenDeviceIds().length > 0 ? html` (${this.getHiddenDeviceIds().length})` : nothing}</button>
+          <span class="muted device-hide-hint" style="font-size:12px;opacity:0.85;">${translate('hideDeviceHint')}</span>
           <button class="action-btn" @click=${() => this.batchControl('on', translate)}>${translate('turnOnAll')}</button>
           <button class="action-btn" @click=${() => this.batchControl('off', translate)}>${translate('turnOffAll')}</button>
         </div>
       `,
       html`
         <div class="page-scroll themed-scrollbar">
+          ${this._deviceHideToast ? html`<div class="device-hide-toast" style="position:sticky;top:0;z-index:3;padding:10px 12px;margin:0 0 10px;border-radius:12px;background:rgba(20,10,8,0.82);color:#fff;text-align:center;font-size:13px;">${this._deviceHideToast}</div>` : nothing}
           ${this.renderRealDeviceGroups(language, translate)}
         </div>
       `
@@ -1208,6 +1242,176 @@ export class MinecraftDashboardCard extends LitElement {
 
   // ─── Device list for render ─────────────────────────────
 
+  private getHiddenDeviceIds(): string[] {
+    return normalizeDevicesHidden(this._config?.devices_page);
+  }
+
+  private isDeviceHidden(entityId: string): boolean {
+    return this.getHiddenDeviceIds().includes(entityId);
+  }
+
+  private showDeviceHideToast(message: string): void {
+    this._deviceHideToast = message;
+    window.setTimeout(() => {
+      if (this._deviceHideToast === message) {
+        this._deviceHideToast = '';
+      }
+    }, 1800);
+  }
+
+  private onDevicePointerDown(e: PointerEvent, entityId: string, language: Language): void {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    e.preventDefault();
+    this._longPressDone = false;
+    this._longPressEntity = entityId;
+    window.clearTimeout(this._longPressTimer);
+    this._longPressTimer = window.setTimeout(() => {
+      if (this._longPressEntity !== entityId) return;
+      this._longPressDone = true;
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(20);
+      }
+      void this.toggleDeviceHidden(entityId, language);
+    }, 650);
+  }
+
+  private onDevicePointerEnd(): void {
+    window.clearTimeout(this._longPressTimer);
+    this._longPressEntity = '';
+  }
+
+  private onDeviceClick(e: Event, entityId: string, action: string): void {
+    if (this._longPressDone) {
+      this._longPressDone = false;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    this.handleAction(entityId, action);
+  }
+
+  private toggleDeviceHidden(entityId: string, language: Language): void {
+    const hidden = new Set(this.getHiddenDeviceIds());
+    const name = String(this._hass?.states?.[entityId]?.attributes?.friendly_name || entityId);
+    const translate = getTranslate(language);
+
+    if (hidden.has(entityId)) {
+      hidden.delete(entityId);
+      this.showDeviceHideToast(`${name} · ${translate('deviceRestored')}`);
+    } else {
+      hidden.add(entityId);
+      this.showDeviceHideToast(`${name} · ${translate('deviceHiddenDone')}`);
+    }
+
+    this.persistDevicesHidden([...hidden]);
+  }
+
+  private getLovelaceUrlPath(): string {
+    const parts = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/');
+    if (parts[0] === 'lovelace' && parts[1]) return parts[1];
+    const skip = new Set(['config', 'developer-tools', 'history', 'logbook', 'media-browser', 'profile', 'hacs']);
+    if (parts[0] && !skip.has(parts[0])) return parts[0];
+    return 'lovelace';
+  }
+
+  private syncDevicesHiddenStorage(hidden: string[]): void {
+    try {
+      const userId = this._hass?.user?.id || 'default';
+      window.localStorage.setItem(`skins-pro.devices.hidden.${userId}`, JSON.stringify(hidden));
+      window.localStorage.setItem('skins-pro.devices.hidden', JSON.stringify(hidden));
+    } catch {
+      // ignore
+    }
+  }
+
+  /** HA config is primary for cross-device; localStorage covers unsaved edits on this browser. */
+  private mergeDevicesHiddenFromSources(config: DashboardConfig): DashboardConfig {
+    const merged = mergeConfig(config);
+    const haHidden = normalizeDevicesHidden(config.devices_page);
+    let localHidden: string[] = [];
+    try {
+      const userId = this._hass?.user?.id || 'default';
+      const stored =
+        window.localStorage.getItem(`skins-pro.devices.hidden.${userId}`)
+        || window.localStorage.getItem('skins-pro.devices.hidden');
+      if (stored) {
+        const parsed = JSON.parse(stored) as unknown;
+        if (Array.isArray(parsed)) localHidden = parsed.filter(Boolean) as string[];
+      }
+    } catch {
+      // ignore
+    }
+    const hidden = [...new Set([...haHidden, ...localHidden])];
+    merged.devices_page = { ...merged.devices_page, hidden };
+    if (hidden.length > 0) this.syncDevicesHiddenStorage(hidden);
+    return merged;
+  }
+
+  private persistDevicesHidden(hidden: string[]): void {
+    const normalized = [...new Set(hidden.filter(Boolean))];
+    this._config = mergeConfig({
+      ...this._config!,
+      devices_page: { hidden: normalized },
+    });
+    this.syncDevicesHiddenStorage(normalized);
+    this.scheduleDevicesHiddenHaSync(normalized);
+    this.requestUpdate();
+  }
+
+  private scheduleDevicesHiddenHaSync(hidden: string[]): void {
+    window.clearTimeout(this._devicesHiddenHaSyncTimer);
+    this._devicesHiddenHaSyncTimer = window.setTimeout(() => {
+      void this.flushDevicesHiddenHaSync(hidden);
+    }, 2000);
+  }
+
+  private async flushDevicesHiddenHaSync(hidden: string[]): Promise<void> {
+    if (this._devicesHiddenHaSyncing) {
+      this.scheduleDevicesHiddenHaSync(hidden);
+      return;
+    }
+    const conn = this._hass?.connection;
+    if (!conn) return;
+
+    const normalized = [...new Set(hidden.filter(Boolean))];
+    const urlPath = this.getLovelaceUrlPath();
+
+    try {
+      window.sessionStorage.setItem('skins-pro.view', this._view);
+    } catch {
+      // ignore
+    }
+
+    this._devicesHiddenHaSyncing = true;
+    try {
+      const raw = await conn.sendMessagePromise<Record<string, unknown>>({
+        type: 'lovelace/config',
+        url_path: urlPath,
+      });
+      const strategy = ((raw.strategy || raw) as Record<string, unknown>) || {};
+      const existingDevicesPage =
+        typeof strategy.devices_page === 'object' && strategy.devices_page
+          ? (strategy.devices_page as Record<string, unknown>)
+          : {};
+      const nextStrategy = {
+        ...strategy,
+        devices_page: {
+          ...existingDevicesPage,
+          hidden: normalized,
+        },
+      };
+      await conn.sendMessagePromise({
+        type: 'lovelace/config/save',
+        url_path: urlPath,
+        config: { strategy: nextStrategy },
+      });
+    } catch (err) {
+      console.warn('[Skins Pro] sync devices.hidden to HA failed', err);
+    } finally {
+      this._devicesHiddenHaSyncing = false;
+    }
+  }
+
   private getRealDevicesForRender(ignoreFilter = false): RenderedDevice[] {
     if (!this._deviceRegistry || !this._entityRegistry || !this._hass) return [];
 
@@ -1247,6 +1451,9 @@ export class MinecraftDashboardCard extends LitElement {
       .filter((device): device is RenderedDevice => Boolean(device))
       .filter((d) => {
         if (ignoreFilter) return true;
+        const hidden = this.isDeviceHidden(d.entityId);
+        if (this._showHiddenDevices) return hidden;
+        if (hidden) return false;
         if (this._filterRoom && d.subtitle !== this._filterRoom) return false;
         if (this._filterType && d.detail !== this._filterType) return false;
         if (this._hideUnassigned && !d.subtitle) return false;
@@ -1265,7 +1472,10 @@ export class MinecraftDashboardCard extends LitElement {
   private renderRealDeviceGroups(language: Language, translate: (key: TranslationKey) => string): TemplateResult | typeof nothing {
     const devices = this.getRealDevicesForRender();
     if (devices.length === 0) {
-      return html`<div class="empty-state">${translate('noDevices')}</div>`;
+      const emptyText = this._showHiddenDevices
+        ? (language === 'zh-CN' ? '没有已隐藏的设备' : 'No hidden devices')
+        : translate('noDevices');
+      return html`<div class="empty-state">${emptyText}</div>`;
     }
 
     const groups = new Map<string, RenderedDevice[]>();
@@ -1301,10 +1511,21 @@ export class MinecraftDashboardCard extends LitElement {
               this._hass?.callService('media_player', 'volume_set', { entity_id: device.entityId, volume_level: pct });
             };
             return html`
-              <button class="device ${statusClass}" @click=${() => this.handleAction(device.entityId, action)}>
+              <button
+                class="device ${statusClass}${this.isDeviceHidden(device.entityId) ? ' device-hidden-item' : ''}"
+                @pointerdown=${(e: PointerEvent) => this.onDevicePointerDown(e, device.entityId, language)}
+                @pointerup=${() => this.onDevicePointerEnd()}
+                @pointerleave=${() => this.onDevicePointerEnd()}
+                @pointercancel=${() => this.onDevicePointerEnd()}
+                @contextmenu=${(e: Event) => e.preventDefault()}
+                @click=${(e: Event) => this.onDeviceClick(e, device.entityId, action)}
+              >
                 <div class="device-top">
                   ${albumArt ? html`<img class="item-img" src=${albumArt} alt="">` : this.renderImage(assetKey, device.name, 'item-img')}
-                  <div class="tag-stack"><div class="status">${stateLabel}</div></div>
+                  <div class="tag-stack">
+                    ${this.isDeviceHidden(device.entityId) ? html`<div class="status">${translate('deviceHidden')}</div>` : nothing}
+                    <div class="status">${stateLabel}</div>
+                  </div>
                 </div>
                 <div class="device-copy"><p class="device-name">${device.name}</p><p class="muted">${device.subtitle}</p></div>
                 <div class="control-row"><span class="state-word">${device.detail}</span>${action === 'play-pause' ? html`
@@ -1379,18 +1600,91 @@ export class MinecraftDashboardCard extends LitElement {
 
   // ─── Security ──────────────────────────────────────────
 
-  private renderSecurityCards(language: Language): TemplateResult | typeof nothing {
-    if (!this._hass) return nothing;
+  private _revokeCameraSnapshots(): void {
+    for (const url of this._cameraSnapshotBlobs) {
+      URL.revokeObjectURL(url);
+    }
+    this._cameraSnapshotBlobs.clear();
+    this._cameraSnapshots = {};
+    this._cameraSnapshotLoads.clear();
+  }
 
-    const entities = Object.values(this._hass.states)
-      .filter((entity): entity is HassEntity => Boolean(entity?.entity_id && /^(camera|lock|alarm_control_panel|binary_sensor)\./.test(entity.entity_id)))
-      .filter((entity) => {
-        if (entity.entity_id.startsWith('binary_sensor.')) {
-          return /door|window|motion|contact|lock/i.test(entity.entity_id);
+  private getCameraSnapshotSrc(entityId: string): string {
+    return this._cameraSnapshots[entityId] || cameraSnapshotUrl(entityId, this._hass?.states?.[entityId]) || '';
+  }
+
+  private async refreshVisibleCameraSnapshots(): Promise<void> {
+    if (!this._hass) return;
+
+    const entityIds = new Set<string>();
+    const homeCamera = this._config?.camera?.entity;
+    if (homeCamera && (this._view === 'home' || !this._view)) {
+      entityIds.add(homeCamera);
+    }
+    if (this._view === 'security') {
+      for (const entity of this.getSecurityEntities()) {
+        if (entity.entity_id.startsWith('camera.')) {
+          entityIds.add(entity.entity_id);
         }
-        return true;
-      })
-      .slice(0, 12);
+      }
+    }
+    if (entityIds.size === 0) return;
+
+    let changed = false;
+    await Promise.all([...entityIds].map(async (entityId) => {
+      if (this._cameraSnapshotLoads.has(entityId)) return;
+      const stateObj = this._hass?.states?.[entityId];
+      const direct = cameraSnapshotUrl(entityId, stateObj);
+      if (direct) {
+        if (this._cameraSnapshots[entityId] !== direct) {
+          this._cameraSnapshots = { ...this._cameraSnapshots, [entityId]: direct };
+          changed = true;
+        }
+        return;
+      }
+      this._cameraSnapshotLoads.add(entityId);
+      try {
+        const blobUrl = await fetchCameraSnapshotUrl(this._hass, entityId, stateObj);
+        if (!blobUrl) return;
+        const prev = this._cameraSnapshots[entityId];
+        if (prev && this._cameraSnapshotBlobs.has(prev)) {
+          URL.revokeObjectURL(prev);
+          this._cameraSnapshotBlobs.delete(prev);
+        }
+        if (blobUrl.startsWith('blob:')) {
+          this._cameraSnapshotBlobs.add(blobUrl);
+        }
+        this._cameraSnapshots = { ...this._cameraSnapshots, [entityId]: blobUrl };
+        changed = true;
+      } finally {
+        this._cameraSnapshotLoads.delete(entityId);
+      }
+    }));
+
+    if (changed) {
+      this.requestUpdate();
+    }
+  }
+
+  private getSecurityEntities(): HassEntity[] {
+    if (!this._hass) return [];
+
+    const allowed = (this._config?.security?.entities || []).filter(Boolean);
+    if (allowed.length === 0) return [];
+
+    return allowed
+      .map((entityId) => this._hass?.states?.[entityId])
+      .filter((entity): entity is HassEntity => Boolean(entity?.entity_id))
+      .filter((entity) => !this.isSecurityEntityHidden(entity.entity_id));
+  }
+
+  private isSecurityEntityHidden(entityId: string): boolean {
+    const entry = this._entityRegistry?.find((item) => item.entity_id === entityId);
+    return Boolean(entry?.hidden_by || entry?.disabled_by);
+  }
+
+  private renderSecurityCards(language: Language): TemplateResult | typeof nothing {
+    const entities = this.getSecurityEntities().slice(0, 12);
 
     if (entities.length === 0) return nothing;
 
@@ -1401,18 +1695,10 @@ export class MinecraftDashboardCard extends LitElement {
 
     const cameraCards = cameras.map(entity => {
       const stateLabel = deviceStateLabel(entity.state, language);
-      const stateObj = this._hass?.states?.[entity.entity_id];
-      const entityPicture = String(stateObj?.attributes?.entity_picture || '');
-      const accessToken = String(stateObj?.attributes?.access_token || '');
-      const baseUrl = entityPicture
-        || (accessToken
-          ? `/api/camera_proxy/${entity.entity_id}?token=${encodeURIComponent(accessToken)}`
-          : '');
-      const sep = baseUrl.includes('?') ? '&' : '?';
-      const snapshotUrl = baseUrl ? `${baseUrl}${sep}ts=${Date.now()}` : '';
+      const snapshotUrl = this.getCameraSnapshotSrc(entity.entity_id);
       return html`
         <button class="camera-card" @click=${() => this.handleAction(entity.entity_id, 'more-info')}>
-          <div class="camera-preview"><img alt=${String(entity.attributes?.friendly_name || entity.entity_id)} src=${snapshotUrl}></div>
+          <div class="camera-preview">${snapshotUrl ? html`<img alt=${String(entity.attributes?.friendly_name || entity.entity_id)} src=${snapshotUrl}>` : html`<div class="camera-loading">${language === 'zh-CN' ? '加载中…' : 'Loading…'}</div>`}</div>
           <div class="camera-meta">
             <div>
               <p class="device-name">${String(entity.attributes?.friendly_name || entity.entity_id)}</p>
@@ -1521,6 +1807,14 @@ export class MinecraftDashboardCard extends LitElement {
     const valid: ViewName[] = ['home', 'devices', 'rooms', 'scenes', 'automations', 'security', 'energy'];
     if (valid.includes(target as ViewName)) {
       this._view = target as ViewName;
+      try {
+        window.sessionStorage.setItem('skins-pro.view', target);
+      } catch {
+        // ignore
+      }
+      if (target === 'security' || target === 'home') {
+        void this.refreshVisibleCameraSnapshots();
+      }
     }
   }
 

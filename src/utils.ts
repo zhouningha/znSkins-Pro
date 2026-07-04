@@ -1,8 +1,9 @@
-import type { HomeAssistant, DashboardConfig, TranslationKey } from './types';
+import type { HomeAssistant, DashboardConfig, TranslationKey, HassEntity } from './types';
 import type { Language } from './i18n.generated';
 import { SKINS, DEFAULT_SKIN, SKIN_STRINGS, SKIN_ICON_MAPS } from './skins.generated';
 import { DEFAULT_ASSETS } from './constants';
 import { STRINGS } from './i18n.generated';
+import { BUILD_VERSION } from './version.generated';
 
 export const BUNDLED_SKINS: readonly string[] = SKINS;
 
@@ -190,6 +191,86 @@ export function selectedSkin(config?: DashboardConfig): string {
   return matchedSkin || DEFAULT_SKIN;
 }
 
+function getAssetVersionKey(): string {
+  if (typeof window === 'undefined') return BUILD_VERSION;
+  const w = window as Window & { __skinsProAssetV?: string };
+  if (!w.__skinsProAssetV) {
+    w.__skinsProAssetV = `${BUILD_VERSION}-${Date.now()}`;
+  }
+  return w.__skinsProAssetV;
+}
+
+export function setRuntimeAssetVersion(version: string): boolean {
+  if (typeof window === 'undefined') return false;
+  const w = window as Window & { __skinsProAssetV?: string };
+  const next = version.trim();
+  if (!next || next === w.__skinsProAssetV) return false;
+  w.__skinsProAssetV = next;
+  return true;
+}
+
+export async function refreshAssetVersionFromServer(basePath = '/local/community/skins-pro'): Promise<boolean> {
+  try {
+    const response = await fetch(`${basePath}/version.json?ts=${Date.now()}`, { cache: 'no-store' });
+    if (!response.ok) return false;
+    const data = await response.json() as { version?: string };
+    return data.version ? setRuntimeAssetVersion(data.version) : false;
+  } catch {
+    return false;
+  }
+}
+
+export function cameraSnapshotUrl(entityId: string, stateObj?: HassEntity): string {
+  if (!entityId) return '';
+
+  const entityPicture = String(stateObj?.attributes?.entity_picture || '');
+  if (entityPicture && (entityPicture.startsWith('http') || entityPicture.startsWith('/'))) {
+    const sep = entityPicture.includes('?') ? '&' : '?';
+    return `${entityPicture}${sep}ts=${Date.now()}`;
+  }
+
+  const accessToken = String(stateObj?.attributes?.access_token || '');
+  if (accessToken) {
+    return `/api/camera_proxy/${entityId}?token=${encodeURIComponent(accessToken)}&ts=${Date.now()}`;
+  }
+
+  return '';
+}
+
+export async function fetchCameraSnapshotUrl(
+  hass: HomeAssistant | undefined,
+  entityId: string,
+  stateObj?: HassEntity,
+): Promise<string> {
+  const direct = cameraSnapshotUrl(entityId, stateObj);
+  if (direct) return direct;
+  if (!hass || !entityId) return '';
+
+  try {
+    let buffer: ArrayBuffer | undefined;
+    if (hass.callApi) {
+      const data = await hass.callApi('GET', `camera_proxy/${entityId}?ts=${Date.now()}`);
+      if (data instanceof ArrayBuffer) {
+        buffer = data;
+      } else if (data instanceof Blob) {
+        buffer = await data.arrayBuffer();
+      }
+    } else if (hass.auth?.data?.access_token) {
+      const response = await fetch(`/api/camera_proxy/${entityId}?ts=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${hass.auth.data.access_token}` },
+        credentials: 'same-origin',
+      });
+      if (response.ok) {
+        buffer = await response.arrayBuffer();
+      }
+    }
+    if (!buffer || buffer.byteLength === 0) return '';
+    return URL.createObjectURL(new Blob([buffer], { type: 'image/jpeg' }));
+  } catch {
+    return '';
+  }
+}
+
 export function assetUrl(config?: DashboardConfig, key?: string): string {
   if (!key) return '';
   const skin = selectedSkin(config);
@@ -199,17 +280,17 @@ export function assetUrl(config?: DashboardConfig, key?: string): string {
     : configuredBasePath;
   const asset = config?.resource_pack?.assets?.[key] || DEFAULT_ASSETS[key] || '';
   if (!asset) return '';
-  if (/^https?:\/\//.test(asset) || asset.startsWith('/')) return asset;
-  return `${basePath.replace(/\/$/, '')}/${asset}`;
+  if (/^https?:\/\//.test(asset) || asset.startsWith('/api/')) return asset;
+  if (asset.startsWith('/')) return withAssetVersion(asset);
+  return withAssetVersion(`${basePath.replace(/\/$/, '')}/${asset}`);
+}
+
+function withAssetVersion(url: string): string {
+  return `${url}${url.includes('?') ? '&' : '?'}v=${getAssetVersionKey()}`;
 }
 
 export function assetHref(config?: DashboardConfig, key?: string): string {
-  const url = assetUrl(config, key);
-  if (!url) return '';
-  if (key !== 'theme_css') return url;
-  const skin = selectedSkin(config);
-  const cacheKey = encodeURIComponent(`${skin}|${config?.resource_pack?.base_path || '__AUTO__'}`);
-  return `${url}${url.includes('?') ? '&' : '?'}skin=${cacheKey}`;
+  return assetUrl(config, key);
 }
 
 export function skinString(skin: string, key: string): string {

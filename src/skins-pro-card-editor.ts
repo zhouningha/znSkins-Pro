@@ -2,6 +2,7 @@ import { SKINS } from './skins.generated';
 import { STRINGS } from './i18n.generated';
 import type { AreaRegistryEntry, HomeAssistant, TranslationKey, NavItemConfig } from './types';
 import { DEFAULT_NAV } from './constants';
+import { normalizeSecurityEntities } from './config';
 import { normalizeLanguage } from './utils';
 
 type DashboardConfigRecord = Record<string, any>;
@@ -200,7 +201,7 @@ export class SkinsProCardEditor extends HTMLElement {
   private _navItemChecked(key: string): boolean {
     const navItems: NavItemConfig[] = this._config?.nav ?? [];
     const item = navItems.find(n => n.key === key);
-    return item ? item.enabled : true;
+    return item ? item.enabled !== false : true;
   }
 
   private _renderNavDialog(): string {
@@ -285,6 +286,14 @@ export class SkinsProCardEditor extends HTMLElement {
           <div class="sp-card">
             <h3>${this._loc('editorCamera')}</h3>
             ${this.entityPicker('Camera', 'camera.entity', c.camera?.entity || '', ['camera'])}
+          </div>
+        </div>
+
+        <div class="sp-row">
+          <div class="sp-card">
+            <h3>${this._loc('editorSecurity')}</h3>
+            <p class="muted">${this._loc('editorSecurityEntitiesHint')}</p>
+            ${this.listPicker(this._loc('editorSecurityEntities'), 'security.entities', c.security?.entities || normalizeSecurityEntities(c.security) || [], ['camera', 'lock', 'alarm_control_panel', 'binary_sensor'])}
           </div>
         </div>
 

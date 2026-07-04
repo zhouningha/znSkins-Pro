@@ -129,6 +129,12 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   camera: {
     entity: '',
   },
+  security: {
+    entities: [],
+  },
+  devices_page: {
+    hidden: [],
+  },
   home_limits: {
     devices: 5,
     rooms: 4,

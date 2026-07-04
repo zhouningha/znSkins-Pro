@@ -24,6 +24,7 @@ import { STRINGS } from './i18n.generated';
 
 import {
   DEFAULT_ROOMS,
+  areaRoomImageKey,
 } from './constants';
 
 import {
@@ -910,10 +911,9 @@ export class MinecraftDashboardCard extends LitElement {
     if (hasCustomRooms) return configuredRooms;
 
     if (this._areas && this._areas.length > 0) {
-      const images = ['room_living', 'room_bedroom', 'room_kitchen', 'room_garden'];
       return this._areas.map((area, index) => ({
         name: area.name,
-        image: images[index % images.length],
+        image: areaRoomImageKey(area.area_id || area.name, index),
       }));
     }
 
@@ -939,7 +939,6 @@ export class MinecraftDashboardCard extends LitElement {
   private renderAreaRooms(language: Language, requireRealAreas: boolean, limit?: number, selectedRooms: string[] = [], showSummary = true): TemplateResult | typeof nothing {
     if (!this._areas || this._areas.length === 0) return nothing;
 
-    const imageKeys = ['room_living', 'room_bedroom', 'room_kitchen', 'room_garden'];
     const filteredAreas = selectedRooms.length > 0
       ? selectedRooms
         .map((item) => {
@@ -955,7 +954,7 @@ export class MinecraftDashboardCard extends LitElement {
     const rooms = filteredAreas.slice(0, limit || filteredAreas.length).map((area, index) => ({
       areaId: area.area_id,
       name: area.name,
-      image: imageKeys[index % imageKeys.length],
+      image: areaRoomImageKey(area.area_id || area.name, index),
       picture: area.picture,
       summary: this.areaSummaryById(area.area_id, language),
       counts: this.areaCounts(area.area_id),

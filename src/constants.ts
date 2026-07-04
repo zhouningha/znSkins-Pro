@@ -31,8 +31,31 @@ export const DEFAULT_ASSETS: Record<string, string> = {
   room_living: 'room-living.jpg',
   room_bedroom: 'room-bedroom.jpg',
   room_kitchen: 'room-kitchen.jpg',
+  room_dining: 'room-dining.jpg',
   room_garden: 'room-garden.jpg',
+  room_office: 'room-office.jpg',
+  room_garage: 'room-garage.jpg',
 };
+
+/** Room image keys cycled by area id hash (stable per HA area). */
+export const AREA_ROOM_IMAGE_KEYS = [
+  'room_living',
+  'room_bedroom',
+  'room_kitchen',
+  'room_dining',
+  'room_garden',
+  'room_office',
+  'room_garage',
+] as const;
+
+export function areaRoomImageKey(areaId: string, fallbackIndex = 0): string {
+  const seed = areaId || String(fallbackIndex);
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0;
+  }
+  return AREA_ROOM_IMAGE_KEYS[Math.abs(hash) % AREA_ROOM_IMAGE_KEYS.length];
+}
 
 export const DEFAULT_NAV: NavItemConfig[] = [
   { key: 'home', icon: 'mdi:home', enabled: true },

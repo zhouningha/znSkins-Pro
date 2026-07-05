@@ -25,6 +25,8 @@ export interface HomeAssistant {
     ) => Promise<() => Promise<void>>;
   };
   auth?: { data?: { access_token?: string } };
+  callWS?: <T = unknown>(message: Record<string, unknown>) => Promise<T>;
+  hassUrl?: (path?: string) => string;
 }
 
 export interface AreaRegistryEntry {
@@ -37,6 +39,8 @@ export interface EntityRegistryEntry {
   entity_id: string;
   area_id?: string | null;
   device_id?: string | null;
+  platform?: string | null;
+  unique_id?: string | null;
   hidden_by?: string | null;
   disabled_by?: string | null;
 }
@@ -137,15 +141,19 @@ export interface MediaPlayerConfig {
 
 export interface CameraConfig {
   entity?: string;
+  /** Live preview only — HA uses ha-camera-stream; no click-to-enlarge */
+  preview_mode?: 'snapshot' | 'live';
 }
 
 export interface SecurityConfig {
-  /** Only these entities appear on the security page. */
-  entities?: string[];
-  /** @deprecated use entities */
-  exclude?: string[];
-  /** @deprecated use entities */
+  /** Cameras shown on the security page only. */
   cameras?: string[];
+  /** Locks, sensors and alarms shown on the security page. */
+  entities?: string[];
+  /** Live preview only — HA uses ha-camera-stream; no click-to-enlarge */
+  preview_mode?: 'snapshot' | 'live';
+  /** Optional camera entity -> go2rtc stream name overrides */
+  go2rtc_streams?: Record<string, string>;
 }
 
 export interface DevicesPageConfig {
@@ -254,6 +262,11 @@ export type TranslationKey =
   | 'turnOnAll'
   | 'turnOffAll'
   | 'confirmAction'
+  | 'confirmDoorOpenTitle'
+  | 'confirmDoorOpenAgain'
+  | 'confirmDoorOpenOk'
+  | 'confirmDoorOpenCancel'
+  | 'confirmDoorOpenAutoDismiss'
   | 'uploadBackground'
   | 'clearBackground'
   | 'mediaPlayer'
@@ -268,7 +281,11 @@ export type TranslationKey =
   | 'editorEnergy'
   | 'editorMediaPlayer'
   | 'editorCamera'
+  | 'editorCameraHint'
   | 'editorSecurity'
+  | 'editorSecurityHint'
+  | 'editorSecurityCameras'
+  | 'editorSecurityDevices'
   | 'editorSecurityEntities'
   | 'editorSecurityEntitiesHint'
   | 'editorHomeDevices'

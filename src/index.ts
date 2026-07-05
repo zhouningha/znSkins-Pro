@@ -4,6 +4,9 @@
 import { buildAutoConfig } from './config';
 import { MinecraftDashboardCard } from './skins-pro-card';
 import './skins-pro-card-editor';
+import { ensureSkinsProBuild } from './utils';
+
+void ensureSkinsProBuild();
 
 const CARD_TYPE = 'skins-pro-card';
 const DASHBOARD_STRATEGY_TYPE = 'skins-pro';
@@ -60,6 +63,8 @@ class SkinsProStrategy {
           resource_pack: { ...autoConfig.resource_pack, ...sc('resource_pack') },
           home_selection: { ...autoConfig.home_selection, ...sc('home_selection') },
           devices_page: { ...autoConfig.devices_page, ...sc('devices_page') },
+          security: { ...autoConfig.security, ...sc('security') },
+          camera: { ...autoConfig.camera, ...sc('camera') },
         };
       } catch (err) {
         console.error('[SkinsPro] generate error', err);

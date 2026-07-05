@@ -128,9 +128,12 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   },
   camera: {
     entity: '',
+    preview_mode: 'live',
   },
   security: {
+    cameras: [],
     entities: [],
+    preview_mode: 'live',
   },
   devices_page: {
     hidden: [],

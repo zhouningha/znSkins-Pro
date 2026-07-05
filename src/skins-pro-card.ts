@@ -41,6 +41,7 @@ import {
   normalizeLanguage,
   refreshAssetVersionFromServer,
   fetchCameraSnapshotUrl,
+  isUsableDirectCameraSnapshot,
   selectedSkin,
   skinString,
   stateValue,
@@ -48,7 +49,7 @@ import {
   weatherIcon,
 } from './utils';
 
-import { mergeConfig, normalizeDevicesHidden } from './config';
+import { mergeConfig, normalizeDevicesHidden, resolveSecurityEntityIds, isSecurityDoorWindowSensor, isSecurityDoorRelayLock, securityDoorRelayStateLabel, securityDoorRelayIsOpen } from './config';
 
 import { fetchEnergyHistory, fetchEnergySources } from './energy';
 
@@ -74,9 +75,20 @@ export class MinecraftDashboardCard extends LitElement {
   @state() private _showHiddenDevices = false;
   @state() private _deviceHideToast = '';
 
+  @state() private _doorConfirm?: {
+    entityId: string;
+    name: string;
+    message: string;
+  };
+  private _doorConfirmTimer?: ReturnType<typeof setTimeout>;
+
   @state() private _cameraSnapshots: Record<string, string> = {};
   private _cameraSnapshotBlobs = new Set<string>();
   private _cameraSnapshotLoads = new Set<string>();
+  private _cameraSnapshotFailed = new Set<string>();
+  private _cameraSnapshotRetried = new Set<string>();
+  private _cameraSnapshotRefreshTimer?: ReturnType<typeof setInterval>;
+  private _snapshotRefreshInterval = 5000;
 
   private _longPressEntity = '';
   private _longPressTimer?: ReturnType<typeof setTimeout>;
@@ -141,12 +153,15 @@ export class MinecraftDashboardCard extends LitElement {
       void this.loadWeatherForecast();
     }
     void this.refreshVisibleCameraSnapshots();
+    this._syncCameraSnapshotRefreshTimer();
   }
 
   public disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('resize', this._handleWindowResize);
     window.clearTimeout(this._devicesHiddenHaSyncTimer);
+    this.dismissDoorConfirmDialog();
+    this._stopCameraSnapshotRefreshTimer();
     this._revokeCameraSnapshots();
     void this.unsubscribeWeatherForecast();
   }
@@ -174,12 +189,16 @@ export class MinecraftDashboardCard extends LitElement {
     if (changed.has('hass') || (this._view === 'energy' && !this._energySources.length)) {
       void this.fetchEnergyPrefs();
     }
+    if (changed.has('hass') && this.usesSnapshotPreview(this._view === 'security' ? 'security' : 'home')) {
+      this._clearStaleCameraSnapshotFailures();
+    }
     if (changed.has('hass')) {
       void this.loadAreas();
       void this.loadEntityRegistry();
       void this.loadDeviceRegistry();
       void this.loadEnergyHistory();
       void this.refreshVisibleCameraSnapshots();
+      this._syncCameraSnapshotRefreshTimer();
     }
     const weatherEntity = this._config?.weather?.entity;
     if (weatherEntity && this._weatherForecastEntity !== weatherEntity) {
@@ -355,6 +374,7 @@ export class MinecraftDashboardCard extends LitElement {
           </main>
           <nav class="mobile-nav">${this.renderNav(language)}</nav>
         </div>
+        ${this.renderDoorConfirmDialog(language)}
       </ha-card>
     `;
   }
@@ -399,11 +419,10 @@ export class MinecraftDashboardCard extends LitElement {
     const alarmIcon = alarmIconMap[alarmState] || 'mdi:shield-lock';
 
     const cameraCard = hasCamera ? (() => {
-      const snapshotUrl = this.getCameraSnapshotSrc(cameraEntityId);
+      const name = String(cameraState?.attributes?.friendly_name || cameraEntityId);
       return html`
-        <section class="glass-card panel-camera" @click=${() => this.handleAction(cameraEntityId, 'more-info')}>
-          <div class="section-title"><h2>${cameraState?.attributes?.friendly_name || cameraEntityId}</h2></div>
-          <div class="camera-preview">${snapshotUrl ? html`<img alt="" src=${snapshotUrl}>` : html`<div class="camera-loading">${language === 'zh-CN' ? '加载中…' : 'Loading…'}</div>`}</div>
+        <section class="glass-card panel-camera">
+          ${this.renderCameraTile(cameraEntityId, language, name)}
         </section>
       `;
     })() : nothing;
@@ -695,8 +714,8 @@ export class MinecraftDashboardCard extends LitElement {
       translate('securityOverview'),
       html``,
       cards !== nothing
-        ? html`<div class="page-scroll themed-scrollbar"><div class="devices security-grid">${cards}</div></div>`
-        : html`<div class="empty-state">${translate('offline')}</div>`
+        ? html`<div class="page-scroll themed-scrollbar security-page-body">${cards}</div>`
+        : html`<div class="empty-state">${language === 'zh-CN' ? '请在编辑器「安全页」添加要显示的实体' : 'Add entities in the Security Page editor section'}</div>`
     );
   }
 
@@ -991,6 +1010,7 @@ export class MinecraftDashboardCard extends LitElement {
       image: areaRoomImageKey(area.area_id || area.name, index),
       picture: area.picture,
       summary: this.areaSummaryById(area.area_id, language),
+      occupied: this.isAreaOccupied(area.area_id),
       counts: this.areaCounts(area.area_id),
       activeCounts: this.areaActiveCounts(area.area_id),
       scenes: this.areaScenes(area.area_id, area.name),
@@ -1025,10 +1045,15 @@ export class MinecraftDashboardCard extends LitElement {
         </div>
       ` : nothing;
 
+      const presenceBadge = room.occupied ? html`
+        <div class="room-presence-badge">${language === 'zh-CN' ? '有人' : 'Occupied'}</div>
+      ` : nothing;
+
       if (showSummary) {
         return html`
-          <button class="room">
+          <button class="room${room.occupied ? ' room-occupied' : ''}">
             ${roomImg}
+            ${presenceBadge}
             ${sceneChips}
             <div class="room-label">
               <h3>${room.name}</h3>
@@ -1042,8 +1067,9 @@ export class MinecraftDashboardCard extends LitElement {
         ? `${room.counts.devices} 设备 · ${room.counts.entities} 实体`
         : `${room.counts.devices} devices · ${room.counts.entities} entities`;
       return html`
-        <button class="room">
+        <button class="room${room.occupied ? ' room-occupied' : ''}">
           ${roomImg}
+          ${presenceBadge}
           ${sceneChips}
           <div class="room-label">
             <h3>${room.name}</h3>
@@ -1058,8 +1084,8 @@ export class MinecraftDashboardCard extends LitElement {
 
   // ─── Area helpers ───────────────────────────────────────
 
-  private areaSummaryById(areaId: string, language: Language): string {
-    if (!areaId) return 'Home Assistant Area';
+  private areaEntityIds(areaId: string): string[] {
+    if (!areaId) return [];
 
     const areaDeviceIds = new Set(
       (this._deviceRegistry || [])
@@ -1067,12 +1093,31 @@ export class MinecraftDashboardCard extends LitElement {
         .map((d) => d.id)
     );
 
-    const entries = (this._entityRegistry || [])
+    return (this._entityRegistry || [])
       .filter((entry) => {
         if (entry.hidden_by || entry.disabled_by) return false;
         return entry.area_id === areaId || (entry.device_id && areaDeviceIds.has(entry.device_id));
       })
       .map((e) => e.entity_id);
+  }
+
+  private areaPresenceEntityId(areaId: string): string | undefined {
+    const entries = this.areaEntityIds(areaId);
+    const byClass = (cls: string) =>
+      entries.find((eid) => this._hass?.states[eid]?.attributes?.device_class === cls);
+    return byClass('presence') || byClass('occupancy') || byClass('motion');
+  }
+
+  private isAreaOccupied(areaId: string): boolean {
+    const entityId = this.areaPresenceEntityId(areaId);
+    if (!entityId || !this._hass) return false;
+    return this._hass.states[entityId]?.state === 'on';
+  }
+
+  private areaSummaryById(areaId: string, language: Language): string {
+    if (!areaId) return 'Home Assistant Area';
+
+    const entries = this.areaEntityIds(areaId);
 
     if (entries.length === 0) {
       return language === 'zh-CN' ? '暂无实体' : 'No entities';
@@ -1083,9 +1128,9 @@ export class MinecraftDashboardCard extends LitElement {
 
     const parts: string[] = [];
 
-    const presence = byClass('presence') || byClass('occupancy') || byClass('motion');
+    const presence = this.areaPresenceEntityId(areaId);
     if (presence) {
-      const occupied = stateValue(this._hass, presence, language) === 'on';
+      const occupied = this._hass?.states[presence]?.state === 'on';
       parts.push(language === 'zh-CN' ? (occupied ? '有人' : '无人') : (occupied ? 'Occupied' : 'Empty'));
     }
 
@@ -1607,13 +1652,131 @@ export class MinecraftDashboardCard extends LitElement {
     this._cameraSnapshotBlobs.clear();
     this._cameraSnapshots = {};
     this._cameraSnapshotLoads.clear();
+    this._cameraSnapshotFailed.clear();
+    this._cameraSnapshotRetried.clear();
+  }
+
+  private _clearStaleCameraSnapshotFailures(): void {
+    if (!this._hass || this._cameraSnapshotFailed.size === 0) return;
+    for (const entityId of [...this._cameraSnapshotFailed]) {
+      if (this._hass.states?.[entityId]) {
+        this._cameraSnapshotFailed.delete(entityId);
+        this._cameraSnapshotRetried.delete(entityId);
+      }
+    }
+  }
+
+  private cameraStateLabel(state: string, language: Language): string {
+    if (state === 'idle') return language === 'zh-CN' ? '待机' : 'Idle';
+    if (state === 'streaming') return language === 'zh-CN' ? '直播中' : 'Streaming';
+    return deviceStateLabel(state, language);
+  }
+
+  private shouldUseDirectCameraSnapshot(url: string): boolean {
+    return isUsableDirectCameraSnapshot(url);
+  }
+
+  private onCameraSnapshotError(entityId: string): void {
+    if (this._cameraSnapshotRetried.has(entityId)) {
+      this._cameraSnapshotFailed.add(entityId);
+      const next = { ...this._cameraSnapshots };
+      delete next[entityId];
+      this._cameraSnapshots = next;
+      this.requestUpdate();
+      return;
+    }
+    this._cameraSnapshotRetried.add(entityId);
+    const current = this._cameraSnapshots[entityId];
+    if (current && !current.startsWith('blob:')) {
+      const next = { ...this._cameraSnapshots };
+      delete next[entityId];
+      this._cameraSnapshots = next;
+    }
+    void this.refreshVisibleCameraSnapshots(true);
+  }
+
+  private cameraPreviewMode(_context: 'home' | 'security'): 'snapshot' | 'live' {
+    return 'live';
+  }
+
+  private usesSnapshotPreview(_context: 'home' | 'security'): boolean {
+    return false;
+  }
+
+  private _stopCameraSnapshotRefreshTimer(): void {
+    if (this._cameraSnapshotRefreshTimer) {
+      clearInterval(this._cameraSnapshotRefreshTimer);
+      this._cameraSnapshotRefreshTimer = undefined;
+    }
+  }
+
+  private _syncCameraSnapshotRefreshTimer(): void {
+    const needsRefresh = (this._view === 'home' && this.usesSnapshotPreview('home'))
+      || (this._view === 'security' && this.usesSnapshotPreview('security'));
+    const interval = this._view === 'security' ? 1500 : 5000;
+    if (!needsRefresh) {
+      this._stopCameraSnapshotRefreshTimer();
+      return;
+    }
+    if (this._cameraSnapshotRefreshTimer && this._snapshotRefreshInterval === interval) return;
+    this._stopCameraSnapshotRefreshTimer();
+    this._snapshotRefreshInterval = interval;
+    this._cameraSnapshotRefreshTimer = setInterval(() => {
+      void this.refreshVisibleCameraSnapshots();
+    }, interval);
+  }
+
+  private preloadSnapshotUrl(url: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(true);
+      img.onerror = () => resolve(false);
+      img.src = url;
+    });
+  }
+
+  private renderCameraTile(entityId: string, language: Language, name?: string): TemplateResult {
+    const label = name || String(this._hass?.states?.[entityId]?.attributes?.friendly_name || entityId);
+    return html`
+      <div class="camera-card">
+        <div class="camera-preview">
+          ${this.renderCameraPreview(entityId, language)}
+          <span class="camera-label">${label}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderCameraPreview(
+    entityId: string,
+    language: Language,
+  ): TemplateResult {
+    const stateObj = this._hass?.states?.[entityId];
+    if (!stateObj || stateObj.state === 'unavailable') {
+      return html`<div class="camera-loading">${language === 'zh-CN' ? '画面不可用' : 'Unavailable'}</div>`;
+    }
+    return html`
+      <ha-camera-stream
+        .hass=${this._hass}
+        .stateObj=${stateObj}
+        .aspectRatio=${16 / 9}
+        .fitMode=${'cover'}
+        .controls=${false}
+        muted
+        autoplay
+        playsinline
+      ></ha-camera-stream>
+    `;
   }
 
   private getCameraSnapshotSrc(entityId: string): string {
-    return this._cameraSnapshots[entityId] || cameraSnapshotUrl(entityId, this._hass?.states?.[entityId]) || '';
+    const cached = this._cameraSnapshots[entityId];
+    if (cached) return cached;
+    const direct = cameraSnapshotUrl(entityId, this._hass?.states?.[entityId]);
+    return isUsableDirectCameraSnapshot(direct) ? direct : '';
   }
 
-  private async refreshVisibleCameraSnapshots(): Promise<void> {
+  private async refreshVisibleCameraSnapshots(forceBlob = false): Promise<void> {
     if (!this._hass) return;
 
     const entityIds = new Set<string>();
@@ -1635,17 +1798,45 @@ export class MinecraftDashboardCard extends LitElement {
       if (this._cameraSnapshotLoads.has(entityId)) return;
       const stateObj = this._hass?.states?.[entityId];
       const direct = cameraSnapshotUrl(entityId, stateObj);
-      if (direct) {
-        if (this._cameraSnapshots[entityId] !== direct) {
-          this._cameraSnapshots = { ...this._cameraSnapshots, [entityId]: direct };
-          changed = true;
+      if (!forceBlob && this.shouldUseDirectCameraSnapshot(direct)) {
+        const ready = await this.preloadSnapshotUrl(direct);
+        if (ready) {
+          if (this._cameraSnapshots[entityId] !== direct) {
+            this._cameraSnapshots = { ...this._cameraSnapshots, [entityId]: direct };
+            changed = true;
+          }
+          this._cameraSnapshotFailed.delete(entityId);
+        } else if (this._view === 'security') {
+          this._cameraSnapshotLoads.add(entityId);
+          try {
+            const blobUrl = await fetchCameraSnapshotUrl(this._hass, entityId, stateObj);
+            if (blobUrl && await this.preloadSnapshotUrl(blobUrl)) {
+              const prev = this._cameraSnapshots[entityId];
+              if (prev && this._cameraSnapshotBlobs.has(prev)) {
+                URL.revokeObjectURL(prev);
+                this._cameraSnapshotBlobs.delete(prev);
+              }
+              if (blobUrl.startsWith('blob:')) {
+                this._cameraSnapshotBlobs.add(blobUrl);
+              }
+              this._cameraSnapshots = { ...this._cameraSnapshots, [entityId]: blobUrl };
+              this._cameraSnapshotFailed.delete(entityId);
+              changed = true;
+            }
+          } finally {
+            this._cameraSnapshotLoads.delete(entityId);
+          }
         }
         return;
       }
       this._cameraSnapshotLoads.add(entityId);
       try {
         const blobUrl = await fetchCameraSnapshotUrl(this._hass, entityId, stateObj);
-        if (!blobUrl) return;
+        if (!blobUrl || !await this.preloadSnapshotUrl(blobUrl)) {
+          this._cameraSnapshotFailed.add(entityId);
+          changed = true;
+          return;
+        }
         const prev = this._cameraSnapshots[entityId];
         if (prev && this._cameraSnapshotBlobs.has(prev)) {
           URL.revokeObjectURL(prev);
@@ -1655,6 +1846,7 @@ export class MinecraftDashboardCard extends LitElement {
           this._cameraSnapshotBlobs.add(blobUrl);
         }
         this._cameraSnapshots = { ...this._cameraSnapshots, [entityId]: blobUrl };
+        this._cameraSnapshotFailed.delete(entityId);
         changed = true;
       } finally {
         this._cameraSnapshotLoads.delete(entityId);
@@ -1669,13 +1861,18 @@ export class MinecraftDashboardCard extends LitElement {
   private getSecurityEntities(): HassEntity[] {
     if (!this._hass) return [];
 
-    const allowed = (this._config?.security?.entities || []).filter(Boolean);
-    if (allowed.length === 0) return [];
+    const entityIds = resolveSecurityEntityIds(this._hass, this._config?.security, this._entityRegistry)
+      .filter((entityId) => !this.isSecurityEntityHidden(entityId));
 
-    return allowed
+    return entityIds
       .map((entityId) => this._hass?.states?.[entityId])
-      .filter((entity): entity is HassEntity => Boolean(entity?.entity_id))
-      .filter((entity) => !this.isSecurityEntityHidden(entity.entity_id));
+      .filter((entity): entity is HassEntity => Boolean(entity?.entity_id));
+  }
+
+  private securityContactStateLabel(state: string, language: Language): string {
+    if (state === 'on') return language === 'zh-CN' ? '打开' : 'Open';
+    if (state === 'off') return language === 'zh-CN' ? '关闭' : 'Closed';
+    return deviceStateLabel(state, language);
   }
 
   private isSecurityEntityHidden(entityId: string): boolean {
@@ -1684,53 +1881,137 @@ export class MinecraftDashboardCard extends LitElement {
   }
 
   private renderSecurityCards(language: Language): TemplateResult | typeof nothing {
-    const entities = this.getSecurityEntities().slice(0, 12);
+    const entities = this.getSecurityEntities();
 
     if (entities.length === 0) return nothing;
 
     const cameras = entities.filter(e => e.entity_id.startsWith('camera.'));
-    const others = entities.filter(e => !e.entity_id.startsWith('camera.'));
+    const locks = entities.filter(e => e.entity_id.startsWith('lock.') && !isSecurityDoorRelayLock(e.entity_id));
+    const relayLocks = entities.filter(e => isSecurityDoorRelayLock(e.entity_id));
+    const actionButtons = entities.filter(e => e.entity_id.startsWith('button.'));
+    const doorWindowSensors = entities.filter((e) => isSecurityDoorWindowSensor(e.entity_id, e));
 
     const skin = selectedSkin(this._config);
 
-    const cameraCards = cameras.map(entity => {
-      const stateLabel = deviceStateLabel(entity.state, language);
-      const snapshotUrl = this.getCameraSnapshotSrc(entity.entity_id);
+    const openAlerts = doorWindowSensors
+      .filter((e) => e.state === 'on')
+      .map((e) => {
+        const areaName = this.areaNameForEntity(e.entity_id);
+        const name = String(e.attributes?.friendly_name || e.entity_id);
+        return { label: areaName || name, name };
+      });
+
+    const presenceBar = openAlerts.length > 0 ? html`
+      <div class="security-presence-bar">
+        ${openAlerts.map((item) => html`
+          <span class="security-presence-chip">
+            <ha-icon icon="mdi:door-open"></ha-icon>
+            ${item.label} · ${language === 'zh-CN' ? '打开' : 'Open'}
+          </span>
+        `)}
+      </div>
+    ` : nothing;
+
+    const cameraCards = cameras.map(entity => this.renderCameraTile(entity.entity_id, language));
+
+    const buttonCards = actionButtons.map((entity, index) => {
+      const name = String(entity.attributes?.friendly_name || entity.entity_id);
+      const actionLabel = language === 'zh-CN' ? '开门' : 'Open';
+      const assetKey = assetKeyForDomain(skin, 'button');
+      const tones: RenderedDevice['color'][] = ['yellow', 'green', 'blue', 'purple'];
+      const statusClass = entity.state === 'unavailable' ? 'device-unavailable' : `device-on-${tones[index % tones.length]}`;
       return html`
-        <button class="camera-card" @click=${() => this.handleAction(entity.entity_id, 'more-info')}>
-          <div class="camera-preview">${snapshotUrl ? html`<img alt=${String(entity.attributes?.friendly_name || entity.entity_id)} src=${snapshotUrl}>` : html`<div class="camera-loading">${language === 'zh-CN' ? '加载中…' : 'Loading…'}</div>`}</div>
-          <div class="camera-meta">
-            <div>
-              <p class="device-name">${String(entity.attributes?.friendly_name || entity.entity_id)}</p>
-              <p class="muted">${language === 'zh-CN' ? '实时快照' : 'Snapshot'}</p>
-            </div>
-            <div class="status">${stateLabel}</div>
+        <button class="device security-door-btn ${statusClass}" @click=${() => this.pressButton(entity.entity_id)}>
+          <div class="device-top">
+            ${this.renderImage(assetKey, name, 'item-img')}
+            <div class="tag-stack"><div class="status">${actionLabel}</div></div>
+          </div>
+          <div class="device-copy">
+            <p class="device-name">${name}</p>
+            <p class="muted">${this.areaNameForEntity(entity.entity_id) || (language === 'zh-CN' ? '门禁' : 'Access')}</p>
+          </div>
+          <div class="control-row">
+            <span class="state-word">${actionLabel}</span>
+            <ha-icon icon="mdi:door-open" class="security-open-icon"></ha-icon>
           </div>
         </button>
       `;
     });
 
-    const otherCards = others.map((entity, index) => {
+    const relayLockCards = relayLocks.map((entity, index) => {
+      const name = String(entity.attributes?.friendly_name || entity.entity_id);
+      const stateLabel = securityDoorRelayStateLabel(entity.state, language);
+      const isOpen = securityDoorRelayIsOpen(entity.state);
+      const actionLabel = language === 'zh-CN' ? '开门' : 'Open';
+      const assetKey = assetKeyForDomain(skin, 'lock');
+      const tones: RenderedDevice['color'][] = ['yellow', 'green', 'blue', 'purple'];
+      const statusClass = entity.state === 'unavailable' ? 'device-unavailable' : (isOpen ? `device-on-${tones[index % tones.length]}` : 'device-off');
+      return html`
+        <button class="device security-door-btn ${statusClass}" @click=${() => this.openDoorRelay(entity.entity_id, language, name)}>
+          <div class="device-top">
+            ${this.renderImage(assetKey, name, 'item-img')}
+            <div class="tag-stack"><div class="status">${stateLabel}</div></div>
+          </div>
+          <div class="device-copy">
+            <p class="device-name">${name}</p>
+            <p class="muted">${this.areaNameForEntity(entity.entity_id) || (language === 'zh-CN' ? '门禁' : 'Access')}</p>
+          </div>
+          <div class="control-row">
+            <span class="state-word">${actionLabel}</span>
+            <ha-icon icon="mdi:door-open" class="security-open-icon"></ha-icon>
+          </div>
+        </button>
+      `;
+    });
+
+    const lockCards = locks.map((entity, index) => {
       const stateLabel = deviceStateLabel(entity.state, language);
-      const domain = entity.entity_id.split('.')[0] || 'sensor';
-      const assetKey = assetKeyForDomain(skin, domain);
+      const assetKey = assetKeyForDomain(skin, 'lock');
       const tones: RenderedDevice['color'][] = ['red', 'green', 'blue', 'purple', 'yellow', 'brown'];
-      const statusClass = entity.state === 'unavailable' ? 'device-unavailable' : `device-on-${tones[index % tones.length]}`;
+      const active = ['locked', 'on'].includes(entity.state);
+      const statusClass = entity.state === 'unavailable' ? 'device-unavailable' : (active ? `device-on-${tones[index % tones.length]}` : 'device-off');
       return html`
         <button class="device ${statusClass}" @click=${() => this.handleAction(entity.entity_id, 'more-info')}>
           <div class="device-top">
             ${this.renderImage(assetKey, String(entity.attributes?.friendly_name || entity.entity_id), 'item-img')}
             <div class="tag-stack"><div class="status">${stateLabel}</div></div>
           </div>
-          <div class="device-copy"><p class="device-name">${String(entity.attributes?.friendly_name || entity.entity_id)}</p><p class="muted">${domain}</p></div>
-          <div class="control-row"><span class="state-word">${stateLabel}</span><span class="switch${['on', 'armed_away', 'armed_home', 'locked'].includes(entity.state) ? ' on' : ''}"></span></div>
+          <div class="device-copy"><p class="device-name">${String(entity.attributes?.friendly_name || entity.entity_id)}</p><p class="muted">${this.areaNameForEntity(entity.entity_id) || 'lock'}</p></div>
+          <div class="control-row"><span class="state-word">${stateLabel}</span><span class="switch${active ? ' on' : ''}"></span></div>
         </button>
       `;
     });
 
-    return html`
+    const sensorCards = doorWindowSensors.map((entity, index) => {
+      const stateLabel = this.securityContactStateLabel(entity.state, language);
+      const assetKey = assetKeyForDomain(skin, 'binary_sensor');
+      const tones: RenderedDevice['color'][] = ['yellow', 'red', 'purple', 'brown'];
+      const open = entity.state === 'on';
+      const statusClass = entity.state === 'unavailable' ? 'device-unavailable' : (open ? `device-on-${tones[index % tones.length]}` : 'device-off');
+      return html`
+        <button class="device ${statusClass}" @click=${() => this.handleAction(entity.entity_id, 'more-info')}>
+          <div class="device-top">
+            ${this.renderImage(assetKey, String(entity.attributes?.friendly_name || entity.entity_id), 'item-img')}
+            <div class="tag-stack"><div class="status">${stateLabel}</div></div>
+          </div>
+          <div class="device-copy"><p class="device-name">${String(entity.attributes?.friendly_name || entity.entity_id)}</p><p class="muted">${this.areaNameForEntity(entity.entity_id) || 'binary_sensor'}</p></div>
+          <div class="control-row"><span class="state-word">${stateLabel}</span>${open ? html`<ha-icon icon="mdi:door-open" class="security-open-icon"></ha-icon>` : html`<ha-icon icon="mdi:door-closed" class="security-closed-icon"></ha-icon>`}</div>
+        </button>
+      `;
+    });
+
+    const deviceGrid = (cameraCards.length > 0 || buttonCards.length > 0 || relayLockCards.length > 0 || lockCards.length > 0 || sensorCards.length > 0) ? html`
       ${cameraCards.length > 0 ? html`<div class="security-cameras">${cameraCards}</div>` : nothing}
-      ${otherCards.length > 0 ? html`<div class="security-devices">${otherCards}</div>` : nothing}
+      ${buttonCards.length > 0 || relayLockCards.length > 0 || lockCards.length > 0 || sensorCards.length > 0 ? html`
+        <div class="security-devices">${buttonCards}${relayLockCards}${lockCards}${sensorCards}</div>
+      ` : nothing}
+    ` : nothing;
+
+    if (!presenceBar && !deviceGrid) return nothing;
+
+    return html`
+      ${presenceBar}
+      ${deviceGrid}
     `;
   }
 
@@ -1778,7 +2059,7 @@ export class MinecraftDashboardCard extends LitElement {
 
   // ─── Lifecycle actions ──────────────────────────────────
 
-  protected updated(): void {
+  protected updated(_changed?: PropertyValues): void {
     this.applyThemeVariables();
     this.applyLayoutHeight();
     if (this._config?.fullscreen && !this._autoFullscreenDone) {
@@ -1803,6 +2084,67 @@ export class MinecraftDashboardCard extends LitElement {
     }
   }
 
+  private doorOpenConfirmMessage(name: string, language: Language): string {
+    const template = STRINGS[language].confirmDoorOpenAgain || STRINGS['zh-CN'].confirmDoorOpenAgain;
+    return template.replace('{name}', name);
+  }
+
+  private showDoorConfirmDialog(entityId: string, language: Language, name: string): void {
+    this.dismissDoorConfirmDialog();
+    this._doorConfirm = {
+      entityId,
+      name,
+      message: this.doorOpenConfirmMessage(name, language),
+    };
+    this._doorConfirmTimer = window.setTimeout(() => this.dismissDoorConfirmDialog(), 5000);
+  }
+
+  private dismissDoorConfirmDialog(): void {
+    if (this._doorConfirmTimer) {
+      clearTimeout(this._doorConfirmTimer);
+      this._doorConfirmTimer = undefined;
+    }
+    this._doorConfirm = undefined;
+  }
+
+  private async acceptDoorConfirm(): Promise<void> {
+    const pending = this._doorConfirm;
+    this.dismissDoorConfirmDialog();
+    if (!pending || !this._hass) return;
+    await this._hass.callService('lock', 'unlock', { entity_id: pending.entityId });
+  }
+
+  private renderDoorConfirmDialog(language: Language): TemplateResult | typeof nothing {
+    if (!this._doorConfirm) return nothing;
+    const strings = STRINGS[language];
+    return html`
+      <div class="door-confirm-overlay" @click=${() => this.dismissDoorConfirmDialog()}>
+        <div class="door-confirm-dialog" role="dialog" aria-modal="true" @click=${(e: Event) => e.stopPropagation()}>
+          <div class="door-confirm-progress" aria-hidden="true"></div>
+          <div class="door-confirm-icon"><ha-icon icon="mdi:door-open"></ha-icon></div>
+          <p class="door-confirm-title">${strings.confirmDoorOpenTitle}</p>
+          <p class="door-confirm-message">${this._doorConfirm.message}</p>
+          <div class="door-confirm-actions">
+            <button type="button" class="door-confirm-btn cancel" @click=${() => this.dismissDoorConfirmDialog()}>
+              ${strings.confirmDoorOpenCancel}
+            </button>
+            <button type="button" class="door-confirm-btn confirm" @click=${() => void this.acceptDoorConfirm()}>
+              ${strings.confirmDoorOpenOk}
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private openDoorRelay(entityId: string, language: Language, name: string): void {
+    this.showDoorConfirmDialog(entityId, language, name);
+  }
+
+  private async pressButton(entityId: string): Promise<void> {
+    await this._hass?.callService('button', 'press', { entity_id: entityId });
+  }
+
   private navigateTo(target: string): void {
     const valid: ViewName[] = ['home', 'devices', 'rooms', 'scenes', 'automations', 'security', 'energy'];
     if (valid.includes(target as ViewName)) {
@@ -1814,7 +2156,9 @@ export class MinecraftDashboardCard extends LitElement {
       }
       if (target === 'security' || target === 'home') {
         void this.refreshVisibleCameraSnapshots();
+        this._syncCameraSnapshotRefreshTimer();
       }
+      this.requestUpdate();
     }
   }
 

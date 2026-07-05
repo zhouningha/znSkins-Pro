@@ -1,10 +1,77 @@
-import type { DashboardConfig, HomeAssistant, HassEntity, SecurityConfig, DevicesPageConfig } from './types';
+import type { DashboardConfig, HomeAssistant, HassEntity, SecurityConfig, DevicesPageConfig, EntityRegistryEntry } from './types';
+import type { Language } from './i18n.generated';
 import { DEFAULT_CONFIG, DEFAULT_DEVICES, DEFAULT_ENVIRONMENT, DEFAULT_SCENES } from './constants';
 
+export function normalizeSecurityCameras(security?: SecurityConfig): string[] {
+  const dedicated = (security?.cameras || []).filter(Boolean);
+  if (dedicated.length > 0) return [...new Set(dedicated)];
+  return [...new Set((security?.entities || []).filter((id) => id.startsWith('camera.')))];
+}
+
+export function normalizeSecurityDevices(security?: SecurityConfig): string[] {
+  return [...new Set((security?.entities || []).filter(Boolean))];
+}
+
+export function normalizeSecurityPageEntities(security?: SecurityConfig): string[] {
+  return [...new Set([...normalizeSecurityCameras(security), ...normalizeSecurityDevices(security)])];
+}
+
+/** @deprecated use normalizeSecurityPageEntities */
 export function normalizeSecurityEntities(security?: SecurityConfig): string[] {
-  const selected = (security?.entities || []).filter(Boolean);
-  if (selected.length > 0) return selected;
-  return (security?.cameras || []).filter(Boolean);
+  return normalizeSecurityPageEntities(security);
+}
+
+export const SECURITY_DOOR_WINDOW_DEVICE_CLASSES = new Set([
+  'door',
+  'window',
+  'opening',
+  'garage_door',
+  'tamper',
+]);
+
+export function isSecurityDoorWindowSensor(entityId: string, stateObj?: HassEntity): boolean {
+  if (!entityId.startsWith('binary_sensor.')) return false;
+  const deviceClass = String(stateObj?.attributes?.device_class || '').toLowerCase();
+  return SECURITY_DOOR_WINDOW_DEVICE_CLASSES.has(deviceClass);
+}
+
+/** Akuvox / R20K relay locks: HA locked/unlocked is inverted vs door open/close. */
+export function isSecurityDoorRelayLock(entityId: string): boolean {
+  return /^lock\..*relay[a-z]?$/i.test(entityId);
+}
+
+export function securityDoorRelayStateLabel(state: string, language: Language): string {
+  if (state === 'unavailable' || state === 'unknown') {
+    return language === 'zh-CN' ? '离线' : 'Offline';
+  }
+  // Relay locks report locked when the door circuit is active (open).
+  if (state === 'locked') return language === 'zh-CN' ? '开门' : 'Open';
+  if (state === 'unlocked') return language === 'zh-CN' ? '关门' : 'Closed';
+  return state;
+}
+
+export function securityDoorRelayIsOpen(state: string): boolean {
+  return state === 'locked';
+}
+
+export function resolveSecurityEntityIds(
+  hass: HomeAssistant,
+  security?: SecurityConfig,
+  entityRegistry?: EntityRegistryEntry[],
+): string[] {
+  const selected = normalizeSecurityPageEntities(security);
+  if (selected.length === 0) return [];
+
+  const hidden = new Set(
+    (entityRegistry || [])
+      .filter((entry) => entry.hidden_by || entry.disabled_by)
+      .map((entry) => entry.entity_id),
+  );
+
+  return selected.filter((entityId) => {
+    if (hidden.has(entityId)) return false;
+    return Boolean(hass.states?.[entityId]?.entity_id);
+  });
 }
 
 export function normalizeDevicesHidden(devicesPage?: DevicesPageConfig): string[] {
@@ -50,7 +117,8 @@ export function mergeConfig(config: DashboardConfig): DashboardConfig {
     security: {
       ...DEFAULT_CONFIG.security,
       ...config.security,
-      entities: normalizeSecurityEntities(config.security),
+      cameras: normalizeSecurityCameras(config.security),
+      entities: normalizeSecurityDevices(config.security),
     },
     devices_page: {
       ...DEFAULT_CONFIG.devices_page,

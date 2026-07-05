@@ -191,6 +191,43 @@ export function selectedSkin(config?: DashboardConfig): string {
   return matchedSkin || DEFAULT_SKIN;
 }
 
+const VERSION_CHECK_KEY = 'skins-pro.version-check';
+const VERSION_JSON_BASES = [
+  '/hacsfiles/skins-pro',
+  '/local/community/skins-pro',
+  '/community/skins-pro',
+];
+
+async function fetchRemoteBuildVersion(): Promise<string | undefined> {
+  for (const base of VERSION_JSON_BASES) {
+    try {
+      const response = await fetch(`${base}/version.json?_=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
+      if (!response.ok) continue;
+      const data = await response.json() as { version?: string };
+      const version = data.version?.trim();
+      if (version) return version;
+    } catch {
+      // try next base path
+    }
+  }
+  return undefined;
+}
+
+export async function ensureSkinsProBuild(current = BUILD_VERSION): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const remote = await fetchRemoteBuildVersion();
+  if (!remote || remote === current) return;
+  const reloadingFor = sessionStorage.getItem(VERSION_CHECK_KEY);
+  if (reloadingFor === remote) return;
+  sessionStorage.setItem(VERSION_CHECK_KEY, remote);
+  const url = new URL(window.location.href);
+  url.searchParams.set('skins_pro_v', remote);
+  window.location.replace(url.toString());
+}
+
 function getAssetVersionKey(): string {
   if (typeof window === 'undefined') return BUILD_VERSION;
   const w = window as Window & { __skinsProAssetV?: string };
@@ -209,8 +246,11 @@ export function setRuntimeAssetVersion(version: string): boolean {
   return true;
 }
 
-export async function refreshAssetVersionFromServer(basePath = '/local/community/skins-pro'): Promise<boolean> {
+export async function refreshAssetVersionFromServer(basePath?: string): Promise<boolean> {
   try {
+    const remote = await fetchRemoteBuildVersion();
+    if (remote) return setRuntimeAssetVersion(remote);
+    if (!basePath) return false;
     const response = await fetch(`${basePath}/version.json?ts=${Date.now()}`, { cache: 'no-store' });
     if (!response.ok) return false;
     const data = await response.json() as { version?: string };
@@ -220,20 +260,64 @@ export async function refreshAssetVersionFromServer(basePath = '/local/community
   }
 }
 
+const CAMERA_SNAPSHOT_SIZE = 'width=640&height=360';
+
+function isCameraProxySnapshotUrl(url: string): boolean {
+  return url.includes('/api/camera_proxy/');
+}
+
+export { isCameraProxySnapshotUrl };
+
+function appendCameraSnapshotParams(url: string): string {
+  const params = new URLSearchParams(url.includes('?') ? url.split('?')[1] : '');
+  if (!params.has('width')) params.set('width', '640');
+  if (!params.has('height')) params.set('height', '360');
+  params.set('ts', String(Date.now()));
+  const base = url.includes('?') ? url.split('?')[0] : url;
+  return `${base}?${params.toString()}`;
+}
+
+export function isUsableDirectCameraSnapshot(url: string): boolean {
+  if (!url) return false;
+  if (!isCameraProxySnapshotUrl(url)) return true;
+  return url.includes('token=') || url.includes('authSig=');
+}
+
+function isUsableCameraSnapshotUrl(url: string): boolean {
+  return isUsableDirectCameraSnapshot(url);
+}
+
 export function cameraSnapshotUrl(entityId: string, stateObj?: HassEntity): string {
   if (!entityId) return '';
 
   const entityPicture = String(stateObj?.attributes?.entity_picture || '');
   if (entityPicture && (entityPicture.startsWith('http') || entityPicture.startsWith('/'))) {
-    const sep = entityPicture.includes('?') ? '&' : '?';
-    return `${entityPicture}${sep}ts=${Date.now()}`;
+    if (isUsableCameraSnapshotUrl(entityPicture)) {
+      return appendCameraSnapshotParams(entityPicture);
+    }
   }
 
   const accessToken = String(stateObj?.attributes?.access_token || '');
   if (accessToken) {
-    return `/api/camera_proxy/${entityId}?token=${encodeURIComponent(accessToken)}&ts=${Date.now()}`;
+    return `/api/camera_proxy/${entityId}?token=${encodeURIComponent(accessToken)}&${CAMERA_SNAPSHOT_SIZE}&ts=${Date.now()}`;
   }
 
+  return '';
+}
+
+async function getSignedCameraProxyUrl(hass: HomeAssistant, entityId: string): Promise<string> {
+  if (!hass.connection?.sendMessagePromise || !entityId) return '';
+  try {
+    const result = await hass.connection.sendMessagePromise<{ path?: string }>({
+      type: 'auth/sign_path',
+      path: `/api/camera_proxy/${entityId}`,
+    });
+    if (result?.path) {
+      return appendCameraSnapshotParams(result.path);
+    }
+  } catch {
+    // ignore
+  }
   return '';
 }
 
@@ -243,20 +327,30 @@ export async function fetchCameraSnapshotUrl(
   stateObj?: HassEntity,
 ): Promise<string> {
   const direct = cameraSnapshotUrl(entityId, stateObj);
-  if (direct) return direct;
+  if (direct && !isCameraProxySnapshotUrl(direct)) {
+    return direct;
+  }
   if (!hass || !entityId) return '';
+
+  const signed = await getSignedCameraProxyUrl(hass, entityId);
+  if (signed) return signed;
+
+  if (direct && direct.includes('token=')) {
+    return direct;
+  }
 
   try {
     let buffer: ArrayBuffer | undefined;
+    const proxyQuery = `${CAMERA_SNAPSHOT_SIZE}&ts=${Date.now()}`;
     if (hass.callApi) {
-      const data = await hass.callApi('GET', `camera_proxy/${entityId}?ts=${Date.now()}`);
+      const data = await hass.callApi('GET', `camera_proxy/${entityId}?${proxyQuery}`);
       if (data instanceof ArrayBuffer) {
         buffer = data;
       } else if (data instanceof Blob) {
         buffer = await data.arrayBuffer();
       }
     } else if (hass.auth?.data?.access_token) {
-      const response = await fetch(`/api/camera_proxy/${entityId}?ts=${Date.now()}`, {
+      const response = await fetch(`/api/camera_proxy/${entityId}?${proxyQuery}`, {
         headers: { Authorization: `Bearer ${hass.auth.data.access_token}` },
         credentials: 'same-origin',
       });
@@ -269,6 +363,26 @@ export async function fetchCameraSnapshotUrl(
   } catch {
     return '';
   }
+}
+
+export function resolveGo2rtcStream(entityId: string, overrides?: Record<string, string>): string {
+  if (overrides?.[entityId]) return overrides[entityId];
+  const known: Record<string, string> = {
+    'camera.yw_substream': 'yw_sub',
+    'camera.tp_ipc_minorstream': 'tp_ipc_sub',
+    'camera.men_jin_zi_ma_liu': 'akuvox_sub',
+    // legacy / fallback
+    'camera.ke_ting_jian_kong_zi_ma_liu': 'yw_sub',
+    'camera.jian_kong_zi_ma_liu': 'tp_ipc_sub',
+    'camera.tp_ipc_mainstream': 'tp_ipc_sub',
+    'camera.yw_mainstream': 'yw_sub',
+    'camera.akuvox_door_camera': 'akuvox_sub',
+  };
+  if (known[entityId]) return known[entityId];
+  if (entityId.endsWith('_mainstream')) {
+    return entityId.replace('camera.', '').replace('_mainstream', '_sub');
+  }
+  return entityId.replace('camera.', '');
 }
 
 export function assetUrl(config?: DashboardConfig, key?: string): string {

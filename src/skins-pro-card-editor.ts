@@ -2,7 +2,7 @@ import { SKINS } from './skins.generated';
 import { STRINGS } from './i18n.generated';
 import type { AreaRegistryEntry, HomeAssistant, TranslationKey, NavItemConfig } from './types';
 import { DEFAULT_NAV } from './constants';
-import { normalizeSecurityEntities } from './config';
+import { normalizeSecurityCameras, normalizeSecurityDevices } from './config';
 import { normalizeLanguage } from './utils';
 
 type DashboardConfigRecord = Record<string, any>;
@@ -285,15 +285,19 @@ export class SkinsProCardEditor extends HTMLElement {
           </div>
           <div class="sp-card">
             <h3>${this._loc('editorCamera')}</h3>
+            <p class="muted">${this._loc('editorCameraHint')}</p>
             ${this.entityPicker('Camera', 'camera.entity', c.camera?.entity || '', ['camera'])}
           </div>
         </div>
 
-        <div class="sp-row">
+        <div class="sp-row" style="grid-template-columns:1fr 1fr">
           <div class="sp-card">
             <h3>${this._loc('editorSecurity')}</h3>
-            <p class="muted">${this._loc('editorSecurityEntitiesHint')}</p>
-            ${this.listPicker(this._loc('editorSecurityEntities'), 'security.entities', c.security?.entities || normalizeSecurityEntities(c.security) || [], ['camera', 'lock', 'alarm_control_panel', 'binary_sensor'])}
+            <p class="muted">${this._loc('editorSecurityHint')}</p>
+            <h4 style="margin:12px 0 6px;font-size:13px;font-weight:600;">${this._loc('editorSecurityCameras')}</h4>
+            ${this.listPicker(this._loc('editorSecurityCameras'), 'security.cameras', c.security?.cameras || normalizeSecurityCameras(c.security) || [], ['camera'])}
+            <h4 style="margin:16px 0 6px;font-size:13px;font-weight:600;">${this._loc('editorSecurityDevices')}</h4>
+            ${this.listPicker(this._loc('editorSecurityDevices'), 'security.entities', c.security?.entities || normalizeSecurityDevices(c.security) || [], ['camera', 'button', 'lock', 'alarm_control_panel', 'binary_sensor'])}
           </div>
         </div>
 

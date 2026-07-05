@@ -4,8 +4,6 @@
 
 **Next-Gen Home Assistant Dashboard** — Multi-skin, immersive, plug-and-play.
 
-If you don't like the AI-generated images, you can freely upload your own background and room images in the settings.
-
 Skins Pro is a community Lovelace card with a multi-skin architecture featuring **modern**, **AEON**, **AEON_glass**, **visionOS**, and **minecraft** skins. Bilingual (CN/EN) — install from HACS and it just works.
 
 - Add via HACS custom repository
@@ -15,7 +13,7 @@ Skins Pro is a community Lovelace card with a multi-skin architecture featuring 
 - Area-based room display
 - Auto icon matching by entity domain
 
-> Note — All current theme image assets are AI-generated, so some images may contain AI watermarks or similar generation artifacts.
+> Note — All current theme image assets are AI-generated, so some images may contain AI watermarks or similar generation artifacts. If you don't like the AI-generated images, you can freely upload your own background and room images in the settings.
 
 ## Philosophy
 

@@ -124,6 +124,25 @@ export function dateText(hass: HomeAssistant | undefined, language: Language): s
   return new Intl.DateTimeFormat(locale, opts).format(new Date());
 }
 
+export function formatRelativeTime(isoDate: Date, language: Language): string {
+  const now = new Date();
+  const diff = now.getTime() - isoDate.getTime();
+  const seconds = Math.floor(diff / 1000);
+  const rtf = new Intl.RelativeTimeFormat(language === 'zh-CN' ? 'zh-CN' : 'en', { numeric: 'auto' });
+  if (seconds < 0) return rtf.format(0, 'seconds');
+  if (seconds < 60) return rtf.format(-seconds, 'seconds');
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return rtf.format(-minutes, 'minutes');
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return rtf.format(-hours, 'hours');
+  const days = Math.floor(hours / 24);
+  if (days < 30) return rtf.format(-days, 'days');
+  const months = Math.floor(days / 30);
+  if (months < 12) return rtf.format(-months, 'months');
+  const years = Math.floor(days / 365);
+  return rtf.format(-years, 'years');
+}
+
 export function weatherIcon(state: string): string {
   const iconMap: Record<string, string> = {
     sunny: 'mdi:weather-sunny',

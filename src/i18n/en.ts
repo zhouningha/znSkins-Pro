@@ -33,6 +33,7 @@ const en: Record<TranslationKey, string> = {
   water: 'Water',
   gridReturn: 'Grid Return',
   allRooms: 'All rooms',
+  allFloors: 'All floors',
   allTypes: 'All types',
   turnOnAll: 'Turn on all',
   turnOffAll: 'Turn off all',

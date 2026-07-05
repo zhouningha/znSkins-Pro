@@ -620,14 +620,44 @@ export class MinecraftDashboardCard extends LitElement {
   // ─── Scenes page ────────────────────────────────────────
 
   private renderScenesPage(language: Language, translate: (key: TranslationKey) => string): TemplateResult {
-    const scenes = this.renderRealScenes(language, Number.MAX_SAFE_INTEGER);
+    if (!this._hass) return html``;
+
+    const scenes = Object.values(this._hass.states)
+      .filter((entity): entity is HassEntity => Boolean(entity?.entity_id?.startsWith('scene.')));
+
+    if (scenes.length === 0) {
+      return this.renderPageShell(
+        translate('scenes'),
+        translate('modes'),
+        html``,
+        html`<div class="empty-state">${translate('noScenes')}</div>`
+      );
+    }
+
+    const skin = selectedSkin(this._config);
+    const items = scenes.map((scene) => {
+      const name = String(scene.attributes?.friendly_name || scene.entity_id);
+      const lastActivated = scene.attributes?.last_activated
+        ? formatRelativeTime(new Date(scene.attributes.last_activated as string), language)
+        : undefined;
+      const assetKey = assetKeyForDomain(skin, 'scene');
+
+      return html`
+        <button class="device" @click=${() => this.runScene(scene.entity_id)}>
+          ${this.renderImage(assetKey, 'Scene', 'item-img')}
+          <div class="device-copy">
+            <p class="device-name">${name}</p>
+            ${lastActivated ? html`<p class="muted">${lastActivated}</p>` : nothing}
+          </div>
+        </button>
+      `;
+    });
+
     return this.renderPageShell(
       translate('scenes'),
       translate('modes'),
       html``,
-      scenes !== nothing
-        ? html`<div class="page-scroll themed-scrollbar"><div class="scene-grid scenes-page">${scenes}</div></div>`
-        : html`<div class="empty-state">${translate('noScenes')}</div>`
+      html`<div class="page-scroll themed-scrollbar"><div class="devices-page-grid automations-grid">${items}</div></div>`
     );
   }
 
@@ -839,13 +869,26 @@ export class MinecraftDashboardCard extends LitElement {
       const action = isMedia ? 'play-pause' : (CONTROLLABLE_DOMAINS.has(domain) ? 'toggle' : 'more-info');
       const mediaState = isMedia ? this._hass?.states?.[device.entityId] : undefined;
       const albumArt = isMedia ? (mediaState?.attributes?.entity_picture as string | undefined) : undefined;
+      const stateObj = this._hass?.states?.[device.entityId];
+      let lastTime: string | undefined;
+      if (domain === 'automation') {
+        lastTime = stateObj?.attributes?.last_triggered
+          ? formatRelativeTime(new Date(stateObj.attributes.last_triggered as string), language)
+          : undefined;
+      } else if (domain === 'scene') {
+        lastTime = stateObj?.attributes?.last_activated
+          ? formatRelativeTime(new Date(stateObj.attributes.last_activated as string), language)
+          : undefined;
+      } else if (stateObj) {
+        lastTime = formatRelativeTime(new Date(stateObj.last_changed), language);
+      }
       return html`
         <button class="device ${statusClass}" @click=${() => this.handleAction(device.entityId, action)}>
           <div class="device-top">
             ${albumArt ? html`<img class="item-img" src=${albumArt} alt="">` : this.renderImage(assetKey, device.name, 'item-img')}
             <div class="tag-stack"><div class="status">${stateLabel}</div></div>
           </div>
-          <div class="device-copy"><p class="device-name">${device.name}</p><p class="muted">${device.subtitle}</p></div>
+          <div class="device-copy"><p class="device-name">${device.name}</p><p class="muted">${lastTime || device.subtitle}</p></div>
           <div class="control-row"><span class="state-word">${device.detail}</span>${action === 'play-pause' ? html`<ha-icon icon=${device.state === 'playing' ? 'mdi:pause' : 'mdi:play'} class="media-toggle-icon"></ha-icon>` : (action === 'toggle' ? html`<span class="switch${active ? ' on' : ''}"></span>` : '')}</div>
         </button>
       `;
@@ -1390,13 +1433,27 @@ export class MinecraftDashboardCard extends LitElement {
               const pct = Math.max(0, Math.min(1, ((e as MouseEvent).clientX - rect.left) / rect.width));
               this._hass?.callService('media_player', 'volume_set', { entity_id: device.entityId, volume_level: pct });
             };
+            const stateObj = this._hass?.states?.[device.entityId];
+            const domain = device.entityId.split('.')[0];
+            let lastTime: string | undefined;
+            if (domain === 'automation') {
+              lastTime = stateObj?.attributes?.last_triggered
+                ? formatRelativeTime(new Date(stateObj.attributes.last_triggered as string), language)
+                : undefined;
+            } else if (domain === 'scene') {
+              lastTime = stateObj?.attributes?.last_activated
+                ? formatRelativeTime(new Date(stateObj.attributes.last_activated as string), language)
+                : undefined;
+            } else if (stateObj) {
+              lastTime = formatRelativeTime(new Date(stateObj.last_changed), language);
+            }
             return html`
               <button class="device ${statusClass}" @click=${() => this.handleAction(device.entityId, action)}>
                 <div class="device-top">
                   ${albumArt ? html`<img class="item-img" src=${albumArt} alt="">` : this.renderImage(assetKey, device.name, 'item-img')}
                   <div class="tag-stack"><div class="status">${stateLabel}</div></div>
                 </div>
-                <div class="device-copy"><p class="device-name">${device.name}</p><p class="muted">${device.subtitle}</p></div>
+                <div class="device-copy"><p class="device-name">${device.name}</p><p class="muted">${lastTime || device.subtitle}</p></div>
                 <div class="control-row"><span class="state-word">${device.detail}</span>${action === 'play-pause' ? html`
                   ${volPct !== undefined ? html`<div class="media-dev-voltrack" @click=${handleVolume} @mousedown=${(e: Event) => e.stopPropagation()}><div class="media-dev-volfill" style="width:${volPct}%"></div></div>` : ''}
                   <ha-icon icon=${device.state === 'playing' ? 'mdi:pause' : 'mdi:play'} class="media-toggle-icon"></ha-icon>

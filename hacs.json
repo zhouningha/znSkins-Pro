@@ -3,5 +3,6 @@
   "render_readme": true,
   "homeassistant": "2026.5.0",
   "filename": "skins-pro.js",
-  "content_in_root": false
+  "content_in_root": false,
+  "license": "PolyForm-Noncommercial-1.0.0"
 }

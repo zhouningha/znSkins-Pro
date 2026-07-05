@@ -11,7 +11,7 @@
   --sp-text-primary:#FFFFFF; --sp-text-main:var(--sp-text-primary); --sp-text-tertiary:rgba(255,255,255,.48); --sp-text-muted:rgba(255,255,255,.50); --sp-text-muted-dim:rgba(255,255,255,.35);
   --sp-text-muted-bright:rgba(255,255,255,.70); --sp-text-alt:#007AFF; --sp-text-dark:var(--sp-text-primary);
   --sp-text-dark-dim:rgba(255,255,255,.55); --sp-text-dark-alpha:rgba(255,255,255,.10);
-  --sp-text-down:#34C759;
+  --sp-text-down:#007AFF;
   --sp-accent:#007AFF; --sp-accent-alpha:rgba(0,122,255,.15); --sp-accent-active:rgba(0,122,255,.22); --sp-accent-border:rgba(0,122,255,.28);
   --sp-accent-red:#FF3B30;
   --sp-border-width:1px;

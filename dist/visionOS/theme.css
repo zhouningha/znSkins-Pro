@@ -809,7 +809,7 @@ button {
 }
 
 .filter-select option {
-  background: #1C1C1E;
+  background: rgba(30,30,32,0.85);
   color: #FFFFFF;
 }
 
@@ -923,7 +923,7 @@ button {
 }
 
 .device-unavailable {
-  background: rgba(200,200,205,0.30);
+  background: rgba(255,255,255,0.10);
   opacity: 0.65;
 }
 
@@ -1748,10 +1748,10 @@ button {
   padding: var(--sp-space-sm);
 }
 
-.scene.morning { border-top: 3px solid var(--sp-accent); }
-.scene.night { border-top: 3px solid rgba(255,255,255,0.4); }
-.scene.movie { border-top: 3px solid rgba(255,180,160,0.5); }
-.scene.game { border-top: 3px solid rgba(180,160,220,0.5); }
+.scene.morning { border-top:0.5px solid rgba(255,255,255,0.60); }
+.scene.night { border-top:0.5px solid rgba(255,255,255,0.40); }
+.scene.movie { border-top:0.5px solid rgba(255,255,255,0.30); }
+.scene.game { border-top:0.5px solid rgba(255,255,255,0.20); }
 
 .page-body.single-column > .maintenance-card { flex:1 1 200px; max-width:400px; min-width:200px; }
 
@@ -2273,7 +2273,7 @@ button {
 }
 
 .sp-card select option {
-  background: #1C1C1E;
+  background: rgba(30,30,32,0.85);
   color: #FFFFFF;
 }
 

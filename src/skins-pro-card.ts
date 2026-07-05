@@ -10,6 +10,7 @@ import type {
   EnergySourceData,
   EntityRegistryEntry,
   EnvironmentMetricConfig,
+  FloorRegistryEntry,
   HomeAssistant,
   HassEntity,
   MaintenanceItem,
@@ -50,7 +51,7 @@ import { fetchEnergyHistory, fetchEnergySources } from './energy';
 
 import { loadWeatherForecast, getWeatherDisplayText, getWeatherTemperature } from './weather';
 
-import { loadAreas, loadDeviceRegistry, loadEntityRegistry } from './registry';
+import { loadAreas, loadDeviceRegistry, loadEntityRegistry, loadFloors } from './registry';
 
 import { getMaintenanceItems } from './maintenance';
 
@@ -71,6 +72,8 @@ export class MinecraftDashboardCard extends LitElement {
   @state() private _areas?: AreaRegistryEntry[];
   @state() private _entityRegistry?: EntityRegistryEntry[];
   @state() private _deviceRegistry?: DeviceRegistryEntry[];
+  @state() private _floors?: FloorRegistryEntry[];
+  @state() private _selectedFloor = '';
 
   private _areasLoaded = false;
   private _areasLoading = false;
@@ -78,6 +81,8 @@ export class MinecraftDashboardCard extends LitElement {
   private _entityRegistryLoading = false;
   private _deviceRegistryLoaded = false;
   private _deviceRegistryLoading = false;
+  private _floorsLoaded = false;
+  private _floorsLoading = false;
 
   @state() private _energyHistory?: number[];
   @state() private _energyYesterday?: string;
@@ -146,6 +151,7 @@ export class MinecraftDashboardCard extends LitElement {
       void this.loadAreas();
       void this.loadEntityRegistry();
       void this.loadDeviceRegistry();
+      void this.loadFloorsRegistry();
       void this.loadEnergyHistory();
     }
     const weatherEntity = this._config?.weather?.entity;
@@ -202,6 +208,18 @@ export class MinecraftDashboardCard extends LitElement {
     } catch {
     } finally {
       this._deviceRegistryLoading = false;
+    }
+  }
+
+  private async loadFloorsRegistry(): Promise<void> {
+    if (!this._hass || this._floorsLoaded || this._floorsLoading) return;
+    this._floorsLoading = true;
+    try {
+      this._floors = await loadFloors(this._hass);
+      this._floorsLoaded = true;
+    } catch {
+    } finally {
+      this._floorsLoading = false;
     }
   }
 
@@ -450,7 +468,10 @@ export class MinecraftDashboardCard extends LitElement {
 
     const rect = this.getBoundingClientRect();
     const paddingBottom = 0;
-    const availableHeight = Math.max(560, Math.floor(window.innerHeight - rect.top - paddingBottom));
+    const isShortLandscape = window.matchMedia('(orientation: landscape)').matches && window.innerHeight < 500;
+    const availableHeight = isShortLandscape
+      ? Math.max(240, Math.floor(window.innerHeight - rect.top - paddingBottom))
+      : Math.max(560, Math.floor(window.innerHeight - rect.top - paddingBottom));
     host.style.setProperty('--sp-runtime-height', `${availableHeight}px`);
     host.style.setProperty('--sp-runtime-min-height', `${availableHeight}px`);
   }
@@ -544,7 +565,7 @@ export class MinecraftDashboardCard extends LitElement {
           </select>
           <select class="filter-select" @change=${(e: Event) => { this._filterType = (e.target as HTMLSelectElement).value; }}>
             <option value="">${translate('allTypes')}</option>
-            ${types.map((t) => html`<option value="${t}" .selected=${t === this._filterType}>${t}</option>`)}
+            ${types.map((t) => html`<option value="${t}" .selected=${t === this._filterType}>${this._domainGroupLabel(t, language)}</option>`)}
           </select>
           <select class="filter-select" @change=${(e: Event) => { this._hideUnassigned = (e.target as HTMLSelectElement).value === 'true'; }}>
             <option value="true" .selected=${this._hideUnassigned}>${translate('hideUnassigned')}</option>
@@ -565,14 +586,26 @@ export class MinecraftDashboardCard extends LitElement {
   // ─── Rooms page ─────────────────────────────────────────
 
   private renderRoomsPage(language: Language, translate: (key: TranslationKey) => string): TemplateResult {
-    const roomsMarkup = this.renderAreaRooms(language, true, undefined, [], false);
-    const roomCount = this._areas?.length || 0;
+    const floors = this._floors || [];
+    const showFloorTabs = floors.length > 1;
+    const selectedFloorRooms = showFloorTabs && this._selectedFloor
+      ? (this._areas || []).filter((a) => (a as AreaRegistryEntry & { floor_id?: string | null }).floor_id === this._selectedFloor)
+      : (this._areas || []);
+    const roomsMarkup = this.renderAreaRooms(language, true, undefined, [], false, selectedFloorRooms);
+    const roomCount = selectedFloorRooms.length || 0;
     const roomPageClass = roomCount > 8 ? 'rooms-page rooms-page-dense' : (roomCount > 4 ? 'rooms-page rooms-page-medium' : 'rooms-page');
+
+    const floorTabs = showFloorTabs ? html`
+      <div class="filter-bar floor-tabs">
+        <button class="chip${this._selectedFloor === '' ? ' active' : ''}" @click=${() => { this._selectedFloor = ''; }}>${translate('allFloors')}</button>
+        ${floors.map((f) => html`<button class="chip${this._selectedFloor === f.floor_id ? ' active' : ''}" @click=${() => { this._selectedFloor = f.floor_id; }}>${f.name}</button>`)}
+      </div>
+    ` : html``;
 
     return this.renderPageShell(
       translate('rooms'),
       translate('roomSnapshots'),
-      html``,
+      floorTabs,
       html`
         <div class="rooms-page-wrap">
           ${roomsMarkup !== nothing
@@ -936,8 +969,9 @@ export class MinecraftDashboardCard extends LitElement {
 
   // ─── Area rooms ─────────────────────────────────────────
 
-  private renderAreaRooms(language: Language, requireRealAreas: boolean, limit?: number, selectedRooms: string[] = [], showSummary = true): TemplateResult | typeof nothing {
-    if (!this._areas || this._areas.length === 0) return nothing;
+  private renderAreaRooms(language: Language, requireRealAreas: boolean, limit?: number, selectedRooms: string[] = [], showSummary = true, areasPool?: AreaRegistryEntry[]): TemplateResult | typeof nothing {
+    const allAreas = areasPool ?? this._areas;
+    if (!allAreas || allAreas.length === 0) return nothing;
 
     const imageKeys = ['room_living', 'room_bedroom', 'room_kitchen', 'room_garden'];
     const filteredAreas = selectedRooms.length > 0
@@ -945,13 +979,13 @@ export class MinecraftDashboardCard extends LitElement {
         .map((item) => {
           if (item.includes('.')) {
             const entry = this._entityRegistry?.find((e) => e.entity_id === item);
-            if (entry?.area_id) return this._areas?.find((a) => a.area_id === entry.area_id);
+            if (entry?.area_id) return allAreas?.find((a) => a.area_id === entry.area_id);
             return undefined;
           }
-          return this._areas?.find((a) => a.area_id === item) || this._areas?.find((a) => a.name === item);
+          return allAreas?.find((a) => a.area_id === item) || allAreas?.find((a) => a.name === item);
         })
         .filter((area): area is AreaRegistryEntry => Boolean(area))
-      : this._areas;
+      : allAreas;
     const rooms = filteredAreas.slice(0, limit || filteredAreas.length).map((area, index) => ({
       areaId: area.area_id,
       name: area.name,
@@ -959,7 +993,7 @@ export class MinecraftDashboardCard extends LitElement {
       picture: area.picture,
       summary: this.areaSummaryById(area.area_id, language),
       counts: this.areaCounts(area.area_id),
-      activeCounts: this.areaActiveCounts(area.area_id),
+      activeCounts: this.areaActiveCounts(area.area_id, language),
       scenes: this.areaScenes(area.area_id, area.name),
     }));
 
@@ -984,7 +1018,7 @@ export class MinecraftDashboardCard extends LitElement {
       const activeCountsRow = room.activeCounts.length > 0 ? html`
         <div class="room-active">
           ${room.activeCounts.map((g) => html`
-            <button class="room-active-chip" @click=${(e: Event) => { e.stopPropagation(); this.turnOffAreaType(g.domain, g.entityIds); }}>
+            <button class="room-active-chip" @click=${(e: Event) => { e.stopPropagation(); this.turnOffAreaType(g.entityIds); }}>
               <span>${g.label} ${g.count}</span>
               <span class="room-active-close">&times;</span>
             </button>
@@ -1093,7 +1127,41 @@ export class MinecraftDashboardCard extends LitElement {
     return { devices: deviceIds.size, entities: areaEntities.length };
   }
 
-  private areaActiveCounts(areaId: string): Array<{ domain: string; label: string; count: number; entityIds: string[] }> {
+  private readonly _domainGroupMap: Record<string, string> = {
+    light: 'lights',
+    switch: 'switches',
+    input_boolean: 'switches',
+    button: 'switches',
+    input_button: 'switches',
+    climate: 'climate',
+    fan: 'climate',
+    humidifier: 'climate',
+    water_heater: 'climate',
+    cover: 'covers',
+    valve: 'covers',
+    media_player: 'media',
+    lock: 'security',
+    alarm_control_panel: 'security',
+    vacuum: 'others',
+    lawn_mower: 'others',
+  };
+
+  private _domainGroupLabel(key: string, language: Language): string {
+    if (language === 'zh-CN') {
+      const zh: Record<string, string> = {
+        lights: '灯光', switches: '开关', climate: '空调',
+        covers: '窗帘', media: '音响', security: '安防', others: '其他',
+      };
+      return zh[key] || key;
+    }
+    const en: Record<string, string> = {
+      lights: 'Lights', switches: 'Switches', climate: 'Climate',
+      covers: 'Covers', media: 'Media', security: 'Security', others: 'Others',
+    };
+    return en[key] || key;
+  }
+
+  private areaActiveCounts(areaId: string, language: Language): Array<{ domain: string; label: string; count: number; entityIds: string[] }> {
     if (!areaId || !this._hass) return [];
 
     const areaDeviceIds = new Set(
@@ -1117,25 +1185,19 @@ export class MinecraftDashboardCard extends LitElement {
       return domain && !readonlyDomains.has(domain);
     });
 
-    const byDomain = new Map<string, string[]>();
+    const byGroup = new Map<string, string[]>();
     for (const eid of active) {
       const domain = eid.split('.')[0] || 'other';
-      const list = byDomain.get(domain) || [];
+      const groupKey = this._domainGroupMap[domain] || 'others';
+      const list = byGroup.get(groupKey) || [];
       list.push(eid);
-      byDomain.set(domain, list);
+      byGroup.set(groupKey, list);
     }
 
-    const labelMap: Record<string, string> = {
-      light: '\u706F', switch: '\u5F00\u5173', climate: '\u7A7A\u8C03',
-      fan: '\u98CE\u6247', cover: '\u7A97\u5E18', lock: '\u95E8\u9501',
-      media_player: '\u97F3\u54CD', vacuum: '\u626B\u5730', humidifier: '\u52A0\u6E7F',
-      water_heater: '\u70ED\u6C34', valve: '\u9600\u95E8', automation: '\u81EA\u52A8\u5316',
-    };
-
-    return [...byDomain.entries()]
-      .map(([domain, entityIds]) => ({
-        domain,
-        label: labelMap[domain] || domain,
+    return [...byGroup.entries()]
+      .map(([groupKey, entityIds]) => ({
+        domain: groupKey,
+        label: this._domainGroupLabel(groupKey, language),
         count: entityIds.length,
         entityIds,
       }))
@@ -1143,9 +1205,20 @@ export class MinecraftDashboardCard extends LitElement {
       .sort((a, b) => b.count - a.count);
   }
 
-  private turnOffAreaType(domain: string, entityIds: string[]): void {
-    const service = domain === 'lock' ? 'lock' : 'turn_off';
-    void this._hass?.callService(domain, service, { entity_id: entityIds });
+  private turnOffAreaType(entityIds: string[]): void {
+    if (!this._hass || entityIds.length === 0) return;
+    const byDomain = new Map<string, string[]>();
+    for (const eid of entityIds) {
+      const domain = eid.split('.')[0] || '';
+      if (!domain) continue;
+      const list = byDomain.get(domain) || [];
+      list.push(eid);
+      byDomain.set(domain, list);
+    }
+    for (const [domain, ids] of byDomain) {
+      const service = domain === 'lock' ? 'lock' : 'turn_off';
+      void this._hass.callService(domain, service, { entity_id: ids });
+    }
   }
 
   private areaScenes(areaId: string, roomName?: string): Array<{ entity_id: string; name: string }> {
@@ -1249,7 +1322,7 @@ export class MinecraftDashboardCard extends LitElement {
       .filter((d) => {
         if (ignoreFilter) return true;
         if (this._filterRoom && d.subtitle !== this._filterRoom) return false;
-        if (this._filterType && d.detail !== this._filterType) return false;
+        if (this._filterType && this._deviceTypeGroupKey(d.detail) !== this._filterType) return false;
         if (this._hideUnassigned && !d.subtitle) return false;
         return true;
       });
@@ -1260,7 +1333,16 @@ export class MinecraftDashboardCard extends LitElement {
   }
 
   private getDeviceTypes(): string[] {
-    return [...new Set(this.getRealDevicesForRender(true).map((d) => d.detail))].sort();
+    return [...new Set(this.getRealDevicesForRender(true).map((d) => this._deviceTypeGroupKey(d.detail)))].sort();
+  }
+
+  private _deviceTypeLabel(detail: string, language: Language): string {
+    const groupKey = this._domainGroupMap[detail] || 'others';
+    return this._domainGroupLabel(groupKey, language);
+  }
+
+  private _deviceTypeGroupKey(detail: string): string {
+    return this._domainGroupMap[detail] || 'others';
   }
 
   private renderRealDeviceGroups(language: Language, translate: (key: TranslationKey) => string): TemplateResult | typeof nothing {
@@ -1271,7 +1353,9 @@ export class MinecraftDashboardCard extends LitElement {
 
     const groups = new Map<string, RenderedDevice[]>();
     for (const device of devices) {
-      const groupKey = this._deviceGrouping === 'domain' ? device.detail : (device.subtitle || (language === 'zh-CN' ? '其他' : 'Other'));
+      const groupKey = this._deviceGrouping === 'domain'
+        ? this._deviceTypeGroupKey(device.detail)
+        : (device.subtitle || (language === 'zh-CN' ? '\u5176\u4ED6' : 'Other'));
       const current = groups.get(groupKey) || [];
       current.push(device);
       groups.set(groupKey, current);
@@ -1279,9 +1363,13 @@ export class MinecraftDashboardCard extends LitElement {
 
     const skin = selectedSkin(this._config);
 
-    return html`${Array.from(groups.entries()).map(([group, items]) => html`
+    return html`${Array.from(groups.entries()).map(([group, items]) => {
+      const groupLabel = this._deviceGrouping === 'domain'
+        ? items.length > 0 ? this._deviceTypeLabel(items[0].detail, language) : group
+        : group;
+      return html`
       <section class="device-group">
-        <div class="section-title"><h2>${group}</h2><p class="muted">${String(items.length)}</p></div>
+        <div class="section-title"><h2>${groupLabel}</h2><p class="muted">${String(items.length)}</p></div>
         <div class="devices devices-page-grid">
           ${items.map((device) => {
             const stateLabel = deviceStateLabel(device.state, language);
@@ -1317,7 +1405,7 @@ export class MinecraftDashboardCard extends LitElement {
           })}
         </div>
       </section>
-    `)}`;
+    `})}`;
   }
 
   // ─── Real scenes ────────────────────────────────────────
@@ -1469,6 +1557,64 @@ export class MinecraftDashboardCard extends LitElement {
       })
       : configuredMetrics).slice(0, this._config?.home_limits?.environment || 5);
 
+    const floors = this._floors || [];
+    if (floors.length > 1 && this._entityRegistry && this._areas) {
+      const areaFloorLookup = new Map<string, string>();
+      for (const area of this._areas) {
+        const fid = (area as AreaRegistryEntry & { floor_id?: string | null }).floor_id;
+        if (fid) areaFloorLookup.set(area.area_id, fid);
+      }
+      const entityFloorLookup = new Map<string, string>();
+      for (const entry of this._entityRegistry) {
+        if (entry.hidden_by || entry.disabled_by) continue;
+        const directAreaId = entry.area_id || undefined;
+        const areaId = directAreaId || this._deviceRegistry?.find((d) => d.id === entry.device_id)?.area_id || undefined;
+        if (areaId && areaFloorLookup.has(areaId)) {
+          entityFloorLookup.set(entry.entity_id, areaFloorLookup.get(areaId)!);
+        }
+      }
+      const byFloor = new Map<string, EnvironmentMetricConfig[]>();
+      const orphanMetrics: EnvironmentMetricConfig[] = [];
+      for (const metric of metrics) {
+        const floorId = entityFloorLookup.get(metric.entity);
+        if (floorId) {
+          const list = byFloor.get(floorId) || [];
+          list.push(metric);
+          byFloor.set(floorId, list);
+        } else {
+          orphanMetrics.push(metric);
+        }
+      }
+      const rows: TemplateResult[] = [];
+      for (const floor of floors) {
+        const floorMetrics = byFloor.get(floor.floor_id);
+        if (!floorMetrics || floorMetrics.length === 0) continue;
+        rows.push(html`<div class="env-floor-header">${floor.name}</div>`);
+        for (const metric of floorMetrics) {
+          rows.push(html`
+            <div class="env-row">
+              <div class="dot ${metric.variant || 'temp'}"><ha-icon icon=${metric.icon || 'mdi:circle'}></ha-icon></div>
+              <div class="muted">${this._hass?.states[metric.entity]?.attributes?.friendly_name || metric.label || metric.entity}</div>
+              <div class="env-value">${stateValue(this._hass, metric.entity, _language) || '--'}${metric.unit || ''}</div>
+            </div>
+          `);
+        }
+      }
+      if (orphanMetrics.length > 0) {
+        rows.push(html`<div class="env-floor-header">${_language === 'zh-CN' ? '其他' : 'Others'}</div>`);
+        for (const metric of orphanMetrics) {
+          rows.push(html`
+            <div class="env-row">
+              <div class="dot ${metric.variant || 'temp'}"><ha-icon icon=${metric.icon || 'mdi:circle'}></ha-icon></div>
+              <div class="muted">${this._hass?.states[metric.entity]?.attributes?.friendly_name || metric.label || metric.entity}</div>
+              <div class="env-value">${stateValue(this._hass, metric.entity, _language) || '--'}${metric.unit || ''}</div>
+            </div>
+          `);
+        }
+      }
+      return rows;
+    }
+
     return metrics.map((metric) => html`
       <div class="env-row">
         <div class="dot ${metric.variant || 'temp'}"><ha-icon icon=${metric.icon || 'mdi:circle'}></ha-icon></div>
@@ -1500,7 +1646,10 @@ export class MinecraftDashboardCard extends LitElement {
       this._autoFullscreenDone = true;
       const host = this.shadowRoot?.host as HTMLElement | undefined;
       if (host) {
-        const h = Math.max(560, Math.floor(window.innerHeight));
+        const isShortLandscape = window.matchMedia('(orientation: landscape)').matches && window.innerHeight < 500;
+        const h = isShortLandscape
+          ? Math.max(240, Math.floor(window.innerHeight))
+          : Math.max(560, Math.floor(window.innerHeight));
         host.style.setProperty('--sp-runtime-height', `${h}px`);
         host.style.setProperty('--sp-runtime-min-height', `${h}px`);
       }

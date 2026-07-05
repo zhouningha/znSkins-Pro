@@ -1,4 +1,4 @@
-import type { AreaRegistryEntry, DeviceRegistryEntry, EntityRegistryEntry, HomeAssistant } from './types';
+import type { AreaRegistryEntry, DeviceRegistryEntry, EntityRegistryEntry, FloorRegistryEntry, HomeAssistant } from './types';
 
 export interface RegistryResult {
   areas: AreaRegistryEntry[];
@@ -14,6 +14,23 @@ export async function loadAreas(hass: HomeAssistant): Promise<AreaRegistryEntry[
     return Array.isArray(areas)
       ? [...areas].sort((left, right) => left.name.localeCompare(right.name))
       : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function loadFloors(hass: HomeAssistant): Promise<FloorRegistryEntry[]> {
+  const connection = hass.connection;
+  if (!connection?.sendMessagePromise) return [];
+  try {
+    const floors = await connection.sendMessagePromise<FloorRegistryEntry[]>({ type: 'config/floor_registry/list' });
+    if (!Array.isArray(floors)) return [];
+    return [...floors].sort((a, b) => {
+      const la = a.level ?? Number.MAX_SAFE_INTEGER;
+      const lb = b.level ?? Number.MAX_SAFE_INTEGER;
+      if (la !== lb) return la - lb;
+      return (a.name || '').localeCompare(b.name || '');
+    });
   } catch {
     return [];
   }

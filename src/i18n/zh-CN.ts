@@ -33,6 +33,7 @@ const zh: Record<TranslationKey, string> = {
   water: '用水',
   gridReturn: '返送电网',
   allRooms: '全部房间',
+  allFloors: '全部楼层',
   allTypes: '全部类型',
   turnOnAll: '全部开启',
   turnOffAll: '全部关闭',

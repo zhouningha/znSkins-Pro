@@ -31,6 +31,17 @@ export interface AreaRegistryEntry {
   area_id: string;
   name: string;
   picture?: string | null;
+  floor_id?: string | null;
+  icon?: string | null;
+  aliases?: string[];
+}
+
+export interface FloorRegistryEntry {
+  floor_id: string;
+  name: string;
+  level: number | null;
+  icon?: string | null;
+  aliases?: string[];
 }
 
 export interface EntityRegistryEntry {
@@ -234,6 +245,7 @@ export type TranslationKey =
   | 'water'
   | 'gridReturn'
   | 'allRooms'
+  | 'allFloors'
   | 'allTypes'
   | 'turnOnAll'
   | 'turnOffAll'

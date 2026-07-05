@@ -834,7 +834,7 @@ button {
 
 .security-cameras {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--sp-space-sm);
 }
 
@@ -1042,6 +1042,7 @@ button {
   aspect-ratio: 3 / 2;
   background: var(--sp-camera-bg);
   min-height: 100px;
+  max-height: 200px;
 }
 
 .camera-preview img {
@@ -1788,7 +1789,7 @@ button {
 }
 
 .mc-app[data-view="rooms"] .room {
-  min-height: 180px;
+  min-height: 220px;
   aspect-ratio: unset;
 }
 

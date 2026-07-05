@@ -169,11 +169,11 @@ button { font:inherit; }
 .rooms-page-dense { grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--sp-space-xs); }
 .scenes-page { grid-template-columns:repeat(auto-fill,minmax(var(--sp-scene-min-width),1fr)); align-content:start; }
 .security-grid { display:flex; flex-direction:column; gap:var(--sp-space-sm); }
-.security-cameras { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--sp-space-sm); }
+.security-cameras { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:var(--sp-space-sm); }
 .security-devices { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:var(--sp-space-sm); }
 .camera-card { border:var(--sp-border-width) solid var(--sp-border-light); border-radius:var(--sp-radius-camera); overflow:hidden; background:var(--sp-dark-overlay); color:var(--sp-text-main); cursor:pointer; text-align:left; width:100%; box-shadow:var(--sp-shadow-xl); transition:transform .18s ease,border-color .18s ease; }
 .camera-card:hover { transform:translateY(-2px); border-color:var(--sp-border-glass); }
-.camera-preview { aspect-ratio:3/2; background:var(--sp-camera-bg); min-height:100px; }
+.camera-preview { aspect-ratio:3/2; background:var(--sp-camera-bg); min-height:100px; max-height:200px; }
 .camera-preview img { width:100%; height:100%; object-fit:cover; display:block; }
 .camera-meta { display:flex; justify-content:space-between; align-items:center; gap:var(--sp-space-md); padding:10px; }
 .empty-state { min-height:180px; display:grid; place-items:center; color:var(--sp-text-muted); border:var(--sp-border-width) dashed var(--sp-border-empty); border-radius:var(--sp-radius-empty); }
@@ -468,7 +468,7 @@ button { font:inherit; }
 .mc-app[data-view="rooms"] .bottom-stack { grid-template-rows:auto; align-self:stretch; }
 .mc-app[data-view="rooms"] .page-body { overflow:visible; }
 .mc-app[data-view="rooms"] .rooms { grid-template-columns:repeat(4,minmax(0,1fr)); }
-.mc-app[data-view="rooms"] .room { min-height:180px; aspect-ratio:unset; }
+.mc-app[data-view="rooms"] .room { min-height:220px; aspect-ratio:unset; }
 .mc-app[data-view="scenes"] .welcome-group,
 .mc-app[data-view="scenes"] .bottom-stack,
 .mc-app[data-view="scenes"] .time-card,

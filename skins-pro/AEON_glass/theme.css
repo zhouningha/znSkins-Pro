@@ -136,13 +136,13 @@ button { font:inherit; }
 .section-title { display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--sp-space-sm); }
 .devices { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:var(--sp-space-md); }
 .security-grid { display:flex; flex-direction:column; gap:var(--sp-space-sm); }
-.security-cameras { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--sp-space-sm); }
+.security-cameras { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:var(--sp-space-sm); }
 .security-devices { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:var(--sp-space-sm); }
 .device { min-height:148px; border:0; border-radius:var(--sp-radius-device); padding:var(--sp-space-lg); background:var(--sp-card-bg); color:var(--sp-text-dark); box-shadow:var(--sp-shadow-card); display:grid; grid-template-rows:auto 1fr auto; cursor:pointer; text-align:left; border:var(--sp-border-width) solid var(--sp-border-device); transition:all .18s ease; backdrop-filter:blur(16px) saturate(180%); -webkit-backdrop-filter:blur(16px) saturate(180%); }
 .device:hover { transform:translateY(-2px); box-shadow:0 30px 70px rgba(0,0,0,.55),0 0 30px var(--sp-accent-alpha); border-color:var(--sp-accent-border); }
 .camera-card { border:0; border-radius:var(--sp-radius-camera); overflow:hidden; background:var(--sp-card-bg); color:var(--sp-text-dark); cursor:pointer; text-align:left; box-shadow:var(--sp-shadow-card); width:100%; border:var(--sp-border-width) solid var(--sp-border-device); transition:all .18s ease; backdrop-filter:blur(16px) saturate(180%); -webkit-backdrop-filter:blur(16px) saturate(180%); }
 .camera-card:hover { transform:translateY(-2px); box-shadow:0 30px 70px rgba(0,0,0,.55),0 0 30px var(--sp-accent-alpha); border-color:var(--sp-accent-border); }
-.camera-preview { aspect-ratio:3/2; background:var(--sp-camera-bg); min-height:100px; }
+.camera-preview { aspect-ratio:3/2; background:var(--sp-camera-bg); min-height:100px; max-height:200px; }
 .camera-preview img { width:100%; height:100%; object-fit:cover; display:block; }
 .camera-meta { display:flex; justify-content:space-between; align-items:center; gap:var(--sp-space-md); padding:10px; }
 .devices-page-grid .device { min-height:110px; padding:var(--sp-space-sm); }
@@ -434,7 +434,7 @@ button { font:inherit; }
 .mc-app[data-view="rooms"] .bottom-stack { grid-template-rows:auto; align-self:stretch; }
 .mc-app[data-view="rooms"] .page-body { overflow:visible; }
 .mc-app[data-view="rooms"] .rooms { grid-template-columns:repeat(4,minmax(0,1fr)); }
-.mc-app[data-view="rooms"] .room { min-height:180px; aspect-ratio:unset; }
+.mc-app[data-view="rooms"] .room { min-height:220px; aspect-ratio:unset; }
 .mc-app[data-view="scenes"] .welcome-group,
 .mc-app[data-view="scenes"] .bottom-stack,
 .mc-app[data-view="scenes"] .time-card,

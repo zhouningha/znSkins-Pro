@@ -282,7 +282,12 @@ export class SkinsProCardEditor extends HTMLElement {
               <span>Skin</span>
               <select data-text-path="resource_pack.skin">
                 ${(SKINS as readonly string[]).map((s: string) => `<option value="${s}"${s === (c.resource_pack?.skin || 'modern') ? ' selected' : ''}>${s}</option>`).join('')}
+                ${((c.downloaded_skins || []) as string[]).filter((s: string) => !SKINS.includes(s)).map((s: string) => `<option value="${s}"${s === (c.resource_pack?.skin || 'modern') ? ' selected' : ''}>${s} (Downloaded)</option>`).join('')}
               </select>
+            </label>
+            <label class="sp-field" style="flex:1;min-width:120px">
+              <span>Downloaded Skins</span>
+              <input type="text" data-text-path="downloaded_skins" placeholder="theme1,theme2" value="${(c.downloaded_skins || []).join(',')}" style="min-height:36px;padding:0 8px">
             </label>
             <label class="sp-field" style="min-width:120px;display:grid;justify-items:center;align-content:center">
               <span>${this._loc('editorUseAreaPictures')}</span>
@@ -388,6 +393,10 @@ export class SkinsProCardEditor extends HTMLElement {
           next.resource_pack.base_path = '__AUTO__';
           this._config = next;
           fire(this, this._config);
+          return;
+        }
+        if (path === 'downloaded_skins') {
+          this.setField(path, value ? value.split(',').map((s: string) => s.trim()).filter(Boolean) : []);
           return;
         }
         this.setField(path, value);
@@ -496,6 +505,24 @@ export class SkinsProCardEditor extends HTMLElement {
         this.render();
       });
     }
+
+    this.shadowRoot.querySelectorAll<HTMLElement>('[data-store-download]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const skin = btn.getAttribute('data-store-download');
+        if (!skin || !this._hass) return;
+        btn.textContent = '...';
+        try {
+          await this._hass.callService('shell_command', 'download_skin', { skin });
+          const next = deepClone(this._config);
+          next.downloaded_skins = [...new Set([...(next.downloaded_skins || []), skin])];
+          this._config = next;
+          fire(this, this._config);
+          btn.textContent = '✓';
+        } catch {
+          btn.textContent = this._loc('editorSkinStoreDownload');
+        }
+      });
+    });
 
     const overlay = this.shadowRoot.querySelector<HTMLElement>('[data-nav-overlay]');
     if (overlay) {

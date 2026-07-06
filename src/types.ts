@@ -182,6 +182,7 @@ export interface DashboardConfig {
   profile_subtitle_zh?: string;
   profile_subtitle_en?: string;
   resource_pack?: ResourcePackConfig;
+  downloaded_skins?: string[];
   background_image?: string;
   weather?: WeatherConfig;
   info?: InfoConfig;

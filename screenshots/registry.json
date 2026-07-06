@@ -2,26 +2,31 @@
   {
     "id": "AEON",
     "name": "AEON",
+    "author": "@Desmond-Dong",
     "thumbnail": "screenshots/thumbnails/AEON.jpg"
   },
   {
     "id": "AEON_glass",
     "name": "AEON_glass",
+    "author": "@Desmond-Dong",
     "thumbnail": "screenshots/thumbnails/AEON_glass.jpg"
   },
   {
     "id": "minecraft",
     "name": "minecraft",
+    "author": "@Desmond-Dong",
     "thumbnail": "screenshots/thumbnails/minecraft.jpg"
   },
   {
     "id": "modern",
     "name": "modern",
+    "author": "@Desmond-Dong",
     "thumbnail": "screenshots/thumbnails/modern.jpg"
   },
   {
     "id": "visionOS",
     "name": "visionOS",
+    "author": "@Desmond-Dong",
     "thumbnail": "screenshots/thumbnails/visionOS.jpg"
   }
 ]

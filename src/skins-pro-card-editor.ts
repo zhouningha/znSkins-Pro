@@ -4,6 +4,8 @@ import type { AreaRegistryEntry, HomeAssistant, TranslationKey, NavItemConfig } 
 import { DEFAULT_NAV } from './constants';
 import { normalizeLanguage } from './utils';
 
+const CDN_BASE = 'https://cdn.jsdelivr.net/gh/ha-china/Skins-Pro@master';
+
 type DashboardConfigRecord = Record<string, any>;
 
 const fire = (el: HTMLElement, config: DashboardConfigRecord) => {
@@ -31,6 +33,10 @@ export class SkinsProCardEditor extends HTMLElement {
   private _areas: AreaRegistryEntry[] = [];
   private _areasLoaded = false;
   private _navDialogOpen = false;
+  private _skinStoreOpen = false;
+  private _skinStoreThemes: Array<{ id: string; name: string; thumbnail: string }> = [];
+  private _skinStoreLoading = false;
+  private _skinStoreError = '';
 
   public constructor() {
     super();
@@ -203,6 +209,37 @@ export class SkinsProCardEditor extends HTMLElement {
     return item ? item.enabled : true;
   }
 
+  private _renderSkinStore(): string {
+    if (!this._skinStoreOpen) return '';
+    let content: string;
+    if (this._skinStoreLoading) {
+      content = `<p style="text-align:center;padding:40px 0;color:var(--sp-text-muted,#888)">${this._loc('loadingQuote')}</p>`;
+    } else if (this._skinStoreError) {
+      content = `<p style="text-align:center;padding:40px 0;color:var(--sp-error,#e44)">${this._loc('editorSkinStoreLoadFailed')}</p>`;
+    } else {
+      content = `<div class="store-grid">${this._skinStoreThemes.map(t => `
+        <div class="store-card" data-store-theme="${t.id}">
+          <img src="${CDN_BASE}/${t.thumbnail}" alt="${t.name}" class="store-thumb" loading="lazy">
+          <div class="store-info">
+            <span class="store-name">${t.name}</span>
+            <button class="store-download" data-store-download="${t.id}">${this._loc('editorSkinStoreDownload')}</button>
+          </div>
+        </div>
+      `).join('')}</div>`;
+    }
+    return `
+      <div class="nav-overlay" data-store-overlay style="display:flex">
+        <div class="nav-dialog" style="max-width:1200px;width:95vw">
+          <h3>${this._loc('editorSkinStore')}</h3>
+          ${content}
+          <div class="nav-dialog-actions">
+            <button class="nav-cancel" data-store-close>${this._loc('editorSkinStoreClose')}</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   private _renderNavDialog(): string {
     const lang = normalizeLanguage(this._hass?.language);
     return `
@@ -232,7 +269,7 @@ export class SkinsProCardEditor extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <link rel="stylesheet" href="${this.themeCssUrl()}">
-      <style>.bg-preview{max-width:120px;max-height:60px;border-radius:6px;display:block;flex-shrink:0}.sp-card input[type=checkbox]{width:auto;min-height:auto;margin:0}.sp-card label:has(input[type=checkbox]){display:flex;align-items:center;gap:8px}.sp-btn-configure{cursor:pointer}.nav-overlay{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.5);display:${this._navDialogOpen ? 'flex' : 'none'};align-items:center;justify-content:center}.nav-dialog{background:var(--sp-card-bg,var(--sp-panel-bg,var(--glass-regular,var(--ha-card-background,#fff))));border-radius:var(--sp-radius-lg);padding:var(--sp-space-xl);min-width:280px;max-width:380px;box-shadow:var(--sp-shadow-card);border:var(--sp-border-width,1px) solid var(--sp-border-device,var(--sp-border-glass,var(--divider-color,rgba(0,0,0,0.12))));backdrop-filter:var(--sp-blur-lg,none);-webkit-backdrop-filter:var(--sp-blur-lg,none)}.nav-dialog h3{margin:0 0 var(--sp-space-md);font-size:var(--sp-font-md);font-weight:700;color:var(--sp-text-main,var(--sp-text-primary,inherit))}.nav-dialog-item{display:flex;align-items:center;gap:var(--sp-space-sm);padding:var(--sp-space-2xs) 0}.nav-dialog-item span{font-size:var(--sp-font-xs);color:var(--sp-text-main,var(--sp-text-primary,inherit))}.nav-dialog-item input[type=checkbox]{width:auto;min-height:auto;margin:0;margin-left:auto;accent-color:var(--sp-accent)}.nav-dialog-actions{display:flex;gap:var(--sp-space-sm);justify-content:flex-end;margin-top:var(--sp-space-lg)}.nav-dialog-actions button{min-height:38px;border:0;border-radius:var(--sp-radius-sm,8px);padding:0 var(--sp-space-lg);cursor:pointer;font:inherit;font-weight:600;font-size:var(--sp-font-xs);white-space:nowrap}.nav-dialog-actions .nav-cancel{background:var(--sp-device-bg,rgba(128,128,128,0.1));color:var(--sp-text-main,var(--sp-text-primary,inherit));border:var(--sp-border-width,1px) solid var(--sp-border-muted,var(--sp-border-glass,transparent))}.nav-dialog-actions .nav-cancel:hover{filter:brightness(0.96)}.nav-dialog-actions .nav-save{background:var(--sp-accent);color:var(--sp-text-on-accent,#fff)}.nav-dialog-actions .nav-save:hover{filter:brightness(1.08)}</style>
+      <style>.bg-preview{max-width:120px;max-height:60px;border-radius:6px;display:block;flex-shrink:0}.sp-card input[type=checkbox]{width:auto;min-height:auto;margin:0}.sp-card label:has(input[type=checkbox]){display:flex;align-items:center;gap:8px}.sp-btn-configure{cursor:pointer}.nav-overlay{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.5);display:${this._navDialogOpen ? 'flex' : 'none'};align-items:center;justify-content:center}.nav-dialog{background:var(--sp-card-bg,var(--sp-panel-bg,var(--glass-regular,var(--ha-card-background,#fff))));border-radius:var(--sp-radius-lg);padding:var(--sp-space-xl);min-width:280px;max-width:380px;box-shadow:var(--sp-shadow-card);border:var(--sp-border-width,1px) solid var(--sp-border-device,var(--sp-border-glass,var(--divider-color,rgba(0,0,0,0.12))));backdrop-filter:var(--sp-blur-lg,none);-webkit-backdrop-filter:var(--sp-blur-lg,none)}.nav-dialog h3{margin:0 0 var(--sp-space-md);font-size:var(--sp-font-md);font-weight:700;color:var(--sp-text-main,var(--sp-text-primary,inherit))}.nav-dialog-item{display:flex;align-items:center;gap:var(--sp-space-sm);padding:var(--sp-space-2xs) 0}.nav-dialog-item span{font-size:var(--sp-font-xs);color:var(--sp-text-main,var(--sp-text-primary,inherit))}.nav-dialog-item input[type=checkbox]{width:auto;min-height:auto;margin:0;margin-left:auto;accent-color:var(--sp-accent)}.nav-dialog-actions{display:flex;gap:var(--sp-space-sm);justify-content:flex-end;margin-top:var(--sp-space-lg)}.nav-dialog-actions button{min-height:38px;border:0;border-radius:var(--sp-radius-sm,8px);padding:0 var(--sp-space-lg);cursor:pointer;font:inherit;font-weight:600;font-size:var(--sp-font-xs);white-space:nowrap}.nav-dialog-actions .nav-cancel{background:var(--sp-device-bg,rgba(128,128,128,0.1));color:var(--sp-text-main,var(--sp-text-primary,inherit));border:var(--sp-border-width,1px) solid var(--sp-border-muted,var(--sp-border-glass,transparent))}.nav-dialog-actions .nav-cancel:hover{filter:brightness(0.96)}.nav-dialog-actions .nav-save{background:var(--sp-accent);color:var(--sp-text-on-accent,#fff)}.nav-dialog-actions .nav-save:hover{filter:brightness(1.08)}.store-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(520px,1fr));gap:16px;max-height:70vh;overflow-y:auto}.store-card{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:8px;background:var(--sp-device-bg,rgba(128,128,128,0.06))}.store-thumb{width:100%;height:auto;border-radius:6px;display:block}.store-info{display:flex;align-items:center;justify-content:space-between;gap:8px}.store-name{font-size:var(--sp-font-xs,13px);font-weight:600;color:var(--sp-text-main,var(--sp-text-primary,inherit))}.store-download{min-height:32px;border:0;border-radius:6px;padding:0 12px;cursor:pointer;font:inherit;font-weight:600;font-size:var(--sp-font-2xs,12px);white-space:nowrap;background:var(--sp-accent,#8ab8cc);color:#fff}.store-download:hover{filter:brightness(1.1)}</style>
       <div class="sp-wrap">
         <div class="sp-card">
           <h3>${this._loc('editorSkin')}</h3>
@@ -315,6 +352,7 @@ export class SkinsProCardEditor extends HTMLElement {
         </div>
 
         ${this._renderNavDialog()}
+        ${this._renderSkinStore()}
       </div>
     `;
 
@@ -416,6 +454,45 @@ export class SkinsProCardEditor extends HTMLElement {
     if (configureBtn) {
       configureBtn.addEventListener('click', () => {
         this._navDialogOpen = true;
+        this.render();
+      });
+    }
+
+    const storeBtn = this.shadowRoot.querySelector<HTMLElement>('[data-skin-store]');
+    if (storeBtn) {
+      storeBtn.addEventListener('click', async () => {
+        this._skinStoreOpen = true;
+        this._skinStoreLoading = true;
+        this._skinStoreError = '';
+        this.render();
+        try {
+          const res = await fetch(`${CDN_BASE}/screenshots/registry.json`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json() as Array<{ id: string; name: string; thumbnail: string }>;
+          this._skinStoreThemes = Array.isArray(data) ? data : [];
+          this._skinStoreLoading = false;
+        } catch (err) {
+          this._skinStoreLoading = false;
+          this._skinStoreError = String(err);
+        }
+        this.render();
+      });
+    }
+
+    const storeOverlay = this.shadowRoot.querySelector<HTMLElement>('[data-store-overlay]');
+    if (storeOverlay) {
+      storeOverlay.addEventListener('click', (e) => {
+        if (e.target === storeOverlay) {
+          this._skinStoreOpen = false;
+          this.render();
+        }
+      });
+    }
+
+    const storeCloseBtn = this.shadowRoot.querySelector<HTMLElement>('[data-store-close]');
+    if (storeCloseBtn) {
+      storeCloseBtn.addEventListener('click', () => {
+        this._skinStoreOpen = false;
         this.render();
       });
     }

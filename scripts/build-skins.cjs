@@ -148,9 +148,12 @@ const dirs = fs.readdirSync(src, { withFileTypes: true })
     if (found) {
       await sharp(found).resize({ width: 500, withoutEnlargement: true }).jpeg({ quality: 80, mozjpeg: true }).toFile(thumbDest);
     }
+    const stringsFile = path.join(src, dir, 'strings.json');
+    const stringsData = fs.existsSync(stringsFile) ? JSON.parse(fs.readFileSync(stringsFile, 'utf8')) : {};
     registry.push({
       id: dir,
       name: dir,
+      author: stringsData.author || '',
       thumbnail: `screenshots/thumbnails/${dir}.jpg`,
     });
   }

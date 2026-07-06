@@ -392,7 +392,9 @@ export class SkinsProCardEditor extends HTMLElement {
           const next = deepClone(this._config);
           next.resource_pack = next.resource_pack || {};
           next.resource_pack.skin = value;
-          next.resource_pack.base_path = '__AUTO__';
+          if (SKINS.includes(value)) {
+            next.resource_pack.base_path = '__AUTO__';
+          }
           this._config = next;
           fire(this, this._config);
           return;

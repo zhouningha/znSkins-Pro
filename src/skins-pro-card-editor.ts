@@ -546,26 +546,21 @@ export class SkinsProCardEditor extends HTMLElement {
         btn.textContent = 'Downloading...';
         (btn as HTMLButtonElement).disabled = true;
         try {
-          const result: any = await (this._hass as any)?.callService(
-            'skins_pro', 'download_skin', { skin_id: skin },
-            { response: true }
+          await (this._hass as any).callService(
+            'skins_pro', 'download_skin', { skin_id: skin }
           );
-          if (result?.success) {
-            const basePath = result.base_path || `/local/skins-pro/${skin}/`;
-            const next = deepClone(this._config);
-            next.resource_pack = next.resource_pack || {};
-            next.resource_pack.skin = skin;
-            next.resource_pack.base_path = basePath;
-            next.downloaded_skins = [...new Set([...(next.downloaded_skins || []), skin])];
-            this._config = next;
-            fire(this, this._config);
-            this._skinStoreOpen = false;
-            this.render();
-            return;
-          }
-          alert(`Download failed: ${result?.error || 'Unknown error'}`);
-        } catch {
-          alert('Skins Pro integration not found. Install by:\n• HACS: add this repo as custom integration\n• Manual: copy custom_components/skins_pro/ to your HA config dir\nThen restart HA and add it in Settings → Devices & Services.');
+          const next = deepClone(this._config);
+          next.resource_pack = next.resource_pack || {};
+          next.resource_pack.skin = skin;
+          next.resource_pack.base_path = `/local/skins-pro/${skin}/`;
+          next.downloaded_skins = [...new Set([...(next.downloaded_skins || []), skin])];
+          this._config = next;
+          fire(this, this._config);
+          this._skinStoreOpen = false;
+          this.render();
+          return;
+        } catch (err: any) {
+          alert(`Download failed: ${err?.message || 'Integration not found. Install skins-pro-hass and restart HA.'}`);
         }
         btn.textContent = origText;
         (btn as HTMLButtonElement).disabled = false;

@@ -1,8 +1,8 @@
 import type { DashboardConfig, DeviceConfig, EnvironmentMetricConfig, NavItemConfig, RoomConfig, SceneConfig } from './types';
 
 export const DEFAULT_ASSETS: Record<string, string> = {
-  base: 'base-texture.png',
-  stage: 'background.png',
+  base: 'base-texture.jpg',
+  stage: 'background.jpg',
   theme_css: 'theme.css',
   avatar: 'avatar.png',
   decor: 'decoration.png',
@@ -28,10 +28,10 @@ export const DEFAULT_ASSETS: Record<string, string> = {
   device_tracker: 'icon-device_tracker.png',
   person: 'icon-person.png',
   garden: 'icon-garden-light.png',
-  room_living: 'room-living.png',
-  room_bedroom: 'room-bedroom.png',
-  room_kitchen: 'room-kitchen.png',
-  room_garden: 'room-garden.png',
+  room_living: 'room-living.jpg',
+  room_bedroom: 'room-bedroom.jpg',
+  room_kitchen: 'room-kitchen.jpg',
+  room_garden: 'room-garden.jpg',
 };
 
 export const DEFAULT_NAV: NavItemConfig[] = [

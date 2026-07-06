@@ -29,7 +29,9 @@ function getResizeOptions(filename) {
 }
 
 function getOutputFormat(filename) {
-  return 'png';
+  const name = path.basename(filename).toLowerCase();
+  if (name.startsWith('icon-') || name.startsWith('avatar') || name.startsWith('decor')) return 'png';
+  return 'jpg';
 }
 
 async function processImage(srcPath, destDir) {
@@ -50,7 +52,7 @@ async function processImage(srcPath, destDir) {
   }
 
   if (fmt === 'png') {
-    await pipeline.png().toFile(outPath);
+    await pipeline.png({ compressionLevel: 9, adaptiveFiltering: true }).toFile(outPath);
   } else {
     await pipeline.jpeg({ quality: 85, mozjpeg: true }).toFile(outPath);
   }

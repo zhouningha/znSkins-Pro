@@ -63,7 +63,7 @@ import { getMaintenanceItems } from './maintenance';
 
 import { toggleKiosk } from './kiosk';
 
-const CONTROLLABLE_DOMAINS = new Set(['light', 'switch', 'fan', 'cover', 'valve', 'media_player']);
+const CONTROLLABLE_DOMAINS = new Set(['light', 'switch', 'fan', 'cover', 'valve', 'media_player', 'lock', 'climate', 'vacuum', 'humidifier', 'water_heater', 'siren', 'automation', 'group', 'input_boolean']);
 
 export class MinecraftDashboardCard extends LitElement {
   private _config?: DashboardConfig;
@@ -185,6 +185,7 @@ export class MinecraftDashboardCard extends LitElement {
     this._energyPrefsDone = false;
     this._weatherForecast = undefined;
     this._weatherForecastEntity = undefined;
+    this._autoFullscreenDone = false;
     void this.unsubscribeWeatherForecast();
     this.requestUpdate();
   }
@@ -352,7 +353,7 @@ export class MinecraftDashboardCard extends LitElement {
 
     if (!this._hass) {
       return html`
-        <link rel="stylesheet" href="${assetHref(this._config, 'theme_css')}">
+      <link rel="stylesheet" href="${assetHref(this._config, 'theme_css')}">
         <ha-card><div class="loading-state">Loading...</div></ha-card>
       `;
     }
@@ -926,6 +927,8 @@ export class MinecraftDashboardCard extends LitElement {
       const action = isMedia ? 'play-pause' : (CONTROLLABLE_DOMAINS.has(domain) ? 'toggle' : 'more-info');
       const mediaState = isMedia ? this._hass?.states?.[device.entityId] : undefined;
       const albumArt = isMedia ? (mediaState?.attributes?.entity_picture as string | undefined) : undefined;
+      const vol = isMedia ? (mediaState?.attributes?.volume_level as number | undefined) : undefined;
+      const volPct = vol !== undefined ? Math.round(vol * 100) : undefined;
       const stateObj = this._hass?.states?.[device.entityId];
       let lastTime: string | undefined;
       if (domain === 'automation') {
@@ -946,7 +949,10 @@ export class MinecraftDashboardCard extends LitElement {
             <div class="tag-stack"><div class="status">${stateLabel}</div></div>
           </div>
           <div class="device-copy"><p class="device-name">${device.name}</p><p class="muted">${lastTime || device.subtitle}</p></div>
-          <div class="control-row"><span class="state-word">${device.detail}</span>${action === 'play-pause' ? html`<ha-icon icon=${device.state === 'playing' ? 'mdi:pause' : 'mdi:play'} class="media-toggle-icon"></ha-icon>` : (action === 'toggle' ? html`<span class="switch${active ? ' on' : ''}"></span>` : '')}</div>
+          <div class="control-row"><span class="state-word">${device.detail}</span>${action === 'play-pause' ? html`
+            ${volPct !== undefined ? html`<ha-control-slider .value=${volPct} min="0" max="100" style="--control-slider-thickness:32px;--control-slider-border-radius:var(--sp-radius-pill)" @value-changed=${(e: CustomEvent) => { e.stopPropagation(); this._hass?.callService('media_player', 'volume_set', { entity_id: device.entityId, volume_level: (e.detail.value ?? 0) / 100 }); }} @click=${(e: Event) => e.stopPropagation()} class="media-vol-slider"></ha-control-slider>` : ''}
+            <ha-icon icon=${device.state === 'playing' ? 'mdi:pause' : 'mdi:play'} class="media-toggle-icon"></ha-icon>
+          ` : (action === 'toggle' ? html`<ha-control-switch .checked=${active} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0" @change=${(e: Event) => { e.stopPropagation(); this.handleAction(device.entityId, action); }} @click=${(e: Event) => e.stopPropagation()} .label=${device.name}></ha-control-switch>` : '')}</div>
         </button>
       `;
     });
@@ -1120,7 +1126,6 @@ export class MinecraftDashboardCard extends LitElement {
           ${room.activeCounts.map((g) => html`
             <button class="room-active-chip" @click=${(e: Event) => { e.stopPropagation(); this.turnOffAreaType(g.entityIds); }}>
               <span>${g.label} ${g.count}</span>
-              <span class="room-active-close">&times;</span>
             </button>
           `)}
         </div>
@@ -1592,7 +1597,7 @@ export class MinecraftDashboardCard extends LitElement {
 
         const nonUpdateEntities = entities.filter((entityId) => !entityId.startsWith('update.') && !entityId.startsWith('device_tracker.'));
         if (nonUpdateEntities.length === 0) return undefined;
-        const preferredEntity = nonUpdateEntities.find((entityId) => /^(light|switch|climate|media_player|lock|cover|fan)\./.test(entityId)) || nonUpdateEntities[0];
+        const preferredEntity = nonUpdateEntities.find((entityId) => /^(light|switch|climate|media_player|lock|cover|fan|valve|input_boolean|humidifier|water_heater|vacuum)\./.test(entityId)) || nonUpdateEntities[0];
         if (!preferredEntity || !this._hass) return undefined;
 
         const stateObj = this._hass.states[preferredEntity];
@@ -1683,13 +1688,6 @@ export class MinecraftDashboardCard extends LitElement {
             const albumArt = isMedia ? (mediaState?.attributes?.entity_picture as string | undefined) : undefined;
             const vol = isMedia ? (mediaState?.attributes?.volume_level as number | undefined) : undefined;
             const volPct = vol !== undefined ? Math.round(vol * 100) : undefined;
-            const handleVolume = (e: Event) => {
-              e.preventDefault();
-              e.stopPropagation();
-              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-              const pct = Math.max(0, Math.min(1, ((e as MouseEvent).clientX - rect.left) / rect.width));
-              this._hass?.callService('media_player', 'volume_set', { entity_id: device.entityId, volume_level: pct });
-            };
             const stateObj = this._hass?.states?.[device.entityId];
             const domain = device.entityId.split('.')[0];
             let lastTime: string | undefined;
@@ -1723,9 +1721,9 @@ export class MinecraftDashboardCard extends LitElement {
                 </div>
                 <div class="device-copy"><p class="device-name">${device.name}</p><p class="muted">${lastTime || device.subtitle}</p></div>
                 <div class="control-row"><span class="state-word">${device.detail}</span>${action === 'play-pause' ? html`
-                  ${volPct !== undefined ? html`<div class="media-dev-voltrack" @click=${handleVolume} @mousedown=${(e: Event) => e.stopPropagation()}><div class="media-dev-volfill" style="width:${volPct}%"></div></div>` : ''}
+                  ${volPct !== undefined ? html`<ha-control-slider .value=${volPct} min="0" max="100" style="--control-slider-thickness:32px;--control-slider-border-radius:var(--sp-radius-pill)" @value-changed=${(e: CustomEvent) => { e.stopPropagation(); this._hass?.callService('media_player', 'volume_set', { entity_id: device.entityId, volume_level: (e.detail.value ?? 0) / 100 }); }} @click=${(e: Event) => e.stopPropagation()} class="media-vol-slider"></ha-control-slider>` : ''}
                   <ha-icon icon=${device.state === 'playing' ? 'mdi:pause' : 'mdi:play'} class="media-toggle-icon"></ha-icon>
-                ` : (action === 'toggle' ? html`<span class="switch${active ? ' on' : ''}"></span>` : '')}</div>
+                ` : (action === 'toggle' ? html`<ha-control-switch .checked=${active} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0" @change=${(e: Event) => { e.stopPropagation(); this.handleAction(device.entityId, 'toggle'); }} @click=${(e: Event) => e.stopPropagation()} .label=${device.name}></ha-control-switch>` : '')}</div>
               </button>
             `;
           })}
@@ -1789,7 +1787,7 @@ export class MinecraftDashboardCard extends LitElement {
             <div class="tag-stack"><div class="status">${stateLabel}</div></div>
           </div>
           <div class="device-copy"><p class="device-name">${String(automation.attributes?.friendly_name || automation.entity_id)}</p><p class="muted">${lastTriggered}</p></div>
-          <div class="control-row"><span class="state-word">${active ? (language === 'zh-CN' ? '已启用' : 'Enabled') : (language === 'zh-CN' ? '已停用' : 'Disabled')}</span><span class="switch${active ? ' on' : ''}"></span></div>
+          <div class="control-row"><span class="state-word">${active ? (language === 'zh-CN' ? '已启用' : 'Enabled') : (language === 'zh-CN' ? '已停用' : 'Disabled')}</span><ha-control-switch .checked=${active} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0" @click=${(e: Event) => e.stopPropagation()} @change=${(e: Event) => { e.stopPropagation(); this.handleAction(automation.entity_id, 'toggle'); }} .label=${String(automation.attributes?.friendly_name || automation.entity_id)}></ha-control-switch></div>
         </button>
       `;
     })}`;
@@ -2129,7 +2127,7 @@ export class MinecraftDashboardCard extends LitElement {
             <div class="tag-stack"><div class="status">${stateLabel}</div></div>
           </div>
           <div class="device-copy"><p class="device-name">${String(entity.attributes?.friendly_name || entity.entity_id)}</p><p class="muted">${this.areaNameForEntity(entity.entity_id) || 'lock'}</p></div>
-          <div class="control-row"><span class="state-word">${stateLabel}</span><span class="switch${active ? ' on' : ''}"></span></div>
+          <div class="control-row"><span class="state-word">${stateLabel}</span><ha-control-switch .checked=${['on', 'armed_away', 'armed_home', 'locked'].includes(entity.state)} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0" @click=${(e: Event) => e.stopPropagation()} @change=${(e: Event) => { e.stopPropagation(); this.handleAction(entity.entity_id, 'toggle'); }} .label=${String(entity.attributes?.friendly_name || entity.entity_id)}></ha-control-switch></div>
         </button>
       `;
     });

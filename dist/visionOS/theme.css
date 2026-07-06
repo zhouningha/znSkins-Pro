@@ -55,6 +55,7 @@
   /* ---- Text - visionOS system label colors ---- */
   --sp-text-primary:      #FFFFFF;
   --sp-text-secondary:   rgba(255,255,255,0.72);
+  --sp-text-muted:       var(--sp-text-secondary);
   --sp-text-tertiary:    rgba(255,255,255,0.48);
   --sp-text-quaternary:  rgba(255,255,255,0.22);
   --sp-text-on-accent:   #FFFFFF;
@@ -89,6 +90,19 @@
   --sp-radius-sm:       14px;    /* compact cards */
   --sp-radius-xs:       12px;    /* inputs, tags */
   --sp-radius-icon:     18px;    /* icon containers */
+  --sp-radius-pill:     var(--sp-radius-infinite);
+  --sp-radius-sidebar:  var(--sp-radius-xl);    /* 28px */
+  --sp-radius-room:     var(--sp-radius-xl);    /* 28px */
+  --sp-radius-device:   var(--sp-radius-lg);    /* 24px */
+  --sp-radius-camera:   var(--sp-radius-lg);    /* 24px */
+  --sp-radius-glass:    var(--sp-radius-lg);    /* 24px */
+  --sp-radius-empty:    var(--sp-radius-xl);    /* 28px */
+  --sp-radius-scene:    var(--sp-radius-sm);    /* 14px */
+  --sp-radius-weather:  var(--sp-radius-xs);    /* 12px */
+  --sp-radius-time:     var(--sp-radius-xs);    /* 12px */
+  --sp-radius-editor:   var(--sp-radius-xs);    /* 12px */
+  --sp-radius-input:    var(--sp-radius-xs);    /* 12px */
+  --sp-radius-btn:      var(--sp-radius-md);    /* 18px */
 
   /* ---- Blur System - visionOS: high blur + saturation for lens effect ---- */
   --sp-blur-lg:   blur(48px) saturate(180%);
@@ -119,6 +133,7 @@
   --sp-font-xs:    12px;
   --sp-font-2xs:   11px;
   --sp-font-3xs:   10px;
+  --sp-font-4xs:   9px;
   --sp-font-weight-regular: 400;
   --sp-font-weight-medium:  500;
   --sp-font-weight-semibold: 600;
@@ -139,7 +154,42 @@
   --sp-room-min-width:  200px;
   --sp-scene-min-width: 130px;
   --sp-row-height:      84px;
+  --sp-device-bg:       var(--glass-thick);
+  --sp-card-bg:         var(--glass-ultra-thick);
+  --sp-surface-bg:      var(--glass-regular);
+  --sp-panel-bg:        var(--glass-ultra-thick);
+
+  /* ========================================================================
+     HA Native Component Tokens
+     These CSS custom properties style HA's built-in web components
+     (ha-dialog, ha-bar, ha-spinner, ha-button, etc.)
+     ======================================================================== */
+
+  /* ---- ha-dialog (modal) ---- */
+  --ha-dialog-surface-background: var(--sp-card-bg);
+  --ha-dialog-surface-backdrop-filter: none;
+  --ha-dialog-border-radius: var(--sp-radius-xl);
+  --ha-dialog-scrim-backdrop-filter: blur(8px);
+  --dialog-content-padding: var(--sp-space-lg);
+  --dialog-box-shadow: var(--sp-shadow-lg);
+  --dialog-surface-margin-top: auto;
+
+  /* ---- ha-bar (progress) ---- */
+  --ha-bar-primary-color: var(--sp-accent);
+  --ha-bar-background-color: var(--sp-surface-bg);
+  --ha-bar-border-radius: var(--sp-radius-sm);
+
+  /* ---- ha-spinner (loading) ---- */
+  --ha-spinner-indicator-color: var(--sp-accent);
+  --ha-spinner-divider-color: var(--sp-border-subtle);
+
+  /* ---- ha-button ---- */
+  --ha-button-height: 40px;
+  --ha-button-border-radius: var(--sp-radius-infinite);
 }
+
+ha-control-switch{--control-switch-on-color:var(--sp-switch-on-bg)!important;--control-switch-off-color:var(--sp-switch-off-bg)!important;--control-switch-background-opacity:0.35!important;--control-switch-thickness:24px!important;--control-switch-border-radius:var(--sp-radius-pill)!important;--control-switch-padding:3px!important}
+ha-control-slider{--control-slider-color:var(--sp-text-tertiary)!important;--control-slider-background:var(--sp-device-bg)!important;--control-slider-background-opacity:0.5!important;--control-slider-thickness:32px!important;--control-slider-border-radius:var(--sp-radius-pill)!important}
 
 /* ==========================================================================
    2. Base Resets
@@ -256,6 +306,8 @@ button {
   margin: 2px 0 var(--sp-space-lg);
   padding: 0 var(--sp-space-xs);
 }
+.profile .meta { min-width: 0; }
+.profile h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .profile-img {
   width: 52px;
@@ -323,6 +375,7 @@ button {
   width: 20px;
   color: inherit;
 }
+.nav-button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---- Sidebar Art ---- */
 
@@ -412,21 +465,8 @@ button {
   min-width: 0;
   text-align: right;
 }
-
-.welcome-time {
-  display: flex;
-  align-items: baseline;
-  gap: var(--sp-space-sm);
-  font-size: var(--sp-font-lg);
-  font-weight: var(--sp-font-weight-semibold);
-  color: var(--sp-text-primary);
-}
-
-.welcome-time .time-sub {
-  font-size: var(--sp-font-xs);
-  font-weight: var(--sp-font-weight-regular);
-  color: var(--sp-text-secondary);
-}
+
+
 
 .env-list-inline {
   display: flex;
@@ -698,11 +738,7 @@ button {
 /* ==========================================================================
    12. Chips / Filter Tabs
    ========================================================================== */
-
-.chip-group {
-  display: flex;
-  gap: var(--sp-space-xs);
-}
+
 
 .chip {
   min-height: 36px;
@@ -773,7 +809,7 @@ button {
 }
 
 .filter-select option {
-  background: #1C1C1E;
+  background: rgba(30,30,32,0.85);
   color: #FFFFFF;
 }
 
@@ -866,6 +902,7 @@ button {
     box-shadow var(--sp-duration-base) var(--sp-ease-glass),
     border-color var(--sp-duration-base) var(--sp-ease-glass),
     background var(--sp-duration-base) var(--sp-ease-glass);
+  overflow: hidden;
 }
 
 .device:hover {
@@ -886,7 +923,7 @@ button {
 }
 
 .device-unavailable {
-  background: rgba(200,200,205,0.30);
+  background: rgba(255,255,255,0.10);
   opacity: 0.65;
 }
 
@@ -911,6 +948,7 @@ button {
   justify-content: space-between;
   align-items: center;
   gap: var(--sp-space-xs);
+  min-width: 0;
 }
 
 .device-copy {
@@ -932,6 +970,10 @@ button {
 .state-word {
   font-size: var(--sp-font-xs);
   font-weight: var(--sp-font-weight-medium);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---- Item Image / Icon ---- */
@@ -956,10 +998,10 @@ button {
   display: grid;
   justify-items: end;
   gap: var(--sp-space-2xs);
+  min-width: 0;
 }
 
-.status,
-.count-tag {
+.status {
   min-height: 22px;
   border-radius: var(--sp-radius-infinite);
   display: grid;
@@ -969,45 +1011,13 @@ button {
   background: var(--sp-text-quaternary);
   color: var(--sp-text-secondary);
   padding: 0 var(--sp-space-xs);
-}
-
-/* ---- Switch ---- */
-
-.switch {
-  width: 42px;
-  height: 22px;
-  border-radius: var(--sp-radius-infinite);
-  background: var(--sp-switch-off-bg);
-  position: relative;
-  transition: background var(--sp-duration-fast) var(--sp-ease-out);
-  border: 0.5px solid rgba(255,255,255,0.15);
-  box-sizing: border-box;
-}
-
-.switch::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: var(--sp-radius-infinite);
-  background: var(--glass-knob);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.20), 0 0 0 0.5px rgba(0,0,0,0.06);
-  transition: left var(--sp-duration-fast) var(--sp-ease-out);
-}
-
-.switch.on {
-  background: var(--sp-switch-on-bg);
-}
-
-.switch.on::after {
-  left: 24px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .media-toggle-icon { --mdc-icon-size:18px; color:var(--sp-text-primary); display:flex; }
-.media-dev-voltrack { width:48px; height:6px; border-radius:3px; background:var(--sp-device-bg); overflow:hidden; cursor:pointer; flex-shrink:0; }
-.media-dev-volfill { height:100%; border-radius:3px; background:var(--sp-text-tertiary); pointer-events:none; }
 
 /* ==========================================================================
     14. Camera Card
@@ -1135,6 +1145,9 @@ button {
   margin: 2px 0 0;
   font-size: var(--sp-font-2xs);
   color: var(--sp-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---- Room Scene Chips ---- */
@@ -1176,9 +1189,8 @@ button {
   background: rgba(255,255,255,0.85);
 }
 .room-active { position:absolute; z-index:2; top:10px; left:10px; display:flex; flex-direction:column; gap:4px; align-items:flex-start; pointer-events:none; }
-.room-active-chip { pointer-events:auto; display:inline-flex; align-items:center; gap:4px; border:0.5px solid var(--sp-border-subtle); border-radius:var(--sp-radius-infinite); padding:4px 14px; background:var(--glass-ultra-thick); color:var(--sp-text-primary); cursor:pointer; font-size:var(--sp-font-sm); font-weight:var(--sp-font-weight-medium); white-space:nowrap; backdrop-filter:var(--sp-blur-2xs); -webkit-backdrop-filter:var(--sp-blur-2xs); transition:background var(--sp-duration-fast) var(--sp-ease-glass); box-shadow:var(--glass-highlight); }
+.room-active-chip { pointer-events:auto; display:inline-flex; align-items:center; gap:4px; border:0.5px solid var(--sp-border-subtle); border-radius:var(--sp-radius-infinite); padding:4px 14px; background:var(--glass-ultra-thick); color:var(--sp-text-primary); cursor:pointer; font-size:var(--sp-font-sm); font-weight:var(--sp-font-weight-medium); white-space:nowrap; backdrop-filter:var(--sp-blur-2xs); -webkit-backdrop-filter:var(--sp-blur-2xs); transition:background var(--sp-duration-fast) var(--sp-ease-glass); box-shadow:var(--glass-highlight); max-width:140px; overflow:hidden; text-overflow:ellipsis; }
 .room-active-chip:hover { background:rgba(255,59,48,0.45); }
-.room-active-close { font-size:var(--sp-font-2xs); opacity:.8; margin-left:2px; }
 
 /* ==========================================================================
    16. Side Panel (Right Column)
@@ -1736,6 +1748,13 @@ button {
   padding: var(--sp-space-sm);
 }
 
+.scene.morning { border-top:0.5px solid rgba(255,255,255,0.60); }
+.scene.night { border-top:0.5px solid rgba(255,255,255,0.40); }
+.scene.movie { border-top:0.5px solid rgba(255,255,255,0.30); }
+.scene.game { border-top:0.5px solid rgba(255,255,255,0.20); }
+
+.page-body.single-column > .maintenance-card { flex:1 1 200px; max-width:400px; min-width:200px; }
+
 /* ==========================================================================
    18. View Visibility Rules
    ========================================================================== */
@@ -1743,8 +1762,6 @@ button {
 /* ---- Devices View ---- */
 
 .mc-app[data-view="devices"] .welcome-group,
-.mc-app[data-view="devices"] .panel-rooms,
-.mc-app[data-view="devices"] .panel-environment,
 .mc-app[data-view="devices"] .panel-energy,
 .mc-app[data-view="devices"] .panel-scenes,
 .mc-app[data-view="devices"] .side {
@@ -1768,7 +1785,6 @@ button {
 
 .mc-app[data-view="rooms"] .welcome-group,
 .mc-app[data-view="rooms"] .panel-devices,
-.mc-app[data-view="rooms"] .panel-environment,
 .mc-app[data-view="rooms"] .panel-energy,
 .mc-app[data-view="rooms"] .panel-scenes,
 .mc-app[data-view="rooms"] .side {
@@ -1798,7 +1814,6 @@ button {
 .mc-app[data-view="scenes"] .welcome-group,
 .mc-app[data-view="scenes"] .bottom-stack,
 .mc-app[data-view="scenes"] .time-card,
-.mc-app[data-view="scenes"] .panel-environment,
 .mc-app[data-view="scenes"] .panel-energy,
 .mc-app[data-view="scenes"] .panel-media,
 .mc-app[data-view="scenes"] .panel-camera {
@@ -1944,6 +1959,7 @@ button {
     --sp-font-xs:  11px;
     --sp-font-2xs: 10px;
     --sp-font-3xs: 9px;
+    --sp-font-4xs: 8px;
     --sp-space-xl: 16px;
     --sp-space-lg: 12px;
     --sp-space-md: 8px;
@@ -2153,6 +2169,7 @@ button {
     --sp-font-xs:  10px;
     --sp-font-2xs: 9px;
     --sp-font-3xs: 8px;
+    --sp-font-4xs: 7px;
     --sp-space-xl: 12px;
     --sp-space-lg: 10px;
     --sp-space-md: 6px;
@@ -2192,12 +2209,7 @@ button {
 /* ==========================================================================
    22. Editor / Strategy Dialog
    ========================================================================== */
-
-.sp-strategy-info {
-  padding: var(--sp-space-xl);
-  line-height: 1.6;
-  color: var(--sp-text-secondary);
-}
+
 
 .sp-wrap {
   display: grid;
@@ -2261,7 +2273,7 @@ button {
 }
 
 .sp-card select option {
-  background: #1C1C1E;
+  background: rgba(30,30,32,0.85);
   color: #FFFFFF;
 }
 
@@ -2276,24 +2288,9 @@ button {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--sp-space-md);
 }
-
-.sp-card-row {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--sp-space-md);
-  align-items: end;
-}
-
-.sp-card-row .sp-field {
-  display: grid;
-  gap: var(--sp-space-2xs);
-}
-
-.sp-card-row .sp-field span {
-  font-size: var(--sp-font-2xs);
-  font-weight: var(--sp-font-weight-medium);
-  color: var(--sp-text-secondary);
-}
+
+
+
 
 .sp-card button {
   min-height: 38px;
@@ -2316,12 +2313,7 @@ button {
   background: rgba(255,255,255,0.16);
   transform: translateY(-1px);
 }
-
-.sp-grid {
-  display: grid;
-  gap: var(--sp-space-md);
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
+
 
 .sp-list {
   display: grid;

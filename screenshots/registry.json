@@ -2,28 +2,28 @@
   {
     "id": "AEON",
     "name": "AEON",
-    "author": "Desmond-Dong",
+    "author": "@Desmond-Dong",
     "thumbnail": "screenshots/thumbnails/AEON.jpg",
     "package": "https://cdn.jsdelivr.net/gh/ha-china/Skins-Pro@master/store/AEON.zip"
   },
   {
     "id": "AEON_glass",
     "name": "AEON_glass",
-    "author": "Desmond-Dong",
+    "author": "@Desmond-Dong",
     "thumbnail": "screenshots/thumbnails/AEON_glass.jpg",
     "package": "https://cdn.jsdelivr.net/gh/ha-china/Skins-Pro@master/store/AEON_glass.zip"
   },
   {
     "id": "minecraft",
     "name": "minecraft",
-    "author": "Desmond-Dong",
+    "author": "@Desmond-Dong",
     "thumbnail": "screenshots/thumbnails/minecraft.jpg",
     "package": "https://cdn.jsdelivr.net/gh/ha-china/Skins-Pro@master/store/minecraft.zip"
   },
   {
     "id": "visionOS",
     "name": "visionOS",
-    "author": "Desmond-Dong",
+    "author": "@Desmond-Dong",
     "thumbnail": "screenshots/thumbnails/visionOS.jpg",
     "package": "https://cdn.jsdelivr.net/gh/ha-china/Skins-Pro@master/store/visionOS.zip"
   }

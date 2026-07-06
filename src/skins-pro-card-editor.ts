@@ -2,7 +2,7 @@ import { SKINS } from './skins.generated';
 import { STRINGS } from './i18n.generated';
 import type { AreaRegistryEntry, HomeAssistant, TranslationKey, NavItemConfig } from './types';
 import { DEFAULT_NAV } from './constants';
-import { normalizeLanguage } from './utils';
+import { assetHref, normalizeLanguage } from './utils';
 
 const CDN_BASE = 'https://cdn.jsdelivr.net/gh/ha-china/Skins-Pro@master';
 
@@ -80,12 +80,7 @@ export class SkinsProCardEditor extends HTMLElement {
   }
 
   private themeCssUrl(): string {
-    const skin = this._config.resource_pack?.skin || 'modern';
-    try {
-      return new URL(`${skin}/theme.css`, import.meta.url).toString();
-    } catch {
-      return `/local/community/skins-pro/${skin}/theme.css`;
-    }
+    return assetHref(this._config as any, 'theme_css');
   }
 
   private setField(path: string, value: any): void {

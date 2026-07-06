@@ -236,7 +236,11 @@ export class SkinsProCardEditor extends HTMLElement {
       <div class="sp-wrap">
         <div class="sp-card">
           <h3>${this._loc('editorSkin')}</h3>
-          <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+          <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+            <label class="sp-field" style="min-width:auto">
+              <span>&nbsp;</span>
+              <button class="sp-btn-configure" data-skin-store style="min-height:40px;padding:0 14px">${this._loc('editorSkinStore')}</button>
+            </label>
             <label class="sp-field" style="flex:1;min-width:140px">
               <span>Skin</span>
               <select data-text-path="resource_pack.skin">

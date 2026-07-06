@@ -44,6 +44,7 @@ const en: Record<TranslationKey, string> = {
   showAll: 'Show all',
   hideUnassigned: 'Hide unassigned',
   editorSkin: 'Skin',
+  editorSkinStore: 'Skin Store',
   editorEnergy: 'Energy',
   editorMediaPlayer: 'Media Player',
   editorCamera: 'Camera',

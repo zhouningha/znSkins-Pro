@@ -135,7 +135,32 @@ const dirs = fs.readdirSync(src, { withFileTypes: true })
     '};\n',
   );
 
-  console.log(`Build complete: ${dirs.length} skin(s) processed, ${i18nFiles.length} locale(s) detected`);
+  // Generate theme registry + thumbnails for skin store
+  const screenshotsDir = 'screenshots';
+  const thumbsDir = path.join(screenshotsDir, 'thumbnails');
+  const registry = [];
+
+  fs.mkdirSync(thumbsDir, { recursive: true });
+
+  for (const dir of dirs) {
+    const found = IMAGE_EXTENSIONS.map(ext => path.join(screenshotsDir, `${dir}${ext}`)).find(p => fs.existsSync(p));
+    const thumbDest = path.join(thumbsDir, `${dir}.jpg`);
+    if (found) {
+      await sharp(found).resize({ width: 500, withoutEnlargement: true }).jpeg({ quality: 80, mozjpeg: true }).toFile(thumbDest);
+    }
+    registry.push({
+      id: dir,
+      name: dir,
+      thumbnail: `screenshots/thumbnails/${dir}.jpg`,
+    });
+  }
+
+  fs.writeFileSync(
+    path.join('screenshots', 'registry.json'),
+    JSON.stringify(registry, null, 2),
+  );
+
+  console.log(`Build complete: ${dirs.length} skin(s) processed, ${i18nFiles.length} locale(s) detected, ${registry.length} thumbnail(s) generated`);
 })().catch(err => {
   console.error('Build failed:', err);
   process.exit(1);

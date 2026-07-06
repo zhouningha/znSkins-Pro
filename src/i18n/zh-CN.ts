@@ -44,6 +44,7 @@ const zh: Record<TranslationKey, string> = {
   showAll: '显示全部',
   hideUnassigned: '隐藏未分配',
   editorSkin: '皮肤',
+  editorSkinStore: '皮肤商店',
   editorEnergy: '能源',
   editorMediaPlayer: '媒体播放器',
   editorCamera: '摄像头',

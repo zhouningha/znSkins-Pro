@@ -257,6 +257,7 @@ export type TranslationKey =
   | 'showAll'
   | 'hideUnassigned'
   | 'editorSkin'
+  | 'editorSkinStore'
   | 'editorEnergy'
   | 'editorMediaPlayer'
   | 'editorCamera'

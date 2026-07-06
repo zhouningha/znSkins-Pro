@@ -565,7 +565,7 @@ export class SkinsProCardEditor extends HTMLElement {
           }
           alert(`Download failed: ${result?.error || 'Unknown error'}`);
         } catch {
-          alert('Skins Pro integration not found. Install "Skins Pro" from HACS, add it in Settings → Devices & Services, then try again.');
+          alert('Skins Pro integration not found. Install by:\n• HACS: add this repo as custom integration\n• Manual: copy custom_components/skins_pro/ to your HA config dir\nThen restart HA and add it in Settings → Devices & Services.');
         }
         btn.textContent = origText;
         (btn as HTMLButtonElement).disabled = false;

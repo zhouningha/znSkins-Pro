@@ -45,18 +45,23 @@ async function processImage(srcPath, destDir) {
   const outName = path.basename(srcPath, ext) + '.' + fmt;
   const outPath = path.join(destDir, outName);
 
-  const pipeline = sharp(srcPath);
+  try {
+    const pipeline = sharp(srcPath);
 
-  if (opts.fit) {
-    pipeline.resize({ width: opts.width, height: opts.height, fit: opts.fit, withoutEnlargement: true });
-  } else {
-    pipeline.resize({ width: opts.width, withoutEnlargement: true });
-  }
+    if (opts.fit) {
+      pipeline.resize({ width: opts.width, height: opts.height, fit: opts.fit, withoutEnlargement: true });
+    } else {
+      pipeline.resize({ width: opts.width, withoutEnlargement: true });
+    }
 
-  if (fmt === 'png') {
-    await pipeline.png({ compressionLevel: 9, adaptiveFiltering: true }).toFile(outPath);
-  } else {
-    await pipeline.jpeg({ quality: 85, mozjpeg: true }).toFile(outPath);
+    if (fmt === 'png') {
+      await pipeline.png({ compressionLevel: 9, adaptiveFiltering: true }).toFile(outPath);
+    } else {
+      await pipeline.jpeg({ quality: 85, mozjpeg: true }).toFile(outPath);
+    }
+  } catch (err) {
+    console.warn(`Warning: failed to process ${srcPath}, copying as-is: ${err.message}`);
+    fs.copyFileSync(srcPath, outPath);
   }
 }
 

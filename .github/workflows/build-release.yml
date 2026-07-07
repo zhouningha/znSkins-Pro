@@ -51,19 +51,19 @@ jobs:
 
       - name: Push store assets to store branch
         run: |
-          # Collect store artifacts
           STORE_DIR="$(mktemp -d)"
-          mkdir -p "$STORE_DIR/store" "$STORE_DIR/screenshots"
-          cp store/*.zip "$STORE_DIR/store/"
-          cp -r screenshots/thumbnails "$STORE_DIR/screenshots/thumbnails"
-          cp screenshots/registry.json "$STORE_DIR/screenshots/registry.json"
+          cp store/*.zip "$STORE_DIR/"
+          cp -r screenshots/thumbnails "$STORE_DIR/thumbnails"
+          cp screenshots/registry.json "$STORE_DIR/registry.json"
 
-          # Create store branch with only store artifacts
           git checkout --orphan _store_push
-          git rm -rf . 2>/dev/null || true
+          find . -maxdepth 1 -not -name '.git' -not -name '.' -exec rm -rf {} +
 
-          cp -r "$STORE_DIR/store" ./store
-          cp -r "$STORE_DIR/screenshots" ./screenshots
+          mkdir -p store screenshots/thumbnails
+          cp "$STORE_DIR"/*.zip store/
+          cp "$STORE_DIR/thumbnails"/* screenshots/thumbnails/
+          cp "$STORE_DIR/registry.json" screenshots/registry.json
+
           cat > README.md << 'EOF'
 # Skins Pro — Store Assets
 
@@ -75,7 +75,6 @@ EOF
             commit -m "Update store artifacts [skip ci]" --allow-empty
           git push origin _store_push:store --force
 
-          # Return to working branch
           git checkout "${{ github.ref_name }}"
 
       - name: Commit dist assets (master only)

@@ -83,7 +83,7 @@ export class MinecraftDashboardCard extends LitElement {
     name: string;
     message: string;
   };
-  private _doorConfirmTimer?: ReturnType<typeof setTimeout>;
+  private _doorConfirmTimer?: number;
 
   @state() private _cameraSnapshots: Record<string, string> = {};
   private _cameraSnapshotBlobs = new Set<string>();
@@ -94,9 +94,9 @@ export class MinecraftDashboardCard extends LitElement {
   private _snapshotRefreshInterval = 5000;
 
   private _longPressEntity = '';
-  private _longPressTimer?: ReturnType<typeof setTimeout>;
+  private _longPressTimer?: number;
   private _longPressDone = false;
-  private _devicesHiddenHaSyncTimer?: ReturnType<typeof setTimeout>;
+  private _devicesHiddenHaSyncTimer?: number;
   private _devicesHiddenHaSyncing = false;
 
   @state() private _areas?: AreaRegistryEntry[];
@@ -1850,40 +1850,9 @@ export class MinecraftDashboardCard extends LitElement {
       }
     }
   }
-
-  private cameraStateLabel(state: string, language: Language): string {
-    if (state === 'idle') return language === 'zh-CN' ? '待机' : 'Idle';
-    if (state === 'streaming') return language === 'zh-CN' ? '直播中' : 'Streaming';
-    return deviceStateLabel(state, language);
-  }
-
   private shouldUseDirectCameraSnapshot(url: string): boolean {
     return isUsableDirectCameraSnapshot(url);
   }
-
-  private onCameraSnapshotError(entityId: string): void {
-    if (this._cameraSnapshotRetried.has(entityId)) {
-      this._cameraSnapshotFailed.add(entityId);
-      const next = { ...this._cameraSnapshots };
-      delete next[entityId];
-      this._cameraSnapshots = next;
-      this.requestUpdate();
-      return;
-    }
-    this._cameraSnapshotRetried.add(entityId);
-    const current = this._cameraSnapshots[entityId];
-    if (current && !current.startsWith('blob:')) {
-      const next = { ...this._cameraSnapshots };
-      delete next[entityId];
-      this._cameraSnapshots = next;
-    }
-    void this.refreshVisibleCameraSnapshots(true);
-  }
-
-  private cameraPreviewMode(_context: 'home' | 'security'): 'snapshot' | 'live' {
-    return 'live';
-  }
-
   private usesSnapshotPreview(_context: 'home' | 'security'): boolean {
     return false;
   }
@@ -1953,14 +1922,6 @@ export class MinecraftDashboardCard extends LitElement {
       ></ha-camera-stream>
     `;
   }
-
-  private getCameraSnapshotSrc(entityId: string): string {
-    const cached = this._cameraSnapshots[entityId];
-    if (cached) return cached;
-    const direct = cameraSnapshotUrl(entityId, this._hass?.states?.[entityId]);
-    return isUsableDirectCameraSnapshot(direct) ? direct : '';
-  }
-
   private async refreshVisibleCameraSnapshots(forceBlob = false): Promise<void> {
     if (!this._hass) return;
 

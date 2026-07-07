@@ -1,10 +1,11 @@
-name: Label PRs on creation
+name: PR Labels And Skin Validation
 
 on:
   pull_request:
-    types: [opened]
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
+  contents: read
   pull-requests: write
 
 jobs:
@@ -28,3 +29,91 @@ jobs:
                 labels,
               });
             }
+
+  validate-skin-submission:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate skin folder, screenshot, and author
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch origin "${{ github.event.pull_request.base.ref }}" --depth=1
+
+          mapfile -t changed_files < <(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}...HEAD")
+
+          declare -A skin_names=()
+          for file in "${changed_files[@]}"; do
+            if [[ "$file" =~ ^skins-pro/([^/]+)/ ]]; then
+              skin_names["${BASH_REMATCH[1]}"]=1
+            fi
+            if [[ "$file" =~ ^screenshots/([^/]+)\.(png|jpg|jpeg|webp)$ ]]; then
+              skin_names["${BASH_REMATCH[1]}"]=1
+            fi
+          done
+
+          if [[ ${#skin_names[@]} -eq 0 ]]; then
+            echo "No skin-related file changes detected; skipping validation."
+            exit 0
+          fi
+
+          failures=0
+
+          for skin in "${!skin_names[@]}"; do
+            skin_dir="skins-pro/$skin"
+            strings_file="$skin_dir/strings.json"
+
+            if [[ ! -d "$skin_dir" ]]; then
+              echo "::error::Missing skin directory: $skin_dir"
+              failures=1
+            fi
+
+            screenshot_found=0
+            for ext in png jpg jpeg webp; do
+              if [[ -f "screenshots/$skin.$ext" ]]; then
+                screenshot_found=1
+                break
+              fi
+            done
+            if [[ $screenshot_found -eq 0 ]]; then
+              echo "::error::Missing matching preview image for skin '$skin' under screenshots/$skin.(png|jpg|jpeg|webp)"
+              failures=1
+            fi
+
+            if [[ ! -f "$strings_file" ]]; then
+              echo "::error::Missing strings.json for skin '$skin': $strings_file"
+              failures=1
+              continue
+            fi
+
+            if ! python - <<'PY' "$strings_file" "$skin"
+import json
+import sys
+
+strings_file = sys.argv[1]
+skin = sys.argv[2]
+
+with open(strings_file, 'r', encoding='utf-8') as fh:
+    data = json.load(fh)
+
+author = data.get('author', '')
+if not isinstance(author, str) or not author.strip():
+    print(f"::error::Skin '{skin}' must define a non-empty author in {strings_file}")
+    sys.exit(2)
+PY
+            then
+              failures=1
+            fi
+          done
+
+          if [[ $failures -ne 0 ]]; then
+            echo "Skin submission validation failed."
+            exit 1
+          fi
+
+          echo "Skin submission validation passed."

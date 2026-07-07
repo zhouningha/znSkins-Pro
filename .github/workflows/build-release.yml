@@ -54,7 +54,7 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add dist/
+          git add -f store/ screenshots/thumbnails/ dist/ screenshots/registry.json
           git diff --staged --quiet || git commit -m "chore: build dist assets [skip ci]"
           git push
 
@@ -72,7 +72,7 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add dist/
+          git add -f store/ screenshots/thumbnails/ dist/ screenshots/registry.json
           git diff --staged --quiet || git commit -m "chore: build v${{ steps.version.outputs.new }} [skip ci]"
           git tag "v${{ steps.version.outputs.new }}"
           git push origin --tags
@@ -89,3 +89,6 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Purge jsdelivr cache
+        run: curl -s https://purge.jsdelivr.net/gh/ha-china/Skins-Pro@master/screenshots/registry.json

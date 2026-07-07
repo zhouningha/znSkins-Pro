@@ -112,6 +112,7 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   },
   fullscreen: false,
   use_area_pictures: false,
+  downloaded_skins: [],
   devices: DEFAULT_DEVICES,
   rooms: DEFAULT_ROOMS,
   scenes: DEFAULT_SCENES,

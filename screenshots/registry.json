@@ -1,0 +1,37 @@
+[
+  {
+    "id": "AEON",
+    "name": "AEON",
+    "author": "Desmond-Dong",
+    "thumbnail": "screenshots/thumbnails/AEON.jpg",
+    "package": "store/AEON.zip"
+  },
+  {
+    "id": "AEON_glass",
+    "name": "AEON_glass",
+    "author": "Desmond-Dong",
+    "thumbnail": "screenshots/thumbnails/AEON_glass.jpg",
+    "package": "store/AEON_glass.zip"
+  },
+  {
+    "id": "god_of_war_3_wall",
+    "name": "god_of_war_3_wall",
+    "author": "",
+    "thumbnail": "screenshots/thumbnails/god_of_war_3_wall.jpg",
+    "package": "store/god_of_war_3_wall.zip"
+  },
+  {
+    "id": "minecraft",
+    "name": "minecraft",
+    "author": "Desmond-Dong",
+    "thumbnail": "screenshots/thumbnails/minecraft.jpg",
+    "package": "store/minecraft.zip"
+  },
+  {
+    "id": "visionOS",
+    "name": "visionOS",
+    "author": "Desmond-Dong",
+    "thumbnail": "screenshots/thumbnails/visionOS.jpg",
+    "package": "store/visionOS.zip"
+  }
+]

@@ -2247,7 +2247,19 @@ export class MinecraftDashboardCard extends LitElement {
     };
 
     return [
-      html`<button class="env-floor-header" @click=${cycleArea}>${selectedName}</button>`,
+      html`
+        <div
+          class="env-floor-header"
+          role="button"
+          tabindex="0"
+          @click=${cycleArea}
+          @keydown=${(event: KeyboardEvent) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            cycleArea();
+          }}
+        >${selectedName}</div>
+      `,
       ...currentAreaMetrics.map((metric) => html`
         <div class="env-row">
           <div class="dot ${metric.variant || 'temp'}"><ha-icon icon=${metric.icon || 'mdi:circle'}></ha-icon></div>

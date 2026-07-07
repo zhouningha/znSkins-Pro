@@ -3,6 +3,7 @@ node_modules/
 npm-debug.log*
 *.log
 src/skins.generated.ts
+dist/
 store/
 screenshots/thumbnails/
 screenshots/registry.json

@@ -213,9 +213,12 @@ export function assetUrl(config?: DashboardConfig, key?: string): string {
   if (!key) return '';
   const skin = selectedSkin(config);
   const configuredBasePath = config?.resource_pack?.base_path || '';
-  const basePath = configuredBasePath === '__AUTO__' || !configuredBasePath
+  let basePath = configuredBasePath === '__AUTO__' || !configuredBasePath
     ? bundledSkinBasePath(skin)
     : configuredBasePath;
+  if (!SKINS.includes(skin)) {
+    basePath = `/local/skins-pro/${skin}/`;
+  }
   const asset = config?.resource_pack?.assets?.[key] || DEFAULT_ASSETS[key] || '';
   if (!asset) return '';
   if (/^https?:\/\//.test(asset) || asset.startsWith('/')) return asset;

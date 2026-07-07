@@ -164,14 +164,13 @@ Build output: `dist/`:
 
 ## Contributing a Skin
 
-We welcome skin contributions! Here's how the workflow works:
+We welcome skin contributions! Simply:
 
 1. **Create a skin folder** under `skins-pro/<skin-name>/` with the required files
 2. **Add a preview screenshot** `screenshots/<skin-name>.png` (1920×1080 recommended)
-3. **Submit a PR** — CI will validate your submission and, once merged, automatically:
-   - Build and commit the card JS to `master`
-   - Package your skin to `store/<skin-name>.zip` and push to the [`store` branch](https://github.com/ha-china/Skins-Pro/tree/store)
-   - Make your skin available in the card editor's skin store
+3. **Submit a PR** to this repo
+
+Once merged, CI automatically builds the card, packages your skin to the store branch, and makes it available in the card editor's skin store.
 
 ### Required Files
 

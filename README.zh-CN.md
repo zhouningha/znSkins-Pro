@@ -164,14 +164,13 @@ npm run type-check  # TypeScript 类型检查
 
 ## 贡献主题
 
-欢迎提交你的皮肤到 Skins Pro！工作流程如下：
+欢迎提交你的皮肤到 Skins Pro！只需：
 
 1. 在 `skins-pro/<皮肤名>/` 下创建皮肤目录，放入所需文件
 2. 在 `screenshots/<皮肤名>.png` 添加预览截图（1920×1080 为宜）
-3. 提交 PR — CI 会自动验证你的提交，合并后自动：
-   - 构建卡片 JS 提交到 `master` 分支
-   - 打包皮肤到 `store/<皮肤名>.zip` 并推送到 [`store` 分支](https://github.com/ha-china/Skins-Pro/tree/store)
-   - 使皮肤出现在卡片编辑器的皮肤商店中
+3. 提交 PR 到本仓库
+
+合并后 CI 会自动构建卡片、将皮肤打包到 store 分支、并在卡片编辑器的皮肤商店中上架。
 
 ### 必须文件
 

@@ -470,7 +470,7 @@ export class SkinsProCardEditor extends HTMLElement {
         this._skinStoreError = '';
         this.render();
         try {
-          const res = await fetch(`${CDN_STORE}/screenshots/registry.json`);
+          const res = await fetch(`${CDN_STORE}/screenshots/registry.json?t=${Date.now()}`);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json() as Array<{ id: string; name: string; thumbnail: string }>;
           this._skinStoreThemes = Array.isArray(data) ? data : [];

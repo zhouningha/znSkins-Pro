@@ -93,7 +93,7 @@ A skin is a folder under `skins-pro/<skin-name>/` containing images, CSS, and st
 skins-pro/
   your-skin-name/
     theme.css               # Styles (required)
-    strings.json            # Strings + icon_map (optional)
+    strings.json            # Strings + icon_map + author (required)
     avatar.jpg              # Avatar, recommended ≥ 300×300
     background.jpg          # Background, recommended width ≥ 2560px
     decoration.jpg          # Side decoration, recommended width ≥ 800px
@@ -120,10 +120,11 @@ Supports PNG / JPG / BMP / WebP input, outputs JPG. Never upscales.
 
 All styles are customized via CSS variables on `:host`. Each skin has its own `theme.css`. See `skins-pro/modern/theme.css` for the full variable list.
 
-### strings.json + icon_map
+### strings.json + icon_map + author
 
 ```json
 {
+  "author": "your-github-username",
   "title_zh": "欢迎回来！",
   "title_en": "Welcome back!",
   "icon_map": {
@@ -136,7 +137,8 @@ All styles are customized via CSS variables on `:host`. Each skin has its own `t
 }
 ```
 
-Maps entity domains to icon image filenames. Unmapped domains fall back automatically.
+- `author` — Your GitHub username (without `@`). Displayed in the store and linked to your profile.
+- `icon_map` — Maps entity domains to icon image filenames. Unmapped domains fall back automatically.
 
 > **Best reference** — Use [`skins-pro/visionOS/`](skins-pro/visionOS/) as the starting point when creating a new skin. It has the most complete `icon_map`, `theme.css`, and icon assets.
 
@@ -177,7 +179,7 @@ Once merged, CI automatically builds the card, packages your skin to the store b
 | File | Purpose |
 |---|---|
 | `theme.css` | All styles via CSS variables on `:host`. See `skins-pro/modern/theme.css` |
-| `strings.json` | Greeting text + `icon_map`. Must include a non-empty `"author"` field |
+| `strings.json` | Greeting text + `icon_map`. **Must** include a non-empty `author` field |
 | `avatar.*` (png/jpg) | Avatar image, recommended ≥ 300×300 |
 | `background.*` (png/jpg) | Main background, recommended width ≥ 2560px |
 | `screenshots/<skin-name>.png` | Store preview image. **Filename must match the skin folder name exactly** |

@@ -38,6 +38,8 @@ Click the button above, or manually:
 
 ## Skin Store
 
+![Store](screenshots/store.gif)
+
 Download additional skins directly from the card editor. Clicking **Download** fetches the skin package from the [store branch](https://github.com/ha-china/Skins-Pro/tree/store) via CDN and installs it to your HA `www/` directory via the [`skins-pro-hass`](https://github.com/ha-china/skins-pro-hass) integration.
 
 > The integration is only needed for downloading skins from the store. If you only use the built-in **modern** skin, you can skip installing it.

@@ -5,9 +5,31 @@ import { DEFAULT_NAV } from './constants';
 import { normalizeSecurityCameras, normalizeSecurityDevices } from './config';
 import { assetHref, normalizeLanguage } from './utils';
 
-const CDN_BASE = 'https://cdn.jsdelivr.net/gh/ha-china/Skins-Pro@master';
+const OFFICIAL_STORE_BASE = 'https://cdn.jsdelivr.net/gh/ha-china/Skins-Pro@master';
+const CUSTOM_STORE_BASE = 'https://cdn.jsdelivr.net/gh/zhouningha/znSkins-Pro@master';
+const STORE_SOURCES = [
+  { key: 'official', label: 'Official', base: OFFICIAL_STORE_BASE },
+  { key: 'custom', label: 'Mine', base: CUSTOM_STORE_BASE },
+] as const;
 
 type DashboardConfigRecord = Record<string, any>;
+type SkinStoreTheme = {
+  id: string;
+  name: string;
+  thumbnail: string;
+  author?: string;
+  package?: string;
+  source: string;
+  sourceLabel: string;
+  sourceBase: string;
+  packageUrl?: string;
+};
+
+function storeUrl(base: string, value?: string): string {
+  if (!value) return '';
+  if (/^https?:\/\//.test(value)) return value;
+  return base.replace(/\/$/, '') + '/' + value.replace(/^\//, '');
+}
 
 const fire = (el: HTMLElement, config: DashboardConfigRecord) => {
   el.dispatchEvent(new CustomEvent('config-changed', {
@@ -35,7 +57,7 @@ export class SkinsProCardEditor extends HTMLElement {
   private _areasLoaded = false;
   private _navDialogOpen = false;
   private _skinStoreOpen = false;
-  private _skinStoreThemes: Array<{ id: string; name: string; thumbnail: string; author?: string }> = [];
+  private _skinStoreThemes: SkinStoreTheme[] = [];
   private _skinStoreLoading = false;
   private _skinStoreError = '';
 
@@ -218,12 +240,12 @@ export class SkinsProCardEditor extends HTMLElement {
         const installed = downloaded.includes(t.id);
         return `
         <div class="store-card ${installed ? 'store-installed' : ''}" data-store-theme="${t.id}">
-          <img src="${CDN_BASE}/${t.thumbnail}" alt="${t.name}" class="store-thumb" loading="lazy">
+          <img src="${storeUrl(t.sourceBase, t.thumbnail)}" alt="${t.name}" class="store-thumb" loading="lazy">
           <div class="store-info">
-            <span class="store-name">${t.name}${t.author ? `<a href="https://github.com/${t.author}" target="_blank" rel="noopener noreferrer" class="store-author">${t.author}</a>` : ''}</span>
+            <span class="store-name">${t.name}<small class="store-source">${t.sourceLabel}</small>${t.author ? `<a href="https://github.com/${t.author}" target="_blank" rel="noopener noreferrer" class="store-author">${t.author}</a>` : ''}</span>
             ${installed
               ? `<button class="store-remove" data-store-remove="${t.id}">${this._loc('editorSkinStoreRemove')}</button>`
-              : `<button class="store-download" data-store-download="${t.id}">${this._loc('editorSkinStoreDownload')}</button>`
+              : `<button class="store-download" data-store-download="${t.id}" data-store-package-url="${t.packageUrl || storeUrl(t.sourceBase, t.package)}">${this._loc('editorSkinStoreDownload')}</button>`
             }
           </div>
         </div>`;
@@ -271,7 +293,7 @@ export class SkinsProCardEditor extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <link rel="stylesheet" href="${this.themeCssUrl()}">
-      <style>.bg-preview{max-width:120px;max-height:60px;border-radius:6px;display:block;flex-shrink:0}.sp-card input[type=checkbox]{width:auto;min-height:auto;margin:0}.sp-card label:has(input[type=checkbox]){display:flex;align-items:center;gap:8px}.sp-btn-configure{cursor:pointer}.nav-overlay{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.5);display:${this._navDialogOpen ? 'flex' : 'none'};align-items:center;justify-content:center}.nav-dialog{background:var(--sp-card-bg,var(--sp-panel-bg,var(--glass-regular,var(--ha-card-background,#fff))));border-radius:var(--sp-radius-lg);padding:var(--sp-space-xl);min-width:280px;max-width:380px;box-shadow:var(--sp-shadow-card);border:var(--sp-border-width,1px) solid var(--sp-border-device,var(--sp-border-glass,var(--divider-color,rgba(0,0,0,0.12))));backdrop-filter:var(--sp-blur-lg,none);-webkit-backdrop-filter:var(--sp-blur-lg,none)}.nav-dialog h3{margin:0 0 var(--sp-space-md);font-size:var(--sp-font-md);font-weight:700;color:var(--sp-text-main,var(--sp-text-primary,inherit))}.nav-dialog-item{display:flex;align-items:center;gap:var(--sp-space-sm);padding:var(--sp-space-2xs) 0}.nav-dialog-item span{font-size:var(--sp-font-xs);color:var(--sp-text-main,var(--sp-text-primary,inherit))}.nav-dialog-item input[type=checkbox]{width:auto;min-height:auto;margin:0;margin-left:auto;accent-color:var(--sp-accent)}.nav-dialog-actions{display:flex;gap:var(--sp-space-sm);justify-content:flex-end;margin-top:var(--sp-space-lg)}.nav-dialog-actions button{min-height:38px;border:0;border-radius:var(--sp-radius-sm,8px);padding:0 var(--sp-space-lg);cursor:pointer;font:inherit;font-weight:600;font-size:var(--sp-font-xs);white-space:nowrap}.nav-dialog-actions .nav-cancel{background:var(--sp-device-bg,rgba(128,128,128,0.1));color:var(--sp-text-main,var(--sp-text-primary,inherit));border:var(--sp-border-width,1px) solid var(--sp-border-muted,var(--sp-border-glass,transparent))}.nav-dialog-actions .nav-cancel:hover{filter:brightness(0.96)}.nav-dialog-actions .nav-save{background:var(--sp-accent);color:var(--sp-text-on-accent,#fff)}.nav-dialog-actions .nav-save:hover{filter:brightness(1.08)}.store-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;max-height:70vh;overflow-y:auto}.store-card{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:8px;background:var(--sp-device-bg,rgba(128,128,128,0.06))}.store-thumb{width:100%;height:auto;border-radius:6px;display:block}.store-info{display:flex;align-items:center;justify-content:space-between;gap:8px}.store-name{font-size:var(--sp-font-xs,13px);font-weight:600;color:var(--sp-text-main,var(--sp-text-primary,inherit))}.store-author{margin-left:6px;font-weight:400;font-size:var(--sp-font-2xs,12px);color:var(--sp-accent,#8ab8cc);text-decoration:none}.store-author:hover{text-decoration:underline}.store-download{min-height:32px;border:0;border-radius:6px;padding:0 12px;cursor:pointer;font:inherit;font-weight:600;font-size:var(--sp-font-2xs,12px);white-space:nowrap;background:var(--sp-accent,#8ab8cc);color:#fff}.store-download:hover{filter:brightness(1.1)}.store-installed{border:1px solid var(--sp-accent,#8ab8cc)}.store-remove{min-height:32px;border:0;border-radius:6px;padding:0 12px;cursor:pointer;font:inherit;font-weight:600;font-size:var(--sp-font-2xs,12px);white-space:nowrap;background:var(--sp-error,#e44);color:#fff}.store-remove:hover{filter:brightness(1.1)}</style>
+      <style>.bg-preview{max-width:120px;max-height:60px;border-radius:6px;display:block;flex-shrink:0}.sp-card input[type=checkbox]{width:auto;min-height:auto;margin:0}.sp-card label:has(input[type=checkbox]){display:flex;align-items:center;gap:8px}.sp-btn-configure{cursor:pointer}.nav-overlay{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.5);display:${this._navDialogOpen ? 'flex' : 'none'};align-items:center;justify-content:center}.nav-dialog{background:var(--sp-card-bg,var(--sp-panel-bg,var(--glass-regular,var(--ha-card-background,#fff))));border-radius:var(--sp-radius-lg);padding:var(--sp-space-xl);min-width:280px;max-width:380px;box-shadow:var(--sp-shadow-card);border:var(--sp-border-width,1px) solid var(--sp-border-device,var(--sp-border-glass,var(--divider-color,rgba(0,0,0,0.12))));backdrop-filter:var(--sp-blur-lg,none);-webkit-backdrop-filter:var(--sp-blur-lg,none)}.nav-dialog h3{margin:0 0 var(--sp-space-md);font-size:var(--sp-font-md);font-weight:700;color:var(--sp-text-main,var(--sp-text-primary,inherit))}.nav-dialog-item{display:flex;align-items:center;gap:var(--sp-space-sm);padding:var(--sp-space-2xs) 0}.nav-dialog-item span{font-size:var(--sp-font-xs);color:var(--sp-text-main,var(--sp-text-primary,inherit))}.nav-dialog-item input[type=checkbox]{width:auto;min-height:auto;margin:0;margin-left:auto;accent-color:var(--sp-accent)}.nav-dialog-actions{display:flex;gap:var(--sp-space-sm);justify-content:flex-end;margin-top:var(--sp-space-lg)}.nav-dialog-actions button{min-height:38px;border:0;border-radius:var(--sp-radius-sm,8px);padding:0 var(--sp-space-lg);cursor:pointer;font:inherit;font-weight:600;font-size:var(--sp-font-xs);white-space:nowrap}.nav-dialog-actions .nav-cancel{background:var(--sp-device-bg,rgba(128,128,128,0.1));color:var(--sp-text-main,var(--sp-text-primary,inherit));border:var(--sp-border-width,1px) solid var(--sp-border-muted,var(--sp-border-glass,transparent))}.nav-dialog-actions .nav-cancel:hover{filter:brightness(0.96)}.nav-dialog-actions .nav-save{background:var(--sp-accent);color:var(--sp-text-on-accent,#fff)}.nav-dialog-actions .nav-save:hover{filter:brightness(1.08)}.store-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;max-height:70vh;overflow-y:auto}.store-card{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:8px;background:var(--sp-device-bg,rgba(128,128,128,0.06))}.store-thumb{width:100%;height:auto;border-radius:6px;display:block}.store-info{display:flex;align-items:center;justify-content:space-between;gap:8px}.store-name{font-size:var(--sp-font-xs,13px);font-weight:600;color:var(--sp-text-main,var(--sp-text-primary,inherit))}.store-source{display:inline-block;margin-left:6px;padding:1px 5px;border-radius:5px;background:rgba(128,128,128,0.16);font-size:var(--sp-font-3xs,11px);font-weight:600;opacity:.82}.store-author{margin-left:6px;font-weight:400;font-size:var(--sp-font-2xs,12px);color:var(--sp-accent,#8ab8cc);text-decoration:none}.store-author:hover{text-decoration:underline}.store-download{min-height:32px;border:0;border-radius:6px;padding:0 12px;cursor:pointer;font:inherit;font-weight:600;font-size:var(--sp-font-2xs,12px);white-space:nowrap;background:var(--sp-accent,#8ab8cc);color:#fff}.store-download:hover{filter:brightness(1.1)}.store-installed{border:1px solid var(--sp-accent,#8ab8cc)}.store-remove{min-height:32px;border:0;border-radius:6px;padding:0 12px;cursor:pointer;font:inherit;font-weight:600;font-size:var(--sp-font-2xs,12px);white-space:nowrap;background:var(--sp-error,#e44);color:#fff}.store-remove:hover{filter:brightness(1.1)}</style>
       <div class="sp-wrap">
         <div class="sp-card">
           <h3>${this._loc('editorSkin')}</h3>
@@ -483,10 +505,33 @@ export class SkinsProCardEditor extends HTMLElement {
         this._skinStoreError = '';
         this.render();
         try {
-          const res = await fetch(`${CDN_BASE}/screenshots/registry.json`);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json() as Array<{ id: string; name: string; thumbnail: string }>;
-          this._skinStoreThemes = Array.isArray(data) ? data : [];
+          const merged = new Map<string, SkinStoreTheme>();
+          const results = await Promise.all(STORE_SOURCES.map(async (source) => {
+            const res = await fetch(`${source.base}/screenshots/registry.json`);
+            if (!res.ok) throw new Error(`${source.label}: HTTP ${res.status}`);
+            const data = await res.json() as Array<{ id: string; name?: string; thumbnail?: string; author?: string; package?: string }>;
+            if (!Array.isArray(data)) return;
+            for (const item of data) {
+              if (!item?.id || !item.thumbnail) continue;
+              merged.set(item.id, {
+                id: item.id,
+                name: item.name || item.id,
+                thumbnail: item.thumbnail,
+                author: item.author,
+                package: item.package,
+                source: source.key,
+                sourceLabel: source.label,
+                sourceBase: source.base,
+                packageUrl: storeUrl(source.base, item.package),
+              });
+            }
+          }).map(p => p.catch((err) => err)));
+          const loadedAny = results.some((result) => !(result instanceof Error));
+          if (!loadedAny) throw results.find((result) => result instanceof Error) || new Error('No store source loaded');
+          this._skinStoreThemes = [...merged.values()].sort((a, b) => {
+            if (a.source !== b.source) return a.source === 'custom' ? -1 : 1;
+            return a.name.localeCompare(b.name);
+          });
           this._skinStoreLoading = false;
         } catch (err) {
           this._skinStoreLoading = false;
@@ -544,13 +589,21 @@ export class SkinsProCardEditor extends HTMLElement {
       btn.addEventListener('click', async () => {
         const skin = btn.getAttribute('data-store-download');
         if (!skin) return;
+        const packageUrl = btn.getAttribute('data-store-package-url') || '';
         const origText = btn.textContent || '';
         btn.textContent = 'Downloading...';
         (btn as HTMLButtonElement).disabled = true;
         try {
-          await (this._hass as any).callService(
-            'skins_pro', 'download_skin', { skin_id: skin }
-          );
+          try {
+            await (this._hass as any).callService(
+              'skins_pro', 'download_skin', packageUrl ? { skin_id: skin, package_url: packageUrl } : { skin_id: skin }
+            );
+          } catch (firstErr) {
+            if (!packageUrl) throw firstErr;
+            await (this._hass as any).callService(
+              'skins_pro', 'download_skin', { skin_id: skin }
+            );
+          }
           const next = deepClone(this._config);
           next.resource_pack = next.resource_pack || {};
           next.resource_pack.skin = skin;

@@ -5,12 +5,15 @@ import { DEFAULT_NAV } from './constants';
 import { normalizeSecurityCameras, normalizeSecurityDevices } from './config';
 import { assetHref, normalizeLanguage } from './utils';
 
+const LOCAL_STORE_BASE = '/local/community/skins-pro';
 const OFFICIAL_STORE_BASE = 'https://cdn.jsdelivr.net/gh/ha-china/Skins-Pro@master';
 const CUSTOM_STORE_BASE = 'https://cdn.jsdelivr.net/gh/zhouningha/znSkins-Pro@master';
 const STORE_SOURCES = [
-  { key: 'official', label: 'Official', base: OFFICIAL_STORE_BASE },
+  { key: 'local', label: 'Local', base: LOCAL_STORE_BASE },
   { key: 'custom', label: 'Mine', base: CUSTOM_STORE_BASE },
+  { key: 'official', label: 'Official', base: OFFICIAL_STORE_BASE },
 ] as const;
+const STORE_FETCH_TIMEOUT_MS = 5000;
 
 type DashboardConfigRecord = Record<string, any>;
 type SkinStoreTheme = {
@@ -28,7 +31,24 @@ type SkinStoreTheme = {
 function storeUrl(base: string, value?: string): string {
   if (!value) return '';
   if (/^https?:\/\//.test(value)) return value;
-  return base.replace(/\/$/, '') + '/' + value.replace(/^\//, '');
+  const path = base.replace(/\/$/, '') + '/' + value.replace(/^\//, '');
+  if (base.startsWith('/') && typeof window !== 'undefined') {
+    return window.location.origin + path;
+  }
+  return path;
+}
+
+async function fetchStoreRegistry(source: typeof STORE_SOURCES[number]): Promise<Array<{ id: string; name?: string; thumbnail?: string; author?: string; package?: string }>> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), STORE_FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(storeUrl(source.base, 'screenshots/registry.json'), { signal: controller.signal, cache: 'no-store' });
+    if (!res.ok) throw new Error(`${source.label}: HTTP ${res.status}`);
+    const data = await res.json() as Array<{ id: string; name?: string; thumbnail?: string; author?: string; package?: string }>;
+    return Array.isArray(data) ? data : [];
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 const fire = (el: HTMLElement, config: DashboardConfigRecord) => {
@@ -507,10 +527,7 @@ export class SkinsProCardEditor extends HTMLElement {
         try {
           const merged = new Map<string, SkinStoreTheme>();
           const results = await Promise.all(STORE_SOURCES.map(async (source) => {
-            const res = await fetch(`${source.base}/screenshots/registry.json`);
-            if (!res.ok) throw new Error(`${source.label}: HTTP ${res.status}`);
-            const data = await res.json() as Array<{ id: string; name?: string; thumbnail?: string; author?: string; package?: string }>;
-            if (!Array.isArray(data)) return;
+            const data = await fetchStoreRegistry(source);
             for (const item of data) {
               if (!item?.id || !item.thumbnail) continue;
               merged.set(item.id, {
@@ -529,7 +546,10 @@ export class SkinsProCardEditor extends HTMLElement {
           const loadedAny = results.some((result) => !(result instanceof Error));
           if (!loadedAny) throw results.find((result) => result instanceof Error) || new Error('No store source loaded');
           this._skinStoreThemes = [...merged.values()].sort((a, b) => {
-            if (a.source !== b.source) return a.source === 'custom' ? -1 : 1;
+            if (a.source !== b.source) {
+              const order = { local: 0, custom: 1, official: 2 } as Record<string, number>;
+              return (order[a.source] ?? 9) - (order[b.source] ?? 9);
+            }
             return a.name.localeCompare(b.name);
           });
           this._skinStoreLoading = false;

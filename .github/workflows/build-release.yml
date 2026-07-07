@@ -80,6 +80,14 @@ jobs:
         with:
           tag_name: v${{ steps.version.outputs.new }}
           body: |
+            ⚠️ **破坏性更新 / Breaking Change** ⚠️
+
+            如果你只使用内置的 **modern** 主题，无需任何变更。If you only use the built-in **modern** skin, no changes are needed.
+
+            如果需要通过皮肤商店下载其他主题，需要额外安装 [skins-pro-hass](https://github.com/ha-china/skins-pro-hass) 集成。To download skins from the store, install the [skins-pro-hass](https://github.com/ha-china/skins-pro-hass) integration.
+
+            ---
+
             ${{ steps.changelog.outputs.changelog }}
           draft: false
           prerelease: false

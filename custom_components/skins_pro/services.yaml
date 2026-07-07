@@ -1,0 +1,20 @@
+download_skin:
+  name: Download skin
+  description: Download and install a Skins Pro theme package.
+  fields:
+    skin_id:
+      required: true
+      selector:
+        text:
+    package_url:
+      required: false
+      selector:
+        text:
+remove_skin:
+  name: Remove skin
+  description: Remove an installed Skins Pro theme package.
+  fields:
+    skin_id:
+      required: true
+      selector:
+        text:

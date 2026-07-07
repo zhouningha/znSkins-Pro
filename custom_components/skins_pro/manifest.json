@@ -1,0 +1,11 @@
+{
+  "domain": "skins_pro",
+  "name": "Skins Pro Theme Store",
+  "version": "0.1.0",
+  "documentation": "https://github.com/zhouningha/znSkins-Pro",
+  "requirements": [],
+  "codeowners": [
+    "@zhouningha"
+  ],
+  "iot_class": "local_push"
+}

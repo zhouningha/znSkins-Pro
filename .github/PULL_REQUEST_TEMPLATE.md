@@ -18,13 +18,9 @@
 | 皮肤文件夹名称与 `screenshots/<skin>.png` 预览图名称一致 / Skin folder name matches `screenshots/<skin>.png` preview name | - [ ] |
 | `skins-pro/<skin>/strings.json` 已包含 `author` 字段 / `skins-pro/<skin>/strings.json` includes `author` | - [ ] |
 
-### 描述（中文）
+### 描述 / Description
 
-<!-- 请详细描述你的改动 -->
-
-### Description (English)
-
-<!-- Please describe your changes in detail -->
+<!-- 请详细描述你的改动 / Please describe your changes in detail -->
 
 ### 附加信息 / Additional Info
 

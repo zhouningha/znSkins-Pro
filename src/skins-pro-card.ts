@@ -40,6 +40,7 @@ import {
   iconForDomain,
   localizedText,
   formatRelativeTime,
+  isWallPanel1080p,
   normalizeLanguage,
   refreshAssetVersionFromServer,
   fetchCameraSnapshotUrl,
@@ -61,7 +62,7 @@ import { loadAreas, loadDeviceRegistry, loadEntityRegistry, loadFloors } from '.
 
 import { getMaintenanceItems } from './maintenance';
 
-import { toggleKiosk } from './kiosk';
+import { enableKiosk, setKioskLocked, toggleKiosk } from './kiosk';
 
 const CONTROLLABLE_DOMAINS = new Set(['light', 'switch', 'fan', 'cover', 'valve', 'media_player', 'lock', 'climate', 'vacuum', 'humidifier', 'water_heater', 'siren', 'automation', 'group', 'input_boolean']);
 
@@ -127,6 +128,8 @@ export class MinecraftDashboardCard extends LitElement {
   private _weatherForecastUnsub?: () => Promise<void>;
 
   private _autoFullscreenDone = false;
+  private _autoFullscreenAttempts = 0;
+  private static readonly AUTO_FULLSCREEN_MAX = 40;
   private _preMuteVolume = 0.3;
   private readonly _handleWindowResize = () => this.applyLayoutHeight();
 
@@ -186,6 +189,7 @@ export class MinecraftDashboardCard extends LitElement {
     this._weatherForecast = undefined;
     this._weatherForecastEntity = undefined;
     this._autoFullscreenDone = false;
+    this._autoFullscreenAttempts = 0;
     void this.unsubscribeWeatherForecast();
     this.requestUpdate();
   }
@@ -200,6 +204,13 @@ export class MinecraftDashboardCard extends LitElement {
       this._clearStaleCameraSnapshotFailures();
     }
     if (changed.has('hass')) {
+      const prev = changed.get('hass') as HomeAssistant | undefined;
+      const prevUser = prev?.user?.name;
+      const nextUser = this._hass.user?.name;
+      if (prevUser !== nextUser) {
+        this._autoFullscreenDone = false;
+        this._autoFullscreenAttempts = 0;
+      }
       void this.loadAreas();
       void this.loadEntityRegistry();
       void this.loadDeviceRegistry();
@@ -207,6 +218,9 @@ export class MinecraftDashboardCard extends LitElement {
       void this.loadEnergyHistory();
       void this.refreshVisibleCameraSnapshots();
       this._syncCameraSnapshotRefreshTimer();
+    }
+    if (changed.has('hass') && this._config?.fullscreen) {
+      this.tryAutoFullscreen();
     }
     const weatherEntity = this._config?.weather?.entity;
     if (weatherEntity && this._weatherForecastEntity !== weatherEntity) {
@@ -377,7 +391,7 @@ export class MinecraftDashboardCard extends LitElement {
         ${registriesLoading}
         <div class="mc-app" data-view=${this._view}>
           <aside class="sidebar">
-            <div class="profile" @click=${() => this.toggleKioskFullscreen()}>
+            <div class="profile" @click=${(e: Event) => this.onKioskCornerClick(e)}>
               ${this.renderUserAvatar('profile-img')}
               <div class="meta">
                 <h2>${this._config.profile_name || this._hass?.user?.name || ''}</h2>
@@ -387,7 +401,7 @@ export class MinecraftDashboardCard extends LitElement {
             <nav class="menu">
               ${this.renderNav(language)}
             </nav>
-                        <div class="sidebar-art" @click=${() => this.toggleKioskFullscreen()}>${this.renderImage('decor', 'Decor', '')}</div>
+                        <div class="sidebar-art" @click=${(e: Event) => this.onKioskCornerClick(e)}>${this.renderImage('decor', 'Decor', '')}</div>
           </aside>
           <main class="stage">
             ${this.renderStageContent(language, translate, weatherIconName, quote, energyValue, energyUnit, compareValue, energyBars)}
@@ -513,9 +527,12 @@ export class MinecraftDashboardCard extends LitElement {
     const host = this.shadowRoot?.host as HTMLElement | undefined;
     if (!host) return;
 
+    if (this.applyWallPanel1080Layout(host)) return;
+
     if (window.matchMedia('(orientation: portrait)').matches) {
       host.style.setProperty('--sp-runtime-height', 'auto');
       host.style.setProperty('--sp-runtime-min-height', '100vh');
+      host.removeAttribute('data-wall-panel');
       return;
     }
 
@@ -527,6 +544,24 @@ export class MinecraftDashboardCard extends LitElement {
       : Math.max(560, Math.floor(window.innerHeight - rect.top - paddingBottom));
     host.style.setProperty('--sp-runtime-height', `${availableHeight}px`);
     host.style.setProperty('--sp-runtime-min-height', `${availableHeight}px`);
+    host.removeAttribute('data-wall-panel');
+  }
+
+  /** Lock layout to 1920×1080 wall panel to avoid stretch/distortion in WebView kiosk. */
+  private applyWallPanel1080Layout(host: HTMLElement): boolean {
+    if (!isWallPanel1080p()) return false;
+
+    const viewportH = Math.floor(window.innerHeight);
+    const padding = 20;
+    const contentH = Math.max(560, viewportH - padding * 2);
+
+    host.dataset.wallPanel = '1080p';
+    host.style.setProperty('--sp-app-padding', `${padding}px`);
+    host.style.setProperty('--sp-sidebar-width', '210px');
+    host.style.setProperty('--sp-stage-radius', '28px');
+    host.style.setProperty('--sp-runtime-height', `${contentH}px`);
+    host.style.setProperty('--sp-runtime-min-height', `${contentH}px`);
+    return true;
   }
 
   private applyThemeVariables(): void {
@@ -2270,10 +2305,43 @@ export class MinecraftDashboardCard extends LitElement {
   protected updated(_changed?: PropertyValues): void {
     this.applyThemeVariables();
     this.applyLayoutHeight();
-    if (this._config?.fullscreen && !this._autoFullscreenDone) {
+    this.tryAutoFullscreen();
+  }
+
+  private currentHaUsername(): string {
+    const user = this._hass?.user;
+    if (!user) return '';
+    return String(user.name || (user as { local?: string }).local || '').trim();
+  }
+
+  private shouldBlockKioskToggle(): boolean {
+    if (this.shouldAutoFullscreen()) return true;
+    if (typeof window !== 'undefined' && window.__skinsProKioskLocked) return true;
+    return false;
+  }
+
+  private shouldAutoFullscreen(): boolean {
+    if (!this._config?.fullscreen) return false;
+    const allowed = this._config.fullscreen_users;
+    if (!allowed?.length) return false;
+    const current = this.currentHaUsername();
+    return !!current && allowed.includes(current);
+  }
+
+  private tryAutoFullscreen(): void {
+    if (this._autoFullscreenDone || !this.shouldAutoFullscreen()) return;
+    if (!this._hass?.user) return;
+    if (this._autoFullscreenAttempts >= MinecraftDashboardCard.AUTO_FULLSCREEN_MAX) {
       this._autoFullscreenDone = true;
-      const host = this.shadowRoot?.host as HTMLElement | undefined;
-      if (host) {
+      return;
+    }
+    this._autoFullscreenAttempts += 1;
+
+    const host = this.shadowRoot?.host as HTMLElement | undefined;
+    if (host) {
+      if (this.applyWallPanel1080Layout(host)) {
+        // locked to wall panel viewport
+      } else {
         const isShortLandscape = window.matchMedia('(orientation: landscape)').matches && window.innerHeight < 500;
         const h = isShortLandscape
           ? Math.max(240, Math.floor(window.innerHeight))
@@ -2281,8 +2349,16 @@ export class MinecraftDashboardCard extends LitElement {
         host.style.setProperty('--sp-runtime-height', `${h}px`);
         host.style.setProperty('--sp-runtime-min-height', `${h}px`);
       }
-      toggleKiosk();
     }
+
+    if (enableKiosk()) {
+      setKioskLocked(true);
+      if (typeof window !== 'undefined') window.__skinsProKioskLocked = true;
+      this._autoFullscreenDone = true;
+      return;
+    }
+
+    window.setTimeout(() => this.tryAutoFullscreen(), 500);
   }
 
   private handleAction(entityId: string, action: string): void {
@@ -2389,7 +2465,15 @@ export class MinecraftDashboardCard extends LitElement {
     await this._hass.callService(domain, 'toggle', { entity_id: entityId });
   }
 
+  private onKioskCornerClick(e: Event): void {
+    e.preventDefault();
+    e.stopPropagation();
+    if (this.shouldBlockKioskToggle()) return;
+    this.toggleKioskFullscreen();
+  }
+
   private toggleKioskFullscreen(): void {
+    if (this.shouldBlockKioskToggle()) return;
     const host = this.shadowRoot?.host as HTMLElement | undefined;
     if (document.body.classList.contains('skins-pro-kiosk')) {
       toggleKiosk();

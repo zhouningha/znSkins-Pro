@@ -2,6 +2,7 @@
 // Architecture reference: https://github.com/dwainscheeren/dwains-dashboard-next
 
 import { buildAutoConfig } from './config';
+import { setKiosk, setKioskLocked } from './kiosk';
 import { MinecraftDashboardCard } from './skins-pro-card';
 import './skins-pro-card-editor';
 import { ensureSkinsProBuild } from './utils';
@@ -40,7 +41,22 @@ declare global {
       description?: string;
       documentationURL?: string;
     }>;
+  skinsProSetKiosk?: (enabled: boolean, force?: boolean) => boolean;
+  __skinsProKioskLocked?: boolean;
   }
+}
+
+if (typeof window !== 'undefined') {
+  window.skinsProSetKiosk = (enabled: boolean, force?: boolean) => {
+    if (enabled) {
+      window.__skinsProKioskLocked = true;
+      setKioskLocked(true);
+    } else if (force) {
+      window.__skinsProKioskLocked = false;
+      setKioskLocked(false);
+    }
+    return setKiosk(enabled, { force });
+  };
 }
 
 class SkinsProStrategy {

@@ -1649,17 +1649,19 @@ button {
 .media-content {
  display: flex;
  flex-direction: column;
+ gap: var(--sp-space-md);
  margin-top: var(--sp-space-xs);
 }
 
 .media-row {
  display: flex;
  align-items: center;
- gap: var(--sp-space-xs);
+ gap: var(--sp-space-sm);
 }
 
 .media-volrow {
- margin-top: var(--sp-space-3xs);
+ margin-top: 0;
+ padding-top: var(--sp-space-sm);
 }
 
 .media-cover {
@@ -1692,6 +1694,9 @@ button {
 .media-body {
  min-width: 0;
  flex: 1;
+ display: flex;
+ flex-direction: column;
+ gap: 2px;
 }
 
 .media-title {
@@ -2705,4 +2710,78 @@ button {
  color: var(--sp-text-secondary);
  font-size: var(--sp-font-3xs);
  letter-spacing: var(--sp-letter-spacing-wide);
+}
+
+/* ==========================================================================
+ 24. Wall Panel — 1920×1080 landscape (no stretch)
+ ========================================================================== */
+
+:host([data-wall-panel="1080p"]) {
+ width: 100%;
+ height: 100vh;
+ max-height: 100vh;
+ overflow: hidden;
+}
+
+:host([data-wall-panel="1080p"]) .mc-app {
+ height: var(--sp-runtime-height);
+ min-height: var(--sp-runtime-min-height);
+ max-height: var(--sp-runtime-height);
+ overflow: hidden;
+}
+
+:host([data-wall-panel="1080p"]) .stage,
+:host([data-wall-panel="1080p"]) .stage-grid,
+:host([data-wall-panel="1080p"]) .sidebar {
+ min-height: 0;
+}
+
+:host([data-wall-panel="1080p"]) .stage-grid {
+ grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+ grid-template-rows: auto minmax(0, 1fr);
+ grid-template-areas:
+  "welcome side"
+  "bottom side";
+}
+
+:host([data-wall-panel="1080p"]) .room img,
+:host([data-wall-panel="1080p"]) .item-img,
+:host([data-wall-panel="1080p"]) .sidebar-art img,
+:host([data-wall-panel="1080p"]) .profile-img {
+ object-fit: cover;
+}
+
+:host([data-wall-panel="1080p"]) .welcome {
+ max-width: min(720px, 55vw);
+}
+
+:host([data-wall-panel="1080p"]) .panel-media .media-content {
+ gap: var(--sp-space-lg);
+}
+
+:host([data-wall-panel="1080p"]) .panel-media .media-row:not(.media-volrow) {
+ flex-wrap: wrap;
+ align-items: flex-start;
+ row-gap: var(--sp-space-sm);
+ column-gap: var(--sp-space-md);
+}
+
+:host([data-wall-panel="1080p"]) .panel-media .media-actions {
+ width: 100%;
+ justify-content: center;
+ margin-top: var(--sp-space-xs);
+}
+
+:host([data-wall-panel="1080p"]) .panel-media .media-volrow {
+ padding-top: var(--sp-space-md);
+ border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+:host([data-wall-panel="1080p"]) .panel-media .media-cover {
+ width: 52px;
+ height: 52px;
+}
+
+:host([data-wall-panel="1080p"]) .panel-media .media-voltrack {
+ height: 12px;
 }

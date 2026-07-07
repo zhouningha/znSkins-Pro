@@ -426,6 +426,15 @@ export function assetHref(config?: DashboardConfig, key?: string): string {
   return assetUrl(config, key);
 }
 
+/** True on 1920×1080 landscape wall panels (and close variants). */
+export function isWallPanel1080p(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (!window.matchMedia('(orientation: landscape)').matches) return false;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  return w >= 1800 && w <= 2000 && h >= 1000 && h <= 1100;
+}
+
 export function skinString(skin: string, key: string): string {
   const data = (SKIN_STRINGS[skin] || SKIN_STRINGS[DEFAULT_SKIN] || {}) as Record<string, string>;
   return data[key] || '';

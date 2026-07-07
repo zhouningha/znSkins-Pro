@@ -208,6 +208,8 @@ export interface DashboardConfig {
   weather?: WeatherConfig;
   info?: InfoConfig;
   fullscreen?: boolean;
+  /** HA usernames that auto-enter kiosk fullscreen when fullscreen is true. */
+  fullscreen_users?: string[];
   use_area_pictures?: boolean;
   environment?: EnvironmentMetricConfig[];
   devices?: DeviceConfig[];

@@ -67,35 +67,30 @@ jobs:
           git push origin --tags
           git push
 
-      - name: Build release body
+      - name: Generate changelog
         if: steps.version.outputs.changed == 'true'
-        id: body
-        run: |
-          PREV=$(git tag --sort=-version:refname | head -n 2 | tail -n 1)
-          cat > /tmp/release_body.md <<'EOF'
-          ⚠️ **破坏性更新 / Breaking Change** ⚠️
-
-          如果你只使用内置的 **modern** 主题，无需任何变更。If you only use the built-in **modern** skin, no changes are needed.
-
-          如果需要通过皮肤商店下载其他主题，需要额外安装 [skins-pro-hass](https://github.com/ha-china/skins-pro-hass) 集成。To download skins from the store, install the [skins-pro-hass](https://github.com/ha-china/skins-pro-hass) integration.
-
-          ---
-
-          EOF
-          if [ -n "$PREV" ]; then
-            echo "### Changes since $PREV" >> /tmp/release_body.md
-            git log --oneline "$PREV"..HEAD --no-decorate >> /tmp/release_body.md
-          else
-            echo "### Commits" >> /tmp/release_body.md
-            git log --oneline HEAD --no-decorate >> /tmp/release_body.md
-          fi
+        id: changelog
+        uses: Desmond-Dong/actions/bilingual-changelog@main
+        with:
+          llm-api-key: ${{ secrets.LLM_API_KEY }}
+          llm-api-url: ${{ secrets.LLM_API_URL }}
+          llm-model: ${{ secrets.LLM_MODEL }}
 
       - name: Create Release
         if: steps.version.outputs.changed == 'true'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ steps.version.outputs.new }}
-          body_path: /tmp/release_body.md
+          body: |
+            ⚠️ **破坏性更新 / Breaking Change** ⚠️
+
+            如果你只使用内置的 **modern** 主题，无需任何变更。If you only use the built-in **modern** skin, no changes are needed.
+
+            如果需要通过皮肤商店下载其他主题，需要额外安装 [skins-pro-hass](https://github.com/ha-china/skins-pro-hass) 集成。To download skins from the store, install the [skins-pro-hass](https://github.com/ha-china/skins-pro-hass) integration.
+
+            ---
+
+            ${{ steps.changelog.outputs.changelog }}
           draft: false
           prerelease: false
         env:

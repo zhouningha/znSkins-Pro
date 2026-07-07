@@ -964,6 +964,9 @@ button {
  border-radius: var(--sp-radius-infinite);
  background: var(--sp-switch-off-bg);
  position: relative;
+ display: inline-block;
+ flex: 0 0 auto;
+ cursor: pointer;
  transition: background var(--sp-duration-fast) var(--sp-ease-out);
  border: 0.5px solid rgba(255,255,255,0.15);
  box-sizing: border-box;
@@ -2784,4 +2787,26 @@ button {
 
 :host([data-wall-panel="1080p"]) .panel-media .media-voltrack {
  height: 12px;
+}
+
+/* zn fork: keep interactive room/environment and scene sizing aligned with official cards. */
+.env-floor-header {
+ appearance: none;
+ border: 0;
+ background: transparent;
+ color: var(--sp-text-primary);
+ font: inherit;
+ font-size: var(--sp-font-sm);
+ font-weight: var(--sp-font-weight-bold);
+ text-align: right;
+ padding: 0;
+ margin: 0 0 var(--sp-space-sm);
+ cursor: pointer;
+ justify-self: end;
+}
+
+.stage-grid .panel-scenes {
+ margin-top: auto;
+ min-height: var(--sp-home-room-card-height, auto);
+ height: var(--sp-home-room-card-height, auto);
 }

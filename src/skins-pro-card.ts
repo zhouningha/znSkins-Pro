@@ -76,6 +76,7 @@ export class MinecraftDashboardCard extends LitElement {
   @state() private _filterType = '';
   @state() private _hideUnassigned = true;
   @state() private _showHiddenDevices = false;
+  @state() private _deviceHideEditMode = false;
   @state() private _deviceHideToast = '';
 
   @state() private _doorConfirm?: {
@@ -98,6 +99,7 @@ export class MinecraftDashboardCard extends LitElement {
   private _longPressDone = false;
   private _devicesHiddenHaSyncTimer?: number;
   private _devicesHiddenHaSyncing = false;
+  @state() private _selectedEnvironmentAreaId = '';
 
   @state() private _areas?: AreaRegistryEntry[];
   @state() private _entityRegistry?: EntityRegistryEntry[];
@@ -527,6 +529,16 @@ export class MinecraftDashboardCard extends LitElement {
     const host = this.shadowRoot?.host as HTMLElement | undefined;
     if (!host) return;
 
+    try {
+      const roomCard = this.shadowRoot?.querySelector('.bottom-stack .room') as HTMLElement | null;
+      const height = roomCard?.getBoundingClientRect().height || 0;
+      if (Number.isFinite(height) && height > 0) {
+        host.style.setProperty('--sp-home-room-card-height', `${Math.round(height)}px`);
+      }
+    } catch {
+      // Best-effort visual sync with the official room/product card height.
+    }
+
     if (this.applyWallPanel1080Layout(host)) return;
 
     if (window.matchMedia('(orientation: portrait)').matches) {
@@ -545,6 +557,21 @@ export class MinecraftDashboardCard extends LitElement {
     host.style.setProperty('--sp-runtime-height', `${availableHeight}px`);
     host.style.setProperty('--sp-runtime-min-height', `${availableHeight}px`);
     host.removeAttribute('data-wall-panel');
+  }
+
+  private renderInlineSwitch(checked: boolean, label: string, onToggle: () => void): TemplateResult {
+    return html`
+      <span
+        class="switch ${checked ? 'on' : ''}"
+        role="switch"
+        aria-checked=${checked ? 'true' : 'false'}
+        aria-label=${label}
+        @click=${(e: Event) => {
+          e.stopPropagation();
+          onToggle();
+        }}
+      ></span>
+    `;
   }
 
   /** Lock layout to 1920×1080 wall panel to avoid stretch/distortion in WebView kiosk. */
@@ -660,7 +687,8 @@ export class MinecraftDashboardCard extends LitElement {
             <option value="false" .selected=${!this._hideUnassigned}>${translate('showAll')}</option>
           </select>
           <button class="chip${this._showHiddenDevices ? ' active' : ''}" @click=${() => { this._showHiddenDevices = !this._showHiddenDevices; }}>${translate('showHiddenDevices')}${this.getHiddenDeviceIds().length > 0 ? html` (${this.getHiddenDeviceIds().length})` : nothing}</button>
-          <span class="muted device-hide-hint" style="font-size:12px;opacity:0.85;">${translate('hideDeviceHint')}</span>
+          <button class="chip${this._deviceHideEditMode ? ' active' : ''}" @click=${() => { this._deviceHideEditMode = !this._deviceHideEditMode; }}>${language === 'zh-CN' ? '编辑隐藏' : 'Edit hidden'}</button>
+          ${this._deviceHideEditMode ? html`<span class="muted device-hide-hint" style="font-size:12px;opacity:0.85;">${translate('hideDeviceHint')}</span>` : nothing}
           <button class="action-btn" @click=${() => this.batchControl('on', translate)}>${translate('turnOnAll')}</button>
           <button class="action-btn" @click=${() => this.batchControl('off', translate)}>${translate('turnOffAll')}</button>
         </div>
@@ -987,7 +1015,7 @@ export class MinecraftDashboardCard extends LitElement {
           <div class="control-row"><span class="state-word">${device.detail}</span>${action === 'play-pause' ? html`
             ${volPct !== undefined ? html`<ha-control-slider .value=${volPct} min="0" max="100" style="--control-slider-thickness:32px;--control-slider-border-radius:var(--sp-radius-pill)" @value-changed=${(e: CustomEvent) => { e.stopPropagation(); this._hass?.callService('media_player', 'volume_set', { entity_id: device.entityId, volume_level: (e.detail.value ?? 0) / 100 }); }} @click=${(e: Event) => e.stopPropagation()} class="media-vol-slider"></ha-control-slider>` : ''}
             <ha-icon icon=${device.state === 'playing' ? 'mdi:pause' : 'mdi:play'} class="media-toggle-icon"></ha-icon>
-          ` : (action === 'toggle' ? html`<ha-control-switch .checked=${active} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0" @change=${(e: Event) => { e.stopPropagation(); this.handleAction(device.entityId, action); }} @click=${(e: Event) => e.stopPropagation()} .label=${device.name}></ha-control-switch>` : '')}</div>
+          ` : (action === 'toggle' ? this.renderInlineSwitch(active, device.name, () => this.handleAction(device.entityId, action)) : '')}</div>
         </button>
       `;
     });
@@ -1465,6 +1493,7 @@ export class MinecraftDashboardCard extends LitElement {
   }
 
   private onDevicePointerDown(e: PointerEvent, entityId: string, language: Language): void {
+    if (!this._deviceHideEditMode) return;
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.preventDefault();
     this._longPressDone = false;
@@ -1496,6 +1525,7 @@ export class MinecraftDashboardCard extends LitElement {
   }
 
   private toggleDeviceHidden(entityId: string, language: Language): void {
+    if (!this._deviceHideEditMode) return;
     const hidden = new Set(this.getHiddenDeviceIds());
     const name = String(this._hass?.states?.[entityId]?.attributes?.friendly_name || entityId);
     const translate = getTranslate(language);
@@ -1758,7 +1788,7 @@ export class MinecraftDashboardCard extends LitElement {
                 <div class="control-row"><span class="state-word">${device.detail}</span>${action === 'play-pause' ? html`
                   ${volPct !== undefined ? html`<ha-control-slider .value=${volPct} min="0" max="100" style="--control-slider-thickness:32px;--control-slider-border-radius:var(--sp-radius-pill)" @value-changed=${(e: CustomEvent) => { e.stopPropagation(); this._hass?.callService('media_player', 'volume_set', { entity_id: device.entityId, volume_level: (e.detail.value ?? 0) / 100 }); }} @click=${(e: Event) => e.stopPropagation()} class="media-vol-slider"></ha-control-slider>` : ''}
                   <ha-icon icon=${device.state === 'playing' ? 'mdi:pause' : 'mdi:play'} class="media-toggle-icon"></ha-icon>
-                ` : (action === 'toggle' ? html`<ha-control-switch .checked=${active} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0" @change=${(e: Event) => { e.stopPropagation(); this.handleAction(device.entityId, 'toggle'); }} @click=${(e: Event) => e.stopPropagation()} .label=${device.name}></ha-control-switch>` : '')}</div>
+                ` : (action === 'toggle' ? this.renderInlineSwitch(active, device.name, () => this.handleAction(device.entityId, 'toggle')) : '')}</div>
               </button>
             `;
           })}
@@ -1822,7 +1852,7 @@ export class MinecraftDashboardCard extends LitElement {
             <div class="tag-stack"><div class="status">${stateLabel}</div></div>
           </div>
           <div class="device-copy"><p class="device-name">${String(automation.attributes?.friendly_name || automation.entity_id)}</p><p class="muted">${lastTriggered}</p></div>
-          <div class="control-row"><span class="state-word">${active ? (language === 'zh-CN' ? '已启用' : 'Enabled') : (language === 'zh-CN' ? '已停用' : 'Disabled')}</span><ha-control-switch .checked=${active} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0" @click=${(e: Event) => e.stopPropagation()} @change=${(e: Event) => { e.stopPropagation(); this.handleAction(automation.entity_id, 'toggle'); }} .label=${String(automation.attributes?.friendly_name || automation.entity_id)}></ha-control-switch></div>
+          <div class="control-row"><span class="state-word">${active ? (language === 'zh-CN' ? '已启用' : 'Enabled') : (language === 'zh-CN' ? '已停用' : 'Disabled')}</span>${this.renderInlineSwitch(active, String(automation.attributes?.friendly_name || automation.entity_id), () => this.handleAction(automation.entity_id, 'toggle'))}</div>
         </button>
       `;
     })}`;
@@ -2123,7 +2153,7 @@ export class MinecraftDashboardCard extends LitElement {
             <div class="tag-stack"><div class="status">${stateLabel}</div></div>
           </div>
           <div class="device-copy"><p class="device-name">${String(entity.attributes?.friendly_name || entity.entity_id)}</p><p class="muted">${this.areaNameForEntity(entity.entity_id) || 'lock'}</p></div>
-          <div class="control-row"><span class="state-word">${stateLabel}</span><ha-control-switch .checked=${['on', 'armed_away', 'armed_home', 'locked'].includes(entity.state)} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0" @click=${(e: Event) => e.stopPropagation()} @change=${(e: Event) => { e.stopPropagation(); this.handleAction(entity.entity_id, 'toggle'); }} .label=${String(entity.attributes?.friendly_name || entity.entity_id)}></ha-control-switch></div>
+          <div class="control-row"><span class="state-word">${stateLabel}</span>${this.renderInlineSwitch(['on', 'armed_away', 'armed_home', 'locked'].includes(entity.state), String(entity.attributes?.friendly_name || entity.entity_id), () => this.handleAction(entity.entity_id, 'toggle'))}</div>
         </button>
       `;
     });
@@ -2181,71 +2211,51 @@ export class MinecraftDashboardCard extends LitElement {
       })
       : configuredMetrics).slice(0, this._config?.home_limits?.environment || 5);
 
-    const floors = this._floors || [];
-    if (floors.length > 1 && this._entityRegistry && this._areas) {
-      const areaFloorLookup = new Map<string, string>();
-      for (const area of this._areas) {
-        const fid = (area as AreaRegistryEntry & { floor_id?: string | null }).floor_id;
-        if (fid) areaFloorLookup.set(area.area_id, fid);
-      }
-      const entityFloorLookup = new Map<string, string>();
-      for (const entry of this._entityRegistry) {
-        if (entry.hidden_by || entry.disabled_by) continue;
-        const directAreaId = entry.area_id || undefined;
-        const areaId = directAreaId || this._deviceRegistry?.find((d) => d.id === entry.device_id)?.area_id || undefined;
-        if (areaId && areaFloorLookup.has(areaId)) {
-          entityFloorLookup.set(entry.entity_id, areaFloorLookup.get(areaId)!);
-        }
-      }
-      const byFloor = new Map<string, EnvironmentMetricConfig[]>();
-      const orphanMetrics: EnvironmentMetricConfig[] = [];
-      for (const metric of metrics) {
-        const floorId = entityFloorLookup.get(metric.entity);
-        if (floorId) {
-          const list = byFloor.get(floorId) || [];
-          list.push(metric);
-          byFloor.set(floorId, list);
-        } else {
-          orphanMetrics.push(metric);
-        }
-      }
-      const rows: TemplateResult[] = [];
-      for (const floor of floors) {
-        const floorMetrics = byFloor.get(floor.floor_id);
-        if (!floorMetrics || floorMetrics.length === 0) continue;
-        rows.push(html`<div class="env-floor-header">${floor.name}</div>`);
-        for (const metric of floorMetrics) {
-          rows.push(html`
-            <div class="env-row">
-              <div class="dot ${metric.variant || 'temp'}"><ha-icon icon=${metric.icon || 'mdi:circle'}></ha-icon></div>
-              <div class="muted">${this._hass?.states[metric.entity]?.attributes?.friendly_name || metric.label || metric.entity}</div>
-              <div class="env-value">${stateValue(this._hass, metric.entity, _language) || '--'}${metric.unit || ''}</div>
-            </div>
-          `);
-        }
-      }
-      if (orphanMetrics.length > 0) {
-        rows.push(html`<div class="env-floor-header">${_language === 'zh-CN' ? '其他' : 'Others'}</div>`);
-        for (const metric of orphanMetrics) {
-          rows.push(html`
-            <div class="env-row">
-              <div class="dot ${metric.variant || 'temp'}"><ha-icon icon=${metric.icon || 'mdi:circle'}></ha-icon></div>
-              <div class="muted">${this._hass?.states[metric.entity]?.attributes?.friendly_name || metric.label || metric.entity}</div>
-              <div class="env-value">${stateValue(this._hass, metric.entity, _language) || '--'}${metric.unit || ''}</div>
-            </div>
-          `);
-        }
-      }
-      return rows;
+    if (metrics.length === 0) return [];
+
+    const areaById = new Map((this._areas || []).map((area) => [area.area_id, area]));
+    const deviceAreaById = new Map((this._deviceRegistry || []).map((device) => [device.id, device.area_id || '']));
+    const metricAreaId = (entityId: string): string => {
+      const entry = this._entityRegistry?.find((item) => item.entity_id === entityId);
+      if (!entry || entry.hidden_by || entry.disabled_by) return '';
+      return entry.area_id || (entry.device_id ? deviceAreaById.get(entry.device_id) || '' : '');
+    };
+
+    const grouped = new Map<string, EnvironmentMetricConfig[]>();
+    for (const metric of metrics) {
+      const areaId = metricAreaId(metric.entity) || '__other';
+      const list = grouped.get(areaId) || [];
+      list.push(metric);
+      grouped.set(areaId, list);
     }
 
-    return metrics.map((metric) => html`
-      <div class="env-row">
-        <div class="dot ${metric.variant || 'temp'}"><ha-icon icon=${metric.icon || 'mdi:circle'}></ha-icon></div>
-        <div class="muted">${this._hass?.states[metric.entity]?.attributes?.friendly_name || metric.label || metric.entity}</div>
-        <div class="env-value">${stateValue(this._hass, metric.entity, _language) || '--'}${metric.unit || ''}</div>
-      </div>
-    `);
+    const orderedAreaIds = [
+      ...(this._areas || []).map((area) => area.area_id).filter((areaId) => grouped.has(areaId)),
+      ...(grouped.has('__other') ? ['__other'] : []),
+    ];
+    const selectedAreaId = orderedAreaIds.includes(this._selectedEnvironmentAreaId)
+      ? this._selectedEnvironmentAreaId
+      : orderedAreaIds[0] || '__other';
+    const currentAreaMetrics = grouped.get(selectedAreaId) || metrics;
+    const selectedName = selectedAreaId === '__other'
+      ? (_language === 'zh-CN' ? '其他' : 'Others')
+      : (areaById.get(selectedAreaId)?.name || selectedAreaId);
+    const cycleArea = () => {
+      if (orderedAreaIds.length <= 1) return;
+      const currentIndex = Math.max(0, orderedAreaIds.indexOf(selectedAreaId));
+      this._selectedEnvironmentAreaId = orderedAreaIds[(currentIndex + 1) % orderedAreaIds.length] || '';
+    };
+
+    return [
+      html`<button class="env-floor-header" @click=${cycleArea}>${selectedName}</button>`,
+      ...currentAreaMetrics.map((metric) => html`
+        <div class="env-row">
+          <div class="dot ${metric.variant || 'temp'}"><ha-icon icon=${metric.icon || 'mdi:circle'}></ha-icon></div>
+          <div class="muted">${this._hass?.states[metric.entity]?.attributes?.friendly_name || metric.label || metric.entity}</div>
+          <div class="env-value">${stateValue(this._hass, metric.entity, _language) || '--'}${metric.unit || ''}</div>
+        </div>
+      `),
+    ];
   }
 
   // ─── Energy bars ────────────────────────────────────────

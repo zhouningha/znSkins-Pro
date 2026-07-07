@@ -8,6 +8,61 @@ permissions:
   pull-requests: write
 
 jobs:
+  validate-pr-template:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const body = (pr.body || '').replace(/\r\n/g, '\n');
+            const errors = [];
+
+            const hasTypeSection = body.includes('### 类型 / Type');
+            const hasSkinNameSection = body.includes('### 皮肤名称 / Skin Name');
+            const hasChecklistSection = body.includes('### 皮肤提交检查 / Skin Submission Checklist');
+            const hasDescriptionSection = body.includes('### 描述 / Description');
+            const hasAdditionalInfoSection = body.includes('### 附加信息 / Additional Info');
+
+            if (!hasTypeSection || !hasSkinNameSection || !hasChecklistSection || !hasDescriptionSection || !hasAdditionalInfoSection) {
+              errors.push('PR description must keep the full template structure.');
+            }
+
+            const isContributeSkin = body.includes('- [x] 贡献主题 / Contribute a Skin') || body.includes('- [X] 贡献主题 / Contribute a Skin');
+            const isArchitecture = body.includes('- [x] 优化架构 / Architecture Optimization') || body.includes('- [X] 优化架构 / Architecture Optimization');
+
+            if (!isContributeSkin && !isArchitecture) {
+              errors.push('Select at least one PR type in `### 类型 / Type`.');
+            }
+
+            const descriptionMatch = body.match(/### 描述 \/ Description\n+([\s\S]*?)\n### 附加信息 \/ Additional Info/);
+            const description = descriptionMatch?.[1]
+              ?.split('\n')
+              .map((line) => line.trim())
+              .filter((line) => line && !line.startsWith('<!--'))
+              .join('\n') || '';
+
+            if (!description) {
+              errors.push('Fill in `### 描述 / Description`.');
+            }
+
+            if (isContributeSkin) {
+              const skinNameMatch = body.match(/### 皮肤名称 \/ Skin Name\n+([\s\S]*?)\n### 皮肤提交检查 \/ Skin Submission Checklist/);
+              const skinName = skinNameMatch?.[1]
+                ?.split('\n')
+                .map((line) => line.trim())
+                .filter((line) => line && !line.startsWith('<!--'))
+                .join(' ') || '';
+
+              if (!skinName) {
+                errors.push('Fill in `### 皮肤名称 / Skin Name` for skin contribution PRs.');
+              }
+            }
+
+            if (errors.length > 0) {
+              core.setFailed(errors.join('\n'));
+            }
+
   label:
     runs-on: ubuntu-latest
     steps:

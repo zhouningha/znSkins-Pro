@@ -4,7 +4,7 @@
 
 **Next-Gen Home Assistant Dashboard** — Multi-skin, immersive, plug-and-play.
 
-Skins Pro is a community Lovelace card with a multi-skin architecture featuring **modern**, **AEON**, **AEON_glass**, **visionOS**, and **minecraft** skins. Bilingual (CN/EN) — install from HACS and it just works.
+Skins Pro is a community Lovelace card with a multi-skin architecture. It ships with the **modern** skin and offers additional skins via the built-in skin store. Bilingual (CN/EN) — install from HACS and it just works.
 
 - Add via HACS custom repository
 - Switch between skins freely
@@ -36,22 +36,25 @@ Click the button above, or manually:
 
 ![Settings](screenshots/settings.png)
 
-## Built-in Skins
+## Skin Store
+
+![Store](screenshots/store.gif)
+
+Download additional skins directly from the card editor. Clicking **Download** fetches the skin package from the [store branch](https://github.com/ha-china/Skins-Pro/tree/store) via CDN and installs it to your HA `www/` directory via the [`skins-pro-hass`](https://github.com/ha-china/skins-pro-hass) integration.
+
+> The integration is only needed for downloading skins from the store. If you only use the built-in **modern** skin, you can skip installing it.
+
+## Built-in Skin
 
 | Skin | Style | Features |
 |---|---|---|
 | **modern** (default) | White glassmorphism | Frosted glass, high-res images, clean blue-white palette |
-| **AEON** | Dark luxury | Deep blacks, blue glow, glassmorphism, cinematic shadows |
-| **visionOS** | Frosted glass | Apple VisionOS-inspired, flat glass, white text, immersive blur |
-| **minecraft** | Minecraft theme | Dark textured background, warm tones, Steve avatar |
 
-Switch via the "Skin" field in the card editor.
+> All other skins (AEON, AEON_glass, visionOS, minecraft, and community submissions) are available via the **Skin Store** built into the card editor. Click the store button to browse and download.
 
 ## Preview
 
-| modern | AEON | visionOS | minecraft |
-|---|---|---|---|
-| ![modern](screenshots/modern.png) | ![AEON](screenshots/AEON.png) | ![visionOS](screenshots/visionOS.png) | ![minecraft](screenshots/minecraft.png) |
+![modern](screenshots/modern.png)
 
 ![Advanced Feature](screenshots/Advanced_Feature.png)
 
@@ -78,7 +81,7 @@ Switch via the "Skin" field in the card editor.
 - 🖼️ Use HA area pictures as room backgrounds
 - 🎨 Custom background image upload
 - 📱 Mobile responsive layout
-- 🎭 Multi-skin architecture — 5 built-in skins
+- 🎭 Multi-skin architecture with built-in skin store
 
 On first add, it automatically scans your Home Assistant and organizes content by area and device type.
 
@@ -92,7 +95,7 @@ A skin is a folder under `skins-pro/<skin-name>/` containing images, CSS, and st
 skins-pro/
   your-skin-name/
     theme.css               # Styles (required)
-    strings.json            # Strings + icon_map (optional)
+    strings.json            # Strings + icon_map + author (required)
     avatar.jpg              # Avatar, recommended ≥ 300×300
     background.jpg          # Background, recommended width ≥ 2560px
     decoration.jpg          # Side decoration, recommended width ≥ 800px
@@ -119,10 +122,11 @@ Supports PNG / JPG / BMP / WebP input, outputs JPG. Never upscales.
 
 All styles are customized via CSS variables on `:host`. Each skin has its own `theme.css`. See `skins-pro/modern/theme.css` for the full variable list.
 
-### strings.json + icon_map
+### strings.json + icon_map + author
 
 ```json
 {
+  "author": "your-github-username",
   "title_zh": "欢迎回来！",
   "title_en": "Welcome back!",
   "icon_map": {
@@ -135,7 +139,8 @@ All styles are customized via CSS variables on `:host`. Each skin has its own `t
 }
 ```
 
-Maps entity domains to icon image filenames. Unmapped domains fall back automatically.
+- `author` — Your GitHub username (without `@`). Displayed in the store and linked to your profile.
+- `icon_map` — Maps entity domains to icon image filenames. Unmapped domains fall back automatically.
 
 > **Best reference** — Use [`skins-pro/visionOS/`](skins-pro/visionOS/) as the starting point when creating a new skin. It has the most complete `icon_map`, `theme.css`, and icon assets.
 
@@ -163,16 +168,35 @@ Build output: `dist/`:
 
 ## Contributing a Skin
 
-We welcome skin contributions! Requirements:
+We welcome skin contributions! Simply:
 
-1. Create a folder under `skins-pro/<skin-name>/`
-2. Provide `theme.css` (all styles via CSS variables)
-3. Provide `strings.json` with greeting text and `icon_map`
-4. Provide at least avatar, background, and decoration images
-5. Add a `<skin-name>.png` screenshot in `screenshots/` (.png, 1920×1080 recommended)
-6. Submit a PR to this repo
+1. **Create a skin folder** under `skins-pro/<skin-name>/` with the required files
+2. **Add a preview screenshot** `screenshots/<skin-name>.png` (1920×1080 recommended)
+3. **Submit a PR** to this repo
 
-Images are auto-processed on build — no manual optimization needed.
+Once merged, CI automatically builds the card, packages your skin to the store branch, and makes it available in the card editor's skin store.
+
+### Required Files
+
+| File | Purpose |
+|---|---|
+| `theme.css` | All styles via CSS variables on `:host`. See `skins-pro/modern/theme.css` |
+| `strings.json` | Greeting text + `icon_map`. **Must** include a non-empty `author` field |
+| `avatar.*` (png/jpg) | Avatar image, recommended ≥ 300×300 |
+| `background.*` (png/jpg) | Main background, recommended width ≥ 2560px |
+| `screenshots/<skin-name>.png` | Store preview image. **Filename must match the skin folder name exactly** |
+
+### Validation Rules (enforced by CI)
+
+- Skin folder name (`skins-pro/<name>/`) must match preview filename (`screenshots/<name>.png`)
+- `strings.json` must contain a non-empty `author` field (your GitHub username, without `@`)
+- `theme.css` must be present
+
+### Tips
+
+- Use [`skins-pro/visionOS/`](skins-pro/visionOS/) as the reference — it has the most complete `icon_map` and assets
+- Images are auto-processed on build (resize, JPG output) — no manual optimization needed
+- `icon_map` in `strings.json` maps entity domains to icon filenames; unmapped domains fall back automatically
 
 ## Credits
 

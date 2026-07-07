@@ -5,3 +5,5 @@ npm-debug.log*
 src/skins.generated.ts
 store/
 screenshots/thumbnails/
+screenshots/registry.json
+screenshots/download_skin.gif

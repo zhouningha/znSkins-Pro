@@ -28,14 +28,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate skin list
-        run: node scripts/build-skins.cjs
+      - name: Build
+        run: npm run build
 
       - name: Type check
         run: npm run type-check
-
-      - name: Build
-        run: npm run build
 
       - name: Detect version change
         id: version
@@ -45,17 +42,29 @@ jobs:
           echo "new=$NEW_VER" >> "$GITHUB_OUTPUT"
           if [ -n "$OLD_VER" ] && [ "$NEW_VER" != "$OLD_VER" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif ! git rev-parse "v$NEW_VER" >/dev/null 2>&1; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Commit dist assets
-        if: steps.version.outputs.changed == 'false'
+      - name: Commit dist to master
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add -f store/ screenshots/thumbnails/ dist/ screenshots/registry.json
-          git diff --staged --quiet || git commit -m "chore: build dist assets [skip ci]"
+          git add dist/
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: build dist assets [skip ci]"
+          fi
+
+      - name: Tag version
+        if: steps.version.outputs.changed == 'true'
+        run: |
+          git tag "v${{ steps.version.outputs.new }}"
+
+      - name: Push master (including tags)
+        run: |
+          git push origin --tags
           git push
 
       - name: Generate changelog
@@ -67,28 +76,48 @@ jobs:
           llm-api-url: ${{ secrets.LLM_API_URL }}
           llm-model: ${{ secrets.LLM_MODEL }}
 
-      - name: Tag and release
-        if: steps.version.outputs.changed == 'true'
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add -f store/ screenshots/thumbnails/ dist/ screenshots/registry.json
-          git diff --staged --quiet || git commit -m "chore: build v${{ steps.version.outputs.new }} [skip ci]"
-          git tag "v${{ steps.version.outputs.new }}"
-          git push origin --tags
-          git push
-
       - name: Create Release
         if: steps.version.outputs.changed == 'true'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ steps.version.outputs.new }}
           body: |
+            ⚠️ **破坏性更新 / Breaking Change** ⚠️
+
+            如果你只使用内置的 **modern** 主题，无需任何变更。If you only use the built-in **modern** skin, no changes are needed.
+
+            如果需要通过皮肤商店下载其他主题，需要额外安装 [skins-pro-hass](https://github.com/ha-china/skins-pro-hass) 集成。To download skins from the store, install the [skins-pro-hass](https://github.com/ha-china/skins-pro-hass) integration.
+
+            ---
+
             ${{ steps.changelog.outputs.changelog }}
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Push store assets to store branch
+        run: |
+          STORE_DIR="$(mktemp -d)"
+          mv store/*.zip "$STORE_DIR/"
+          mv screenshots/thumbnails "$STORE_DIR/thumbnails"
+          mv screenshots/registry.json "$STORE_DIR/registry.json"
+
+          git checkout --orphan _store_push
+          find . -maxdepth 1 -not -name '.git' -not -name '.' -exec rm -rf {} +
+
+          mkdir -p store screenshots/thumbnails
+          mv "$STORE_DIR"/*.zip store/
+          mv "$STORE_DIR/thumbnails"/* screenshots/thumbnails/
+          mv "$STORE_DIR/registry.json" screenshots/registry.json
+
+          printf '%s\n' '# Skins Pro — Store Assets' '' 'This branch contains build artifacts for the skin store.' 'Pushed automatically by CI. Do not edit manually.' > README.md
+          git add .
+          git -c user.name="github-actions[bot]" -c user.email="github-actions[bot]@users.noreply.github.com" \
+            commit -m "Update store artifacts [skip ci]" --allow-empty
+          git push origin _store_push:store --force
+
+          git checkout "${{ github.ref_name }}"
+
       - name: Purge jsdelivr cache
-        run: curl -s https://purge.jsdelivr.net/gh/ha-china/Skins-Pro@master/screenshots/registry.json
+        run: curl -s https://purge.jsdelivr.net/gh/ha-china/Skins-Pro@store/screenshots/registry.json

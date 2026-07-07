@@ -6,7 +6,7 @@ import { normalizeSecurityCameras, normalizeSecurityDevices } from './config';
 import { assetHref, normalizeLanguage } from './utils';
 
 const LOCAL_STORE_BASE = '/local/community/skins-pro';
-const OFFICIAL_STORE_BASE = 'https://cdn.jsdelivr.net/gh/ha-china/Skins-Pro@master';
+const OFFICIAL_STORE_BASE = 'https://cdn.jsdelivr.net/gh/ha-china/Skins-Pro@store';
 const CUSTOM_STORE_BASE = 'https://cdn.jsdelivr.net/gh/zhouningha/znSkins-Pro@master';
 const STORE_SOURCES = [
   { key: 'local', label: 'Local', base: LOCAL_STORE_BASE },

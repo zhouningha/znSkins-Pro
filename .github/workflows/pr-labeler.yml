@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR head
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -91,21 +91,11 @@ jobs:
               continue
             fi
 
-            if ! python - <<'PY' "$strings_file" "$skin"
-import json
-import sys
-
-strings_file = sys.argv[1]
-skin = sys.argv[2]
-
-with open(strings_file, 'r', encoding='utf-8') as fh:
-    data = json.load(fh)
-
-author = data.get('author', '')
-if not isinstance(author, str) or not author.strip():
-    print(f"::error::Skin '{skin}' must define a non-empty author in {strings_file}")
-    sys.exit(2)
-PY
+            author=$(jq -r '.author // empty' "$strings_file")
+            if [ -z "$author" ]; then
+              echo "::error::Skin '$skin' must define a non-empty author in $strings_file"
+              exit 2
+            fi
             then
               failures=1
             fi

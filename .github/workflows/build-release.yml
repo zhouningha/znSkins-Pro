@@ -28,14 +28,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate skin list
-        run: node scripts/build-skins.cjs
+      - name: Build
+        run: npm run build
 
       - name: Type check
         run: npm run type-check
-
-      - name: Build
-        run: npm run build
 
       - name: Detect version change
         id: version
@@ -48,6 +45,46 @@ jobs:
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Commit dist to master
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add dist/
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: build dist assets [skip ci]"
+          fi
+
+      - name: Tag version
+        if: steps.version.outputs.changed == 'true'
+        run: |
+          git tag "v${{ steps.version.outputs.new }}"
+
+      - name: Push master (including tags)
+        run: |
+          git push origin --tags
+          git push
+
+      - name: Generate changelog
+        if: steps.version.outputs.changed == 'true'
+        id: changelog
+        uses: Desmond-Dong/actions/bilingual-changelog@main
+        with:
+          llm-api-key: ${{ secrets.LLM_API_KEY }}
+          llm-api-url: ${{ secrets.LLM_API_URL }}
+          llm-model: ${{ secrets.LLM_MODEL }}
+
+      - name: Create Release
+        if: steps.version.outputs.changed == 'true'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ steps.version.outputs.new }}
+          body: |
+            ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push store assets to store branch
         run: |
@@ -77,47 +114,5 @@ EOF
 
           git checkout "${{ github.ref_name }}"
 
-      - name: Commit dist assets (master only)
-        if: steps.version.outputs.changed == 'false'
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add dist/
-          git diff --staged --quiet || git commit -m "chore: build dist assets [skip ci]"
-          git push
-
-      - name: Generate changelog
-        if: steps.version.outputs.changed == 'true'
-        id: changelog
-        uses: Desmond-Dong/actions/bilingual-changelog@main
-        with:
-          llm-api-key: ${{ secrets.LLM_API_KEY }}
-          llm-api-url: ${{ secrets.LLM_API_URL }}
-          llm-model: ${{ secrets.LLM_MODEL }}
-
-      - name: Tag and release
-        if: steps.version.outputs.changed == 'true'
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add dist/
-          git diff --staged --quiet || git commit -m "chore: build v${{ steps.version.outputs.new }} [skip ci]"
-          git tag "v${{ steps.version.outputs.new }}"
-          git push origin --tags
-          git push
-
-      - name: Create Release
-        if: steps.version.outputs.changed == 'true'
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: v${{ steps.version.outputs.new }}
-          body: |
-            ${{ steps.changelog.outputs.changelog }}
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Purge jsdelivr cache
-        run: |
-          curl -s https://purge.jsdelivr.net/gh/ha-china/Skins-Pro@store/screenshots/registry.json
+        run: curl -s https://purge.jsdelivr.net/gh/ha-china/Skins-Pro@store/screenshots/registry.json

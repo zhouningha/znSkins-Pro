@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR head
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -91,7 +91,7 @@ jobs:
               continue
             fi
 
-            if ! python - <<'PY' "$strings_file" "$skin"
+            if ! python3 - <<'PY' "$strings_file" "$skin"
 import json
 import sys
 

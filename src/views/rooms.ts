@@ -6,7 +6,7 @@ import type { RenderContext } from '../render/context';
 import { areaCounts, areaScenes, areaActiveCounts, areaSummaryById } from '../selectors/areas';
 import { renderPageShell } from '../components/page-shell';
 import { areaRoomImageKey } from '../config';
-import { assetUrl, hideBrokenImage, t } from '../utils';
+import { assetUrl, hideBrokenImage, selectedSkin, t } from '../utils';
 
 interface RoomViewEntry {
   areaId: string;
@@ -88,9 +88,10 @@ export function renderAreaRooms(
   if (requireRealAreas && rooms.length === 0) return nothing;
 
   const useAreaPics = ctx.config.use_area_pictures;
+  const transparentRoomCards = selectedSkin(ctx.config) === 'god_of_war_3_wall';
 
   return html`${rooms.map((room) => {
-    const imgSrc = useAreaPics && room.picture ? room.picture : assetUrl(ctx.config, room.image || 'room_living');
+    const imgSrc = transparentRoomCards ? '' : (useAreaPics && room.picture ? room.picture : assetUrl(ctx.config, room.image || 'room_living'));
     const roomImg = imgSrc ? html`<img alt=${room.name} src=${imgSrc} @error=${hideBrokenImage}>` : nothing;
 
     const sceneChips = room.scenes.length > 0 ? html`

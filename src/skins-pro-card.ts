@@ -1134,6 +1134,7 @@ export class MinecraftDashboardCard extends LitElement {
 
     const rooms = this.getRoomsForRender();
     if (rooms.length === 0) return nothing;
+    const transparentRoomCards = selectedSkin(this._config) === 'god_of_war_3_wall';
     return html`${rooms.map((room) => {
       const imageKey = room.image || 'room_living';
       const info = room.info_entity ? stateValue(this._hass, room.info_entity, language) : '';
@@ -1141,7 +1142,7 @@ export class MinecraftDashboardCard extends LitElement {
       const displayName = room.name || '--';
       return html`
         <button class="room" @click=${() => room.target ? this.navigatePath(room.target!) : undefined}>
-          ${this.renderImage(imageKey, displayName, '')}
+          ${transparentRoomCards ? nothing : this.renderImage(imageKey, displayName, '')}
           <div class="room-label">
             <h3>${displayName}</h3>
             <p class="muted">${info || fallbackInfo || '--'}</p>
@@ -1213,9 +1214,10 @@ export class MinecraftDashboardCard extends LitElement {
     if (requireRealAreas && rooms.length === 0) return nothing;
 
     const useAreaPics = this._config?.use_area_pictures;
+    const transparentRoomCards = selectedSkin(this._config) === 'god_of_war_3_wall';
 
     return html`${rooms.map((room) => {
-      const imgSrc = useAreaPics && room.picture ? room.picture : assetUrl(this._config, room.image || 'room_living');
+      const imgSrc = transparentRoomCards ? '' : (useAreaPics && room.picture ? room.picture : assetUrl(this._config, room.image || 'room_living'));
       const roomImg = imgSrc ? html`<img alt=${room.name} src=${imgSrc} @error=${hideBrokenImage}>` : nothing;
 
       const sceneChips = room.scenes.length > 0 ? html`

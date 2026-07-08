@@ -175,6 +175,7 @@ function renderHomeRooms(ctx: RenderContext): TemplateResult | typeof nothing {
 
   const rooms = getRoomsForRender(ctx.config.rooms, ctx.areas);
   if (rooms.length === 0) return nothing;
+  const transparentRoomCards = selectedSkin(ctx.config) === 'god_of_war_3_wall';
   return html`${rooms.map((room) => {
     const imageKey = room.image || 'room_living';
     const info = room.info_entity ? stateValue(ctx.hass, room.info_entity, ctx.language) : '';
@@ -182,7 +183,7 @@ function renderHomeRooms(ctx: RenderContext): TemplateResult | typeof nothing {
     const displayName = room.name || '--';
     return html`
       <button class="room" @click=${() => room.target ? ctx.onNavigatePath(room.target!) : undefined}>
-        ${renderImage(ctx.config, imageKey, displayName, '')}
+        ${transparentRoomCards ? nothing : renderImage(ctx.config, imageKey, displayName, '')}
         <div class="room-label">
           <h3>${displayName}</h3>
           <p class="muted">${info || fallbackInfo || '--'}</p>

@@ -52,10 +52,19 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add dist/
+          git add -f dist/
           if ! git diff --staged --quiet; then
             git commit -m "chore: build dist assets [skip ci]"
           fi
+
+      - name: Generate changelog
+        if: steps.version.outputs.changed == 'true'
+        id: changelog
+        uses: Desmond-Dong/actions/bilingual-changelog@main
+        with:
+          llm-api-key: ${{ secrets.LLM_API_KEY }}
+          llm-api-url: ${{ secrets.LLM_API_URL }}
+          llm-model: ${{ secrets.LLM_MODEL }}
 
       - name: Tag version
         if: steps.version.outputs.changed == 'true'
@@ -66,15 +75,6 @@ jobs:
         run: |
           git push origin --tags
           git push
-
-      - name: Generate changelog
-        if: steps.version.outputs.changed == 'true'
-        id: changelog
-        uses: Desmond-Dong/actions/bilingual-changelog@main
-        with:
-          llm-api-key: ${{ secrets.LLM_API_KEY }}
-          llm-api-url: ${{ secrets.LLM_API_URL }}
-          llm-model: ${{ secrets.LLM_MODEL }}
 
       - name: Create Release
         if: steps.version.outputs.changed == 'true'

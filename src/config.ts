@@ -1,6 +1,7 @@
 import type { DashboardConfig, HomeAssistant, HassEntity, SecurityConfig, DevicesPageConfig, EntityRegistryEntry } from './types';
 import type { Language } from './i18n.generated';
 import { DEFAULT_CONFIG, DEFAULT_DEVICES, DEFAULT_ENVIRONMENT, DEFAULT_SCENES } from './constants';
+export { DEFAULT_ASSETS, DEFAULT_NAV, DEFAULT_ROOMS } from './constants';
 
 export function normalizeSecurityCameras(security?: SecurityConfig): string[] {
   const dedicated = (security?.cameras || []).filter(Boolean);

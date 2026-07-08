@@ -78,6 +78,16 @@ export function getTranslate(language: Language): (key: TranslationKey) => strin
   return (key: TranslationKey): string => STRINGS[language][key];
 }
 
+export function t(language: Language, key: TranslationKey, vars?: Record<string, string | number>): string {
+  let value = STRINGS[language][key] || STRINGS.en[key] || key;
+  if (vars) {
+    for (const [name, replacement] of Object.entries(vars)) {
+      value = value.replace(new RegExp(`\\{${name}\\}`, 'g'), String(replacement));
+    }
+  }
+  return value;
+}
+
 export function defaultResourceBasePath(): string {
   try {
     return new URL(DEFAULT_SKIN, import.meta.url).toString();
@@ -439,4 +449,3 @@ export function skinString(skin: string, key: string): string {
   const data = (SKIN_STRINGS[skin] || SKIN_STRINGS[DEFAULT_SKIN] || {}) as Record<string, string>;
   return data[key] || '';
 }
-

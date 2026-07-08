@@ -712,7 +712,7 @@ export class MinecraftDashboardCard extends LitElement {
     const showFloorTabs = floors.length > 1;
     const selectedFloorRooms = showFloorTabs && this._selectedFloor
       ? (this._areas || []).filter((a) => (a as AreaRegistryEntry & { floor_id?: string | null }).floor_id === this._selectedFloor)
-      : (this._areas || []);
+      : this.roomsPageAreas();
     const roomsMarkup = this.renderAreaRooms(language, true, undefined, [], false, selectedFloorRooms);
     const roomCount = selectedFloorRooms.length || 0;
     const roomPageClass = roomCount > 8 ? 'rooms-page rooms-page-dense' : (roomCount > 4 ? 'rooms-page rooms-page-medium' : 'rooms-page');
@@ -736,6 +736,12 @@ export class MinecraftDashboardCard extends LitElement {
         </div>
       `
     );
+  }
+
+  private roomsPageAreas(): AreaRegistryEntry[] {
+    const areas = this._areas || [];
+    if ((this._floors || []).length === 0) return areas;
+    return areas.filter((area) => Boolean((area as AreaRegistryEntry & { floor_id?: string | null }).floor_id));
   }
 
   // ─── Scenes page ────────────────────────────────────────

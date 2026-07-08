@@ -60,6 +60,8 @@
 - `resource_pack.skin` 指向 `god_of_war_3_wall`
 - `downloaded_skins` 必须包含 `god_of_war_3_wall`（否则编辑器下拉只有 modern）
 - `base_path` 与当前安装方式一致（`__AUTO__`）
+- Lovelace resources 里的 `skins-pro.js` URL 必须更新到当前 `dist/version.json` 的 `build`，不能停留旧 `hacstag/build`
+- `znSkins-Pro` 镜像目录必须同步到与 `skins-pro` 同版本
 - 优先使用 `scripts/deploy-ha-god-war.sh` 一键部署；恢复步骤见 `HA_RESTORE.md`
 - HA `core check` 通过
 - 页面强制刷新后显示正常

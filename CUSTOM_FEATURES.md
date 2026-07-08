@@ -9,6 +9,7 @@
 3. 官方逻辑和定制功能冲突时，先对比差异并提出方案，再决定怎么改。
 4. 后续新增任何定制设置，都必须同步写入本文件和 `UPGRADE_CHECKLIST.md`。
 5. HA 生产环境只安装 fork 版本，不直接安装官方版本。
+6. 每次部署必须同步更新 Lovelace resources 里的 `skins-pro.js` URL query（`hacstag/build`），否则 HA/平板会继续加载旧 JS；`scripts/deploy-ha-god-war.sh` 必须保留 `lovelace_resources` cache bump 和 `znSkins-Pro` mirror sync。
 
 ## 当前必须保留的定制功能
 
@@ -54,3 +55,4 @@
 - 2026-07-08：房间卡破图问号修复：图片 `<img>` 必须绑定 `hideBrokenImage`，加载失败时隐藏并移除 `src`，防止 HA 平板/浏览器显示蓝色问号；升级官方或重构渲染路径时，首页房间卡、房间页、头像/通用图片渲染都要保留这个兜底。
 - 2026-07-08：God of War 房间卡默认改为透明卡片效果：所有房间统一不渲染独立房间图，直接透出主题大背景并保留压暗层；这比多张房间图更符合当前视觉。10 张 `room-*.jpg` 只作为素材池/备选保留。
 - 2026-07-08：空调调温弹层：`climate` 设备卡主体点击使用 `climate-control` 动作打开弹层，保留开关独立开/关；弹层用 `climate.set_temperature`、`set_hvac_mode`、`set_fan_mode`，样式类为 `climate-control-*`。
+- 2026-07-08：部署缓存保护：部署脚本必须同步 `skins-pro` 与 `znSkins-Pro`，并更新 `/config/.storage/lovelace_resources` 中 `skins-pro.js?hacstag=...&build=...`；只上传文件但不更新 resource URL 会导致清浏览器历史也继续无效。

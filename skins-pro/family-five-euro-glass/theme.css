@@ -2019,7 +2019,7 @@ button {
   letter-spacing: var(--sp-letter-spacing-wide);
 }
 
-/* Live camera stream fix — hard-clipped rounded stream frame, no static HA logo fallback */
+/* Live camera stream fix: prefer ha-camera-stream, keep snapshot only as loading fallback. */
 .camera-live,
 .camera-stream-frame {
   --sp-camera-radius: clamp(22px, 2.4vw, 32px);
@@ -2055,13 +2055,25 @@ button {
   z-index: 3;
 }
 .camera-live .camera-fallback {
-  display: none !important;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  border-radius: inherit;
+  overflow: hidden;
+  clip-path: inherit;
+}
+.camera-live .camera-fallback img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 .camera-live .camera-stream,
 .camera-live ha-camera-stream {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 2;
   display: block;
   width: 100%;
   height: 100%;
@@ -2671,3 +2683,265 @@ button {
   }
 }
 
+/* Preview parity patch: align runtime CSS with the approved store preview. */
+:host {
+  --family-preview-cream: #fff7ed;
+  --family-preview-panel: rgba(255, 248, 238, 0.68);
+  --family-preview-panel-soft: rgba(255, 248, 238, 0.48);
+  --family-preview-panel-light: rgba(255, 255, 255, 0.34);
+  --family-preview-line: rgba(255, 248, 238, 0.72);
+  --family-preview-accent: #e4a261;
+  --family-preview-accent-soft: rgba(228, 162, 97, 0.28);
+  --family-preview-shadow: 0 22px 70px rgba(80, 58, 42, 0.14);
+  --family-preview-shadow-soft: 0 12px 38px rgba(80, 58, 42, 0.10);
+  --glass-thin: rgba(255, 248, 238, 0.58);
+  --glass-regular: rgba(255, 248, 238, 0.46);
+  --glass-thick: rgba(255, 248, 238, 0.34);
+  --glass-ultra-thick: rgba(255, 248, 238, 0.72);
+  --sp-border-glass: var(--family-preview-line);
+  --sp-border-subtle: rgba(80, 58, 42, 0.08);
+  --sp-border-medium: rgba(80, 58, 42, 0.12);
+  --sp-shadow-card: var(--family-preview-shadow-soft);
+  --sp-shadow-glass: var(--family-preview-shadow);
+  --sp-bar-gradient: linear-gradient(180deg, #f0c287 0%, #e8a868 58%, #d99455 100%);
+  --sp-switch-on-bg: linear-gradient(135deg, #efc08a, #df9657);
+  --sp-switch-off-bg: rgba(80, 58, 42, 0.14);
+  --sp-camera-bg: rgba(255, 248, 238, 0.42);
+}
+
+.mc-app {
+  background:
+    radial-gradient(ellipse 44% 58% at 18% 20%, rgba(255, 248, 238, 0.30), transparent 64%),
+    radial-gradient(ellipse 36% 44% at 88% 18%, rgba(228, 162, 97, 0.18), transparent 62%),
+    linear-gradient(135deg, rgba(255, 248, 238, 0.18), rgba(243, 225, 204, 0.10)),
+    var(--sp-app-overlay);
+  color: var(--family-ink);
+}
+
+.stage {
+  border: 1px solid rgba(255, 248, 238, 0.70);
+  background-image:
+    radial-gradient(ellipse 54% 54% at 38% 16%, rgba(255, 248, 238, 0.44), transparent 64%),
+    linear-gradient(115deg, rgba(255, 248, 238, 0.34), rgba(255, 255, 255, 0.06) 46%, rgba(185, 133, 99, 0.10)),
+    var(--sp-stage-texture);
+  box-shadow:
+    0 32px 110px rgba(80, 58, 42, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.58);
+}
+
+.sidebar,
+.glass-card,
+.time-card,
+.panel-camera,
+.panel-media,
+.panel-energy,
+.panel-scenes {
+  background:
+    linear-gradient(145deg, var(--family-preview-panel), var(--family-preview-panel-light));
+  border: 1px solid var(--family-preview-line);
+  box-shadow:
+    var(--family-preview-shadow-soft),
+    inset 0 1px 0 rgba(255, 255, 255, 0.48);
+  backdrop-filter: blur(42px) saturate(150%);
+  -webkit-backdrop-filter: blur(42px) saturate(150%);
+}
+
+.glass-card:hover,
+.time-card:hover,
+.panel-camera:hover,
+.panel-media:hover,
+.panel-energy:hover,
+.panel-scenes:hover {
+  background:
+    linear-gradient(145deg, rgba(255, 250, 243, 0.78), rgba(255, 255, 255, 0.40));
+  box-shadow:
+    0 18px 56px rgba(80, 58, 42, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.54);
+}
+
+.panel-devices::before,
+.panel-rooms::before,
+.panel-scenes::before,
+.panel-energy::before {
+  content: none;
+}
+
+.profile,
+.nav-button.active,
+.weather-row,
+.chip.active {
+  background:
+    linear-gradient(135deg, rgba(255, 248, 238, 0.76), rgba(244, 192, 137, 0.28));
+  border-color: rgba(255, 248, 238, 0.76);
+}
+
+.nav-button {
+  color: rgba(58, 47, 41, 0.72);
+}
+
+.nav-button:hover,
+.nav-button.active {
+  color: var(--family-ink);
+}
+
+.device,
+.scene {
+  background:
+    linear-gradient(145deg, rgba(255, 248, 238, 0.62), rgba(255, 255, 255, 0.24));
+  border: 1px solid rgba(255, 248, 238, 0.62);
+  box-shadow:
+    0 12px 36px rgba(80, 58, 42, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.44);
+}
+
+.device:hover,
+.scene:hover {
+  background:
+    linear-gradient(145deg, rgba(255, 250, 243, 0.78), rgba(255, 255, 255, 0.34));
+  box-shadow: 0 18px 52px rgba(80, 58, 42, 0.14);
+}
+
+.device-on-yellow,
+.device-on-green,
+.device-on-blue,
+.device-on-purple,
+.device-on-red,
+.device-on-brown {
+  background:
+    linear-gradient(145deg, rgba(247, 203, 150, 0.60), rgba(255, 248, 238, 0.36));
+  border-color: rgba(239, 192, 138, 0.62);
+}
+
+.item-img,
+.item-icon,
+.media-cover {
+  background:
+    linear-gradient(145deg, rgba(255, 248, 238, 0.62), rgba(255, 255, 255, 0.26));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.40);
+}
+
+.status {
+  background: rgba(255, 248, 238, 0.60);
+  color: rgba(58, 47, 41, 0.74);
+}
+
+.panel-camera .camera-preview,
+.camera-live,
+.camera-stream-frame {
+  border-radius: 24px !important;
+  border: 0 !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 248, 238, 0.42);
+  background: var(--sp-camera-bg);
+}
+
+.panel-camera .camera-preview {
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+.energy-value {
+  color: var(--family-ink);
+}
+
+.bars {
+  gap: 7px;
+}
+
+.bars span {
+  border-radius: 999px;
+  background: var(--sp-bar-gradient);
+  opacity: 0.86;
+}
+
+.media-content {
+  gap: 8px;
+}
+
+.media-cover {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+}
+
+.media-title {
+  color: var(--family-ink);
+}
+
+.media-artist,
+.media-source,
+.media-volbtn {
+  color: rgba(58, 47, 41, 0.56);
+}
+
+.media-btn {
+  color: var(--family-ink);
+  background: rgba(255, 248, 238, 0.32);
+}
+
+.media-playbtn {
+  background: rgba(255, 248, 238, 0.72);
+  box-shadow: 0 8px 22px rgba(80, 58, 42, 0.10);
+}
+
+.media-voltrack {
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(80, 58, 42, 0.12);
+}
+
+.media-volfill {
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f2d399, var(--family-preview-accent));
+}
+
+.room {
+  box-shadow: 0 16px 44px rgba(80, 58, 42, 0.16);
+}
+
+.room::after {
+  background: linear-gradient(180deg, transparent 0%, rgba(58, 47, 41, 0.12) 38%, rgba(58, 47, 41, 0.54) 100%);
+}
+
+@media (min-width: 1181px) {
+  .stage-grid {
+    grid-template-columns: minmax(0, 2.35fr) minmax(300px, 0.72fr);
+  }
+
+  .side {
+    gap: 16px;
+  }
+
+  .glass-card,
+  .time-card,
+  .panel-camera,
+  .panel-media,
+  .panel-energy,
+  .panel-scenes {
+    border-radius: 30px;
+    padding: 18px;
+  }
+
+  .panel-camera {
+    min-height: 214px;
+  }
+
+  .panel-media {
+    min-height: 122px;
+  }
+
+  .panel-energy {
+    min-height: 180px;
+  }
+
+  .devices {
+    gap: 16px;
+  }
+
+  .device {
+    min-height: 150px;
+  }
+
+  .rooms {
+    gap: 18px;
+  }
+}

@@ -35,26 +35,38 @@ export const DEFAULT_ASSETS: Record<string, string> = {
   room_garden: 'room-garden.jpg',
   room_office: 'room-office.jpg',
   room_garage: 'room-garage.jpg',
+  room_bathroom: 'room-bathroom.jpg',
+  room_study: 'room-study.jpg',
+  room_media: 'room-media.jpg',
 };
 
-/** Room image keys cycled by area id hash (stable per HA area). */
+/** Room image keys assigned in order so the first ten HA areas do not repeat. */
 export const AREA_ROOM_IMAGE_KEYS = [
   'room_living',
-  'room_bedroom',
+  'room_office',
   'room_kitchen',
+  'room_bathroom',
+  'room_media',
+  'room_study',
   'room_dining',
   'room_garden',
-  'room_office',
   'room_garage',
+  'room_bedroom',
 ] as const;
 
-export function areaRoomImageKey(areaId: string, fallbackIndex = 0): string {
-  const seed = areaId || String(fallbackIndex);
-  let hash = 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0;
-  }
-  return AREA_ROOM_IMAGE_KEYS[Math.abs(hash) % AREA_ROOM_IMAGE_KEYS.length];
+export function areaRoomImageKey(areaId: string, fallbackIndex = 0, areaName = ''): string {
+  const text = `${areaName} ${areaId}`.toLowerCase();
+  if (/卫生|bath|toilet|wash/.test(text)) return 'room_bathroom';
+  if (/厨房|kitchen/.test(text)) return 'room_kitchen';
+  if (/客厅|living|lounge/.test(text)) return 'room_living';
+  if (/办公|办公室|office/.test(text)) return 'room_office';
+  if (/媒体|影音|机柜|tv|media|cinema|theater|avr/.test(text)) return 'room_media';
+  if (/产品|product/.test(text)) return 'room_study';
+  if (/演示|demo|show/.test(text)) return 'room_dining';
+  if (/花园|garden|阳台|balcony|terrace/.test(text)) return 'room_garden';
+  if (/车库|garage/.test(text)) return 'room_garage';
+  if (/卧室|bedroom|寝室/.test(text)) return 'room_bedroom';
+  return AREA_ROOM_IMAGE_KEYS[Math.abs(fallbackIndex) % AREA_ROOM_IMAGE_KEYS.length];
 }
 
 export const DEFAULT_NAV: NavItemConfig[] = [

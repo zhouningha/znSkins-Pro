@@ -1158,7 +1158,7 @@ export class MinecraftDashboardCard extends LitElement {
     if (this._areas && this._areas.length > 0) {
       return this._areas.map((area, index) => ({
         name: area.name,
-        image: areaRoomImageKey(area.area_id || area.name, index),
+        image: areaRoomImageKey(area.area_id || area.name, index, area.name),
       }));
     }
 
@@ -1200,7 +1200,7 @@ export class MinecraftDashboardCard extends LitElement {
     const rooms = filteredAreas.slice(0, limit || filteredAreas.length).map((area, index) => ({
       areaId: area.area_id,
       name: area.name,
-      image: areaRoomImageKey(area.area_id || area.name, index),
+      image: areaRoomImageKey(area.area_id || area.name, index, area.name),
       picture: area.picture,
       summary: this.areaSummaryById(area.area_id, language),
       occupied: this.isAreaOccupied(area.area_id),

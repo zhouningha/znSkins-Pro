@@ -5,6 +5,7 @@ import type { AreaRegistryEntry } from '../types';
 import type { RenderContext } from '../render/context';
 import { areaCounts, areaScenes, areaActiveCounts, areaSummaryById } from '../selectors/areas';
 import { renderPageShell } from '../components/page-shell';
+import { areaRoomImageKey } from '../config';
 import { assetUrl, t } from '../utils';
 
 interface RoomViewEntry {
@@ -60,7 +61,6 @@ export function renderAreaRooms(
   const allAreas = areasPool ?? ctx.areas;
   if (!allAreas || allAreas.length === 0) return nothing;
 
-  const imageKeys = ['room_living', 'room_bedroom', 'room_kitchen', 'room_garden'];
   const filteredAreas = selectedRooms.length > 0
     ? selectedRooms
       .map((item) => {
@@ -77,7 +77,7 @@ export function renderAreaRooms(
   const rooms: RoomViewEntry[] = filteredAreas.slice(0, limit || filteredAreas.length).map((area, index) => ({
     areaId: area.area_id,
     name: area.name,
-    image: imageKeys[index % imageKeys.length]!,
+    image: areaRoomImageKey(area.area_id || area.name, index, area.name),
     picture: area.picture,
     summary: areaSummaryById(area.area_id, ctx.hass, ctx.entityRegistry, ctx.deviceRegistry, ctx.language),
     counts: areaCounts(area.area_id, ctx.entityRegistry, ctx.deviceRegistry),

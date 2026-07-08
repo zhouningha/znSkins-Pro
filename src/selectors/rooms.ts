@@ -6,7 +6,7 @@ import type {
   RoomConfig,
 } from '../types';
 import type { Language } from '../i18n';
-import { DEFAULT_ROOMS } from '../config';
+import { DEFAULT_ROOMS, areaRoomImageKey } from '../config';
 import { areaSummaryById } from './areas';
 
 export function isDefaultRooms(rooms: RoomConfig[]): boolean {
@@ -26,10 +26,9 @@ export function getRoomsForRender(
   if (hasCustomRooms) return configuredRooms;
 
   if (areas && areas.length > 0) {
-    const images = ['room_living', 'room_bedroom', 'room_kitchen', 'room_garden'];
     return areas.map((area, index) => ({
       name: area.name,
-      image: images[index % images.length],
+      image: areaRoomImageKey(area.area_id || area.name, index, area.name),
     }));
   }
 

@@ -14,6 +14,7 @@
 
 - God of War 主题：`god_of_war_3_wall`
 - God of War 官方素材裁切版：`source-kratos-wallpaper.jpg` 保留用户指定 1920x1080 原图（MD5 `204ca3b343688906f5ca57de48c827cd`），`avatar.png` 使用从该原图裁出的正方形官方头像源图（MD5 `98269216d3a9d5729f3572509d5b317e`），背景/房间/图标来自官方素材裁切，禁止回退到程序化模拟图
+- God of War 房间图池至少保留 10 张 `room-*.jpg`，前 10 个 HA 房间不应重复；房间图必须偏空间/场景，不用人物主体图；用户明确排除绿色大厅图 `source-room-gow3-daedalus-environment.jpg`
 - God of War 视觉偏好：深色暗红玻璃侧边栏 + 更强背景压暗（见 `HA_RESTORE.md`）
 - 圆角自绘开关：使用主题 `.switch` 样式，不直接依赖会破坏视觉的 `ha-control-switch`
 - 点击切换房间
@@ -47,3 +48,4 @@
 后续新增功能写在这里：
 
 - 2026-07-08：平板浏览器全屏 / kiosk 底边修复：全屏高度使用 `visualViewport.height` 兜底真实可视高度，host 写入 `data-kiosk-fullscreen`，主题在该状态下覆盖平板断点的 `height:auto` / `overflow:visible`，避免底部露边。
+- 2026-07-08：God of War 房间图池扩展到 10 张，`areaRoomImageKey` 按房间名优先映射并按顺序兜底，避免前 10 个 HA 房间重复；绿色大厅图已按用户要求排除，禁止恢复。

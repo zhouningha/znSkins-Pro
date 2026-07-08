@@ -15,6 +15,7 @@
 
 - God of War 主题正常加载
 - God of War 主题素材按官方主题标准：确认 `source-kratos-wallpaper.jpg` MD5 为 `204ca3b343688906f5ca57de48c827cd`，确认 `avatar.png` MD5 为 `98269216d3a9d5729f3572509d5b317e`
+- God of War 房间图池至少 10 张，前 10 个 HA 房间不重复；不得恢复用户排除的绿色大厅图 `source-room-gow3-daedalus-environment.jpg`
 - 首页背景、头像、设备图标不丢失
 - 圆角自绘开关正常显示，不变方块
 - 点击开关仍能控制设备

@@ -5,6 +5,7 @@ import type { HassEntity, RenderedDevice } from '../types';
 import type { RenderContext } from '../render/context';
 import { renderImage, renderUserAvatar } from '../render/context';
 import { renderNav } from '../components/nav';
+import { renderLiveCameraPreview } from '../components/camera-stream';
 import { renderMediaPlayer } from '../components/media-player';
 import { renderMaintenanceCard } from '../components/maintenance';
 import { renderWeather } from '../components/weather';
@@ -48,12 +49,11 @@ export function renderHomeView(
   const alarmIcon = alarmIconMap[alarmState] || 'mdi:shield-lock';
 
   const cameraCard = hasCamera ? (() => {
-    const accessToken = String(cameraState?.attributes?.access_token || '');
-    const snapshotUrl = accessToken ? `/api/camera_proxy/${cameraEntityId}?token=${encodeURIComponent(accessToken)}&ts=${Date.now()}` : '';
+    const cameraName = String(cameraState?.attributes?.friendly_name || cameraEntityId);
     return html`
       <section class="glass-card panel-camera" @click=${() => ctx.onHandleAction(cameraEntityId, 'more-info')}>
-        <div class="section-title"><h2>${cameraState?.attributes?.friendly_name || cameraEntityId}</h2></div>
-        <div class="camera-preview"><img alt="" src=${snapshotUrl}></div>
+        <div class="section-title"><h2>${cameraName}</h2></div>
+        ${renderLiveCameraPreview(ctx.hass, cameraState!, cameraName)}
       </section>
     `;
   })() : nothing;

@@ -62,7 +62,7 @@ import { loadAreas, loadDeviceRegistry, loadEntityRegistry, loadFloors } from '.
 
 import { getMaintenanceItems } from './maintenance';
 
-import { enableKiosk, setKioskLocked, toggleKiosk } from './kiosk';
+import { enableKiosk, isKioskLocked, setKioskLocked, toggleKiosk } from './kiosk';
 
 const CONTROLLABLE_DOMAINS = new Set(['light', 'switch', 'fan', 'cover', 'valve', 'media_player', 'lock', 'climate', 'vacuum', 'humidifier', 'water_heater', 'siren', 'automation', 'group', 'input_boolean']);
 
@@ -667,6 +667,7 @@ export class MinecraftDashboardCard extends LitElement {
   private renderDevicesPage(language: Language, translate: (key: TranslationKey) => string): TemplateResult {
     const rooms = this.getDeviceRooms();
     const types = this.getDeviceTypes();
+    const showDeviceHideControls = !this.isKioskFullscreenActive();
     return this.renderPageShell(
       translate('devices'),
       translate('quickControl'),
@@ -686,9 +687,11 @@ export class MinecraftDashboardCard extends LitElement {
             <option value="true" .selected=${this._hideUnassigned}>${translate('hideUnassigned')}</option>
             <option value="false" .selected=${!this._hideUnassigned}>${translate('showAll')}</option>
           </select>
-          <button class="chip${this._showHiddenDevices ? ' active' : ''}" @click=${() => { this._showHiddenDevices = !this._showHiddenDevices; }}>${translate('showHiddenDevices')}${this.getHiddenDeviceIds().length > 0 ? html` (${this.getHiddenDeviceIds().length})` : nothing}</button>
-          <button class="chip${this._deviceHideEditMode ? ' active' : ''}" @click=${() => { this._deviceHideEditMode = !this._deviceHideEditMode; }}>${language === 'zh-CN' ? '编辑隐藏' : 'Edit hidden'}</button>
-          ${this._deviceHideEditMode ? html`<span class="muted device-hide-hint" style="font-size:12px;opacity:0.85;">${translate('hideDeviceHint')}</span>` : nothing}
+          ${showDeviceHideControls ? html`
+            <button class="chip${this._showHiddenDevices ? ' active' : ''}" @click=${() => { this._showHiddenDevices = !this._showHiddenDevices; }}>${translate('showHiddenDevices')}${this.getHiddenDeviceIds().length > 0 ? html` (${this.getHiddenDeviceIds().length})` : nothing}</button>
+            <button class="chip${this._deviceHideEditMode ? ' active' : ''}" @click=${() => { this._deviceHideEditMode = !this._deviceHideEditMode; }}>${language === 'zh-CN' ? '编辑隐藏' : 'Edit hidden'}</button>
+            ${this._deviceHideEditMode ? html`<span class="muted device-hide-hint" style="font-size:12px;opacity:0.85;">${translate('hideDeviceHint')}</span>` : nothing}
+          ` : nothing}
           <button class="action-btn" @click=${() => this.batchControl('on', translate)}>${translate('turnOnAll')}</button>
           <button class="action-btn" @click=${() => this.batchControl('off', translate)}>${translate('turnOffAll')}</button>
         </div>
@@ -1494,6 +1497,7 @@ export class MinecraftDashboardCard extends LitElement {
 
   private onDevicePointerDown(e: PointerEvent, entityId: string, language: Language): void {
     if (!this._deviceHideEditMode) return;
+    if (this.isKioskFullscreenActive()) return;
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.preventDefault();
     this._longPressDone = false;
@@ -1526,6 +1530,7 @@ export class MinecraftDashboardCard extends LitElement {
 
   private toggleDeviceHidden(entityId: string, language: Language): void {
     if (!this._deviceHideEditMode) return;
+    if (this.isKioskFullscreenActive()) return;
     const hidden = new Set(this.getHiddenDeviceIds());
     const name = String(this._hass?.states?.[entityId]?.attributes?.friendly_name || entityId);
     const translate = getTranslate(language);
@@ -1687,7 +1692,8 @@ export class MinecraftDashboardCard extends LitElement {
       .filter((d) => {
         if (ignoreFilter) return true;
         const hidden = this.isDeviceHidden(d.entityId);
-        if (this._showHiddenDevices) return hidden;
+        const showHiddenDevices = this._showHiddenDevices && !this.isKioskFullscreenActive();
+        if (showHiddenDevices) return hidden;
         if (hidden) return false;
         if (this._filterRoom && d.subtitle !== this._filterRoom) return false;
         if (this._filterType && this._deviceTypeGroupKey(d.detail) !== this._filterType) return false;
@@ -1716,7 +1722,8 @@ export class MinecraftDashboardCard extends LitElement {
   private renderRealDeviceGroups(language: Language, translate: (key: TranslationKey) => string): TemplateResult | typeof nothing {
     const devices = this.getRealDevicesForRender();
     if (devices.length === 0) {
-      const emptyText = this._showHiddenDevices
+      const showHiddenDevices = this._showHiddenDevices && !this.isKioskFullscreenActive();
+      const emptyText = showHiddenDevices
         ? (language === 'zh-CN' ? '没有已隐藏的设备' : 'No hidden devices')
         : translate('noDevices');
       return html`<div class="empty-state">${emptyText}</div>`;
@@ -2301,6 +2308,12 @@ export class MinecraftDashboardCard extends LitElement {
     if (this.shouldAutoFullscreen()) return true;
     if (typeof window !== 'undefined' && window.__skinsProKioskLocked) return true;
     return false;
+  }
+
+  private isKioskFullscreenActive(): boolean {
+    if (typeof document !== 'undefined' && document.body.classList.contains('skins-pro-kiosk')) return true;
+    if (typeof window !== 'undefined' && window.__skinsProKioskLocked) return true;
+    return isKioskLocked();
   }
 
   private shouldAutoFullscreen(): boolean {

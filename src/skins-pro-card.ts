@@ -86,6 +86,7 @@ export class MinecraftDashboardCard extends LitElement {
     message: string;
   };
   private _doorConfirmTimer?: number;
+  @state() private _climateDialogEntityId = '';
 
   @state() private _cameraSnapshots: Record<string, string> = {};
   private _cameraSnapshotBlobs = new Set<string>();
@@ -412,6 +413,7 @@ export class MinecraftDashboardCard extends LitElement {
           <nav class="mobile-nav">${this.renderNav(language)}</nav>
         </div>
         ${this.renderDoorConfirmDialog(language)}
+        ${this.renderClimateControlDialog(language)}
       </ha-card>
     `;
   }
@@ -1026,12 +1028,13 @@ export class MinecraftDashboardCard extends LitElement {
 
     return realDevices.map((device) => {
       const stateLabel = deviceStateLabel(device.state, language);
-      const active = ['on', 'playing', 'paused', 'cool', 'heat', 'armed', 'locked', 'open'].includes(device.state);
+      const active = ['on', 'playing', 'paused', 'cool', 'heat', 'dry', 'auto', 'fan_only', 'heat_cool', 'armed', 'locked', 'open'].includes(device.state);
       const statusClass = active ? `device-on-${device.color}` : (device.state === 'unavailable' ? 'device-unavailable' : 'device-off');
       const assetKey = assetKeyForDomain(skin, device.entityId.split('.')[0] || 'sensor');
       const domain = device.entityId.split('.')[0] || '';
       const isMedia = domain === 'media_player';
-      const action = isMedia ? 'play-pause' : (CONTROLLABLE_DOMAINS.has(domain) ? 'toggle' : 'more-info');
+      const isClimate = domain === 'climate';
+      const action = isClimate ? 'climate-control' : (isMedia ? 'play-pause' : (CONTROLLABLE_DOMAINS.has(domain) ? 'toggle' : 'more-info'));
       const mediaState = isMedia ? this._hass?.states?.[device.entityId] : undefined;
       const albumArt = isMedia ? (mediaState?.attributes?.entity_picture as string | undefined) : undefined;
       const vol = isMedia ? (mediaState?.attributes?.volume_level as number | undefined) : undefined;
@@ -1059,7 +1062,7 @@ export class MinecraftDashboardCard extends LitElement {
           <div class="control-row"><span class="state-word">${device.detail}</span>${action === 'play-pause' ? html`
             ${volPct !== undefined ? html`<ha-control-slider .value=${volPct} min="0" max="100" style="--control-slider-thickness:32px;--control-slider-border-radius:var(--sp-radius-pill)" @value-changed=${(e: CustomEvent) => { e.stopPropagation(); this._hass?.callService('media_player', 'volume_set', { entity_id: device.entityId, volume_level: (e.detail.value ?? 0) / 100 }); }} @click=${(e: Event) => e.stopPropagation()} class="media-vol-slider"></ha-control-slider>` : ''}
             <ha-icon icon=${device.state === 'playing' ? 'mdi:pause' : 'mdi:play'} class="media-toggle-icon"></ha-icon>
-          ` : (action === 'toggle' ? this.renderInlineSwitch(active, device.name, () => this.handleAction(device.entityId, action)) : '')}</div>
+          ` : (isClimate ? this.renderInlineSwitch(active, device.name, () => this.handleAction(device.entityId, 'toggle')) : (action === 'toggle' ? this.renderInlineSwitch(active, device.name, () => this.handleAction(device.entityId, action)) : ''))}</div>
         </button>
       `;
     });
@@ -1794,11 +1797,12 @@ export class MinecraftDashboardCard extends LitElement {
         <div class="devices devices-page-grid">
           ${items.map((device) => {
             const stateLabel = deviceStateLabel(device.state, language);
-            const active = ['on', 'playing', 'paused', 'cool', 'heat', 'armed', 'locked', 'open'].includes(device.state);
+            const active = ['on', 'playing', 'paused', 'cool', 'heat', 'dry', 'auto', 'fan_only', 'heat_cool', 'armed', 'locked', 'open'].includes(device.state);
             const statusClass = active ? `device-on-${device.color}` : (device.state === 'unavailable' ? 'device-unavailable' : 'device-off');
             const assetKey = assetKeyForDomain(skin, device.entityId.split('.')[0] || 'sensor');
             const isMedia = device.detail === 'media_player';
-            const action = isMedia ? 'play-pause' : (CONTROLLABLE_DOMAINS.has(device.detail) ? 'toggle' : 'more-info');
+            const isClimate = device.detail === 'climate';
+            const action = isClimate ? 'climate-control' : (isMedia ? 'play-pause' : (CONTROLLABLE_DOMAINS.has(device.detail) ? 'toggle' : 'more-info'));
             const mediaState = isMedia ? this._hass?.states?.[device.entityId] : undefined;
             const albumArt = isMedia ? (mediaState?.attributes?.entity_picture as string | undefined) : undefined;
             const vol = isMedia ? (mediaState?.attributes?.volume_level as number | undefined) : undefined;
@@ -1838,7 +1842,7 @@ export class MinecraftDashboardCard extends LitElement {
                 <div class="control-row"><span class="state-word">${device.detail}</span>${action === 'play-pause' ? html`
                   ${volPct !== undefined ? html`<ha-control-slider .value=${volPct} min="0" max="100" style="--control-slider-thickness:32px;--control-slider-border-radius:var(--sp-radius-pill)" @value-changed=${(e: CustomEvent) => { e.stopPropagation(); this._hass?.callService('media_player', 'volume_set', { entity_id: device.entityId, volume_level: (e.detail.value ?? 0) / 100 }); }} @click=${(e: Event) => e.stopPropagation()} class="media-vol-slider"></ha-control-slider>` : ''}
                   <ha-icon icon=${device.state === 'playing' ? 'mdi:pause' : 'mdi:play'} class="media-toggle-icon"></ha-icon>
-                ` : (action === 'toggle' ? this.renderInlineSwitch(active, device.name, () => this.handleAction(device.entityId, 'toggle')) : '')}</div>
+                ` : (isClimate ? this.renderInlineSwitch(active, device.name, () => this.handleAction(device.entityId, 'toggle')) : (action === 'toggle' ? this.renderInlineSwitch(active, device.name, () => this.handleAction(device.entityId, 'toggle')) : ''))}</div>
               </button>
             `;
           })}
@@ -2399,6 +2403,8 @@ export class MinecraftDashboardCard extends LitElement {
   private handleAction(entityId: string, action: string): void {
     if (action === 'toggle') {
       void this.toggleEntity(entityId);
+    } else if (action === 'climate-control') {
+      this.openClimateControl(entityId);
     } else if (action === 'play-pause') {
       void this._hass?.callService('media_player', 'media_play_pause', { entity_id: entityId });
     } else {
@@ -2434,6 +2440,108 @@ export class MinecraftDashboardCard extends LitElement {
     this.dismissDoorConfirmDialog();
     if (!pending || !this._hass) return;
     await this._hass.callService('lock', 'unlock', { entity_id: pending.entityId });
+  }
+
+  private openClimateControl(entityId: string): void {
+    this._climateDialogEntityId = entityId;
+  }
+
+  private closeClimateControl(): void {
+    this._climateDialogEntityId = '';
+  }
+
+  private climateNumber(value: unknown): number | undefined {
+    const num = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(num) ? num : undefined;
+  }
+
+  private climateList(value: unknown): string[] {
+    return Array.isArray(value) ? value.map((item) => String(item)).filter(Boolean) : [];
+  }
+
+  private async setClimateTemperature(entityId: string, temperature: number): Promise<void> {
+    await this._hass?.callService('climate', 'set_temperature', { entity_id: entityId, temperature });
+  }
+
+  private async setClimateMode(entityId: string, hvacMode: string): Promise<void> {
+    await this._hass?.callService('climate', 'set_hvac_mode', { entity_id: entityId, hvac_mode: hvacMode });
+  }
+
+  private async setClimateFanMode(entityId: string, fanMode: string): Promise<void> {
+    await this._hass?.callService('climate', 'set_fan_mode', { entity_id: entityId, fan_mode: fanMode });
+  }
+
+  private renderClimateControlDialog(language: Language): TemplateResult | typeof nothing {
+    if (!this._climateDialogEntityId || !this._hass) return nothing;
+    const entity = this._hass.states[this._climateDialogEntityId];
+    if (!entity) return nothing;
+
+    const attrs = entity.attributes || {};
+    const name = String(attrs.friendly_name || entity.entity_id);
+    const current = this.climateNumber(attrs.current_temperature);
+    const target = this.climateNumber(attrs.temperature) ?? current ?? 24;
+    const step = this.climateNumber(attrs.target_temp_step) || 1;
+    const min = this.climateNumber(attrs.min_temp) ?? 16;
+    const max = this.climateNumber(attrs.max_temp) ?? 30;
+    const unit = String(attrs.temperature_unit || '°C');
+    const modes = this.climateList(attrs.hvac_modes).filter((mode) => mode !== 'off');
+    const fanModes = this.climateList(attrs.fan_modes);
+    const nextDown = Math.max(min, Math.round((target - step) * 10) / 10);
+    const nextUp = Math.min(max, Math.round((target + step) * 10) / 10);
+    const modeLabels: Record<string, string> = language === 'zh-CN'
+      ? { cool: '制冷', heat: '制热', dry: '除湿', auto: '自动', fan_only: '送风', heat_cool: '自动' }
+      : { cool: 'Cool', heat: 'Heat', dry: 'Dry', auto: 'Auto', fan_only: 'Fan', heat_cool: 'Auto' };
+    const title = language === 'zh-CN' ? '空调控制' : 'Climate';
+    const targetLabel = language === 'zh-CN' ? '目标温度' : 'Target';
+    const currentLabel = language === 'zh-CN' ? '当前' : 'Current';
+    const humidity = this.climateNumber(attrs.current_humidity);
+    const subtitle = [
+      current !== undefined ? `${currentLabel} ${current}${unit}` : '',
+      humidity !== undefined ? `${language === 'zh-CN' ? '湿度' : 'Humidity'} ${humidity}%` : '',
+    ].filter(Boolean).join(' · ');
+
+    return html`
+      <div class="climate-control-overlay" @click=${() => this.closeClimateControl()}>
+        <div class="climate-control-dialog" role="dialog" aria-modal="true" @click=${(e: Event) => e.stopPropagation()}>
+          <div class="climate-control-head">
+            <div>
+              <p class="climate-control-kicker">${title}</p>
+              <h2>${name}</h2>
+              ${subtitle ? html`<p class="climate-control-subtitle">${subtitle}</p>` : nothing}
+            </div>
+            ${this.renderInlineSwitch(entity.state !== 'off' && entity.state !== 'unavailable', name, () => this.handleAction(entity.entity_id, 'toggle'))}
+          </div>
+          <div class="climate-control-temp">
+            <button class="climate-temp-btn" @click=${() => void this.setClimateTemperature(entity.entity_id, nextDown)} ?disabled=${nextDown === target}>-</button>
+            <div class="climate-temp-readout">
+              <div><span>${target}</span><small>${unit}</small></div>
+              <p>${targetLabel}</p>
+            </div>
+            <button class="climate-temp-btn" @click=${() => void this.setClimateTemperature(entity.entity_id, nextUp)} ?disabled=${nextUp === target}>+</button>
+          </div>
+          ${modes.length > 0 ? html`
+            <div class="climate-control-chips">
+              ${modes.map((mode) => html`
+                <button
+                  class="climate-chip ${entity.state === mode ? 'active' : ''}"
+                  @click=${() => void this.setClimateMode(entity.entity_id, mode)}
+                >${modeLabels[mode] || mode}</button>
+              `)}
+            </div>
+          ` : nothing}
+          ${fanModes.length > 0 ? html`
+            <div class="climate-control-chips climate-fan-chips">
+              ${fanModes.map((mode) => html`
+                <button
+                  class="climate-chip ${attrs.fan_mode === mode ? 'active' : ''}"
+                  @click=${() => void this.setClimateFanMode(entity.entity_id, mode)}
+                >${language === 'zh-CN' ? '风速 ' : 'Fan '}${mode}</button>
+              `)}
+            </div>
+          ` : nothing}
+        </div>
+      </div>
+    `;
   }
 
   private renderDoorConfirmDialog(language: Language): TemplateResult | typeof nothing {
@@ -2497,6 +2605,11 @@ export class MinecraftDashboardCard extends LitElement {
     if (!this._hass) return;
     const [domain] = entityId.split('.');
     if (!domain) return;
+    if (domain === 'climate') {
+      const state = this._hass.states[entityId]?.state;
+      await this._hass.callService('climate', state && state !== 'off' ? 'turn_off' : 'turn_on', { entity_id: entityId });
+      return;
+    }
     await this._hass.callService(domain, 'toggle', { entity_id: entityId });
   }
 

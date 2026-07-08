@@ -42,12 +42,13 @@ export function renderDeviceCard(
   onHandleAction: (entityId: string, action: string) => void,
 ): TemplateResult {
   const stateLabel = deviceStateLabel(device.state, language);
-  const active = ['on', 'playing', 'paused', 'cool', 'heat', 'armed', 'locked', 'open'].includes(device.state);
+  const active = ['on', 'playing', 'paused', 'cool', 'heat', 'dry', 'auto', 'fan_only', 'heat_cool', 'armed', 'locked', 'open'].includes(device.state);
   const statusClass = active ? `device-on-${device.color}` : (device.state === 'unavailable' ? 'device-unavailable' : 'device-off');
   const skin = selectedSkin(config);
   const assetKey = assetKeyForDomain(skin, device.entityId.split('.')[0] || 'sensor');
   const isMedia = device.detail === 'media_player';
-  const action = isMedia ? 'play-pause' : (CONTROLLABLE_DOMAINS.has(device.detail) ? 'toggle' : 'more-info');
+  const isClimate = device.detail === 'climate';
+  const action = isClimate ? 'climate-control' : (isMedia ? 'play-pause' : (CONTROLLABLE_DOMAINS.has(device.detail) ? 'toggle' : 'more-info'));
   const mediaState = isMedia ? hass.states?.[device.entityId] : undefined;
   const albumArt = isMedia ? (mediaState?.attributes?.entity_picture as string | undefined) : undefined;
   const vol = isMedia ? (mediaState?.attributes?.volume_level as number | undefined) : undefined;
@@ -64,7 +65,7 @@ export function renderDeviceCard(
       <div class="control-row"><span class="state-word">${device.detail}</span>${action === 'play-pause' ? html`
         ${volPct !== undefined ? html`<ha-control-slider .value=${volPct} min="0" max="100" style="--control-slider-thickness:32px;--control-slider-border-radius:var(--sp-radius-pill)" @value-changed=${(e: CustomEvent) => { e.stopPropagation(); hass.callService('media_player', 'volume_set', { entity_id: device.entityId, volume_level: (e.detail.value ?? 0) / 100 }); }} @click=${(e: Event) => e.stopPropagation()} class="media-vol-slider"></ha-control-slider>` : ''}
         <ha-icon icon=${device.state === 'playing' ? 'mdi:pause' : 'mdi:play'} class="media-toggle-icon"></ha-icon>
-      ` : (action === 'toggle' ? html`<ha-control-switch .checked=${active} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0" @change=${(e: Event) => { e.stopPropagation(); onHandleAction(device.entityId, action); }} @click=${(e: Event) => e.stopPropagation()} .label=${device.name}></ha-control-switch>` : '')}</div>
+      ` : (isClimate || action === 'toggle' ? html`<ha-control-switch .checked=${active} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0" @change=${(e: Event) => { e.stopPropagation(); onHandleAction(device.entityId, 'toggle'); }} @click=${(e: Event) => e.stopPropagation()} .label=${device.name}></ha-control-switch>` : '')}</div>
     </button>
   `;
 }

@@ -22,6 +22,7 @@
 - 环境实体归属规则：优先使用实体自身 `area_id`，没有则使用所属设备的 `area_id`，再通过 HA 区域注册表显示房间名；只有没有任何区域归属时才显示“其他”
 - 官方楼层功能可以保留，但不能覆盖首页环境卡的房间切换逻辑
 - 设备页长按隐藏必须受“编辑隐藏/管理隐藏”状态保护：默认浏览设备时长按不隐藏；打开编辑隐藏后才显示提示并允许长按隐藏/恢复
+- 平板浏览器全屏 / kiosk 模式必须铺满真实可视高度，不能露出底边；保护点为 `visualViewport.height`、`data-kiosk-fullscreen`、God of War 主题里的 `tablet browser fullscreen must fill the real viewport` 覆盖规则
 - 平板 kiosk 适配
 - 深色启动页和“正在启动中”显示
 - 避免 Home Assistant 白屏闪烁的启动遮罩逻辑
@@ -45,4 +46,4 @@
 
 后续新增功能写在这里：
 
-- 暂无
+- 2026-07-08：平板浏览器全屏 / kiosk 底边修复：全屏高度使用 `visualViewport.height` 兜底真实可视高度，host 写入 `data-kiosk-fullscreen`，主题在该状态下覆盖平板断点的 `height:auto` / `overflow:visible`，避免底部露边。

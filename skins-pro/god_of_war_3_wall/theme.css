@@ -2810,3 +2810,27 @@ button {
  min-height: var(--sp-home-room-card-height, auto);
  height: var(--sp-home-room-card-height, auto);
 }
+
+/* zn fork: tablet browser fullscreen must fill the real viewport. */
+:host([data-kiosk-fullscreen="true"]) {
+ display: block;
+ width: 100%;
+ height: var(--sp-runtime-height, 100dvh);
+ min-height: var(--sp-runtime-min-height, 100dvh);
+ max-height: var(--sp-runtime-height, 100dvh);
+ overflow: hidden;
+}
+
+:host([data-kiosk-fullscreen="true"]) .mc-app {
+ height: var(--sp-runtime-height, 100dvh) !important;
+ min-height: var(--sp-runtime-min-height, 100dvh) !important;
+ max-height: var(--sp-runtime-height, 100dvh) !important;
+ overflow: hidden !important;
+}
+
+:host([data-kiosk-fullscreen="true"]) .stage,
+:host([data-kiosk-fullscreen="true"]) .stage-grid,
+:host([data-kiosk-fullscreen="true"]) .sidebar {
+ min-height: 0;
+ overflow: hidden;
+}

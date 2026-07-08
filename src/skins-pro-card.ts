@@ -539,12 +539,19 @@ export class MinecraftDashboardCard extends LitElement {
       // Best-effort visual sync with the official room/product card height.
     }
 
+    this.syncKioskFullscreenHostState(host);
+    if (this.isKioskFullscreenActive()) {
+      this.applyKioskViewportHeight(host);
+      return;
+    }
+
     if (this.applyWallPanel1080Layout(host)) return;
 
     if (window.matchMedia('(orientation: portrait)').matches) {
       host.style.setProperty('--sp-runtime-height', 'auto');
       host.style.setProperty('--sp-runtime-min-height', '100vh');
       host.removeAttribute('data-wall-panel');
+      host.removeAttribute('data-kiosk-fullscreen');
       return;
     }
 
@@ -557,6 +564,33 @@ export class MinecraftDashboardCard extends LitElement {
     host.style.setProperty('--sp-runtime-height', `${availableHeight}px`);
     host.style.setProperty('--sp-runtime-min-height', `${availableHeight}px`);
     host.removeAttribute('data-wall-panel');
+    host.removeAttribute('data-kiosk-fullscreen');
+  }
+
+  private viewportHeight(): number {
+    const visualHeight = typeof window.visualViewport?.height === 'number' ? window.visualViewport.height : 0;
+    return Math.floor(visualHeight || window.innerHeight || 0);
+  }
+
+  private kioskViewportHeight(): number {
+    const viewportH = this.viewportHeight();
+    const isShortLandscape = window.matchMedia('(orientation: landscape)').matches && viewportH < 500;
+    return isShortLandscape ? Math.max(240, viewportH) : Math.max(560, viewportH);
+  }
+
+  private applyKioskViewportHeight(host: HTMLElement): void {
+    const h = this.kioskViewportHeight();
+    host.dataset.kioskFullscreen = 'true';
+    host.style.setProperty('--sp-runtime-height', `${h}px`);
+    host.style.setProperty('--sp-runtime-min-height', `${h}px`);
+  }
+
+  private syncKioskFullscreenHostState(host: HTMLElement): void {
+    if (this.isKioskFullscreenActive()) {
+      host.dataset.kioskFullscreen = 'true';
+    } else {
+      host.removeAttribute('data-kiosk-fullscreen');
+    }
   }
 
   private renderInlineSwitch(checked: boolean, label: string, onToggle: () => void): TemplateResult {
@@ -2341,15 +2375,11 @@ export class MinecraftDashboardCard extends LitElement {
 
     const host = this.shadowRoot?.host as HTMLElement | undefined;
     if (host) {
+      host.dataset.kioskFullscreen = 'true';
       if (this.applyWallPanel1080Layout(host)) {
         // locked to wall panel viewport
       } else {
-        const isShortLandscape = window.matchMedia('(orientation: landscape)').matches && window.innerHeight < 500;
-        const h = isShortLandscape
-          ? Math.max(240, Math.floor(window.innerHeight))
-          : Math.max(560, Math.floor(window.innerHeight));
-        host.style.setProperty('--sp-runtime-height', `${h}px`);
-        host.style.setProperty('--sp-runtime-min-height', `${h}px`);
+        this.applyKioskViewportHeight(host);
       }
     }
 
@@ -2479,18 +2509,17 @@ export class MinecraftDashboardCard extends LitElement {
     const host = this.shadowRoot?.host as HTMLElement | undefined;
     if (document.body.classList.contains('skins-pro-kiosk')) {
       toggleKiosk();
-      if (host) requestAnimationFrame(() => {
-        const r = host.getBoundingClientRect();
-        const h = Math.max(560, Math.floor(window.innerHeight - r.top));
-        host.style.setProperty('--sp-runtime-height', `${h}px`);
-        host.style.setProperty('--sp-runtime-min-height', `${h}px`);
-      });
-    } else {
       if (host) {
-        const h = Math.max(560, Math.floor(window.innerHeight));
-        host.style.setProperty('--sp-runtime-height', `${h}px`);
-        host.style.setProperty('--sp-runtime-min-height', `${h}px`);
+        host.removeAttribute('data-kiosk-fullscreen');
+        requestAnimationFrame(() => {
+          const r = host.getBoundingClientRect();
+          const h = Math.max(560, Math.floor(this.viewportHeight() - r.top));
+          host.style.setProperty('--sp-runtime-height', `${h}px`);
+          host.style.setProperty('--sp-runtime-min-height', `${h}px`);
+        });
       }
+    } else {
+      if (host) this.applyKioskViewportHeight(host);
       toggleKiosk();
     }
   }

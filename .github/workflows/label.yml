@@ -84,7 +84,7 @@ jobs:
                 labels,
               });
             }
-       - uses: actions/github-script@v7
+      - uses: actions/github-script@v7
         with:
           script: |
             const pr = context.payload.pull_request;

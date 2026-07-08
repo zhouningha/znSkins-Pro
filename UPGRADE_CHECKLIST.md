@@ -14,6 +14,7 @@
 ## 必测功能
 
 - God of War 主题正常加载
+- God of War 主题素材按官方主题标准：确认 `source-kratos-wallpaper.jpg` MD5 为 `204ca3b343688906f5ca57de48c827cd`，确认 `avatar.png` MD5 为 `98269216d3a9d5729f3572509d5b317e`
 - 首页背景、头像、设备图标不丢失
 - 圆角自绘开关正常显示，不变方块
 - 点击开关仍能控制设备
@@ -52,8 +53,10 @@
 - Lovelace resources 只保留 fork 版本 Skins Pro
 - 不混用官方版和旧本地版
 - `my-home` 仪表盘保留
-- `resource_pack.skin` 指向正确主题
-- `base_path` 与当前安装方式一致
+- `resource_pack.skin` 指向 `god_of_war_3_wall`
+- `downloaded_skins` 必须包含 `god_of_war_3_wall`（否则编辑器下拉只有 modern）
+- `base_path` 与当前安装方式一致（`__AUTO__`）
+- 优先使用 `scripts/deploy-ha-god-war.sh` 一键部署；恢复步骤见 `HA_RESTORE.md`
 - HA `core check` 通过
 - 页面强制刷新后显示正常
 

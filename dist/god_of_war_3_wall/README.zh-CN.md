@@ -5,6 +5,8 @@
 
 严格遵循 [Skins Pro 官方皮肤规范](https://github.com/ha-china/Skins-Pro/blob/master/README.zh-CN.md)。
 
+> 素材来源：从 `source-kratos-wallpaper.jpg`（GOW III 官方宣传图）裁切生成，非 AI 模拟绘制。重新生成见 `scripts/generate_official_god_war_assets.py`。
+
 ## 文件清单
 
 | 文件 | 场景对应 |

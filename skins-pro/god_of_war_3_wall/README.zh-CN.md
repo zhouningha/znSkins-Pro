@@ -11,7 +11,7 @@
 
 | 文件 | 场景对应 |
 |------|----------|
-| `background.jpg` | 奥林匹斯战场 / 神殿废墟 / 火焰天空 |
+| `background.jpg` | 奥林匹斯远景 / 神殿山城（由 `source-room-gow3-olympus-base-view.jpg` 裁切） |
 | `decoration.jpg` | 混沌双刃 + 锁链 + 断柱 |
 | `avatar.jpg` | 斯巴达剪影头像 |
 | `room-living.jpg` | 奥林匹斯大厅 |

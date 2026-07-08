@@ -428,6 +428,13 @@ export function assetUrl(config?: DashboardConfig, key?: string): string {
   return withAssetVersion(`${basePath.replace(/\/$/, '')}/${asset}`);
 }
 
+export function hideBrokenImage(event: Event): void {
+  const image = event.currentTarget as HTMLImageElement | null;
+  if (!image) return;
+  image.style.display = 'none';
+  image.removeAttribute('src');
+}
+
 function withAssetVersion(url: string): string {
   return `${url}${url.includes('?') ? '&' : '?'}v=${getAssetVersionKey()}`;
 }

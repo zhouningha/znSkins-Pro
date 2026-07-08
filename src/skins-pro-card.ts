@@ -37,6 +37,7 @@ import {
   deviceStateLabel,
   formatNumber,
   getTranslate,
+  hideBrokenImage,
   iconForDomain,
   localizedText,
   formatRelativeTime,
@@ -657,13 +658,13 @@ export class MinecraftDashboardCard extends LitElement {
   private renderUserAvatar(className: string): TemplateResult | typeof nothing {
     const url = this.userAvatarUrl() || assetUrl(this._config, 'avatar');
     if (!url) return nothing;
-    return html`<img class=${className} alt="Avatar" src=${url}>`;
+    return html`<img class=${className} alt="Avatar" src=${url} @error=${hideBrokenImage}>`;
   }
 
   private renderImage(key: string, alt: string, className?: string): TemplateResult | typeof nothing {
     const url = assetUrl(this._config, key);
     if (!url) return nothing;
-    return html`<img class=${className || nothing} alt=${alt} src=${url}>`;
+    return html`<img class=${className || nothing} alt=${alt} src=${url} @error=${hideBrokenImage}>`;
   }
 
   // ─── Navigation ─────────────────────────────────────────
@@ -1215,7 +1216,7 @@ export class MinecraftDashboardCard extends LitElement {
 
     return html`${rooms.map((room) => {
       const imgSrc = useAreaPics && room.picture ? room.picture : assetUrl(this._config, room.image || 'room_living');
-      const roomImg = imgSrc ? html`<img alt=${room.name} src=${imgSrc}>` : nothing;
+      const roomImg = imgSrc ? html`<img alt=${room.name} src=${imgSrc} @error=${hideBrokenImage}>` : nothing;
 
       const sceneChips = room.scenes.length > 0 ? html`
         <div class="room-scenes">

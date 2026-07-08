@@ -14,7 +14,7 @@ import type {
   WeatherForecastDay,
 } from '../types';
 import type { Language } from '../i18n';
-import { assetUrl } from '../utils';
+import { assetUrl, hideBrokenImage } from '../utils';
 
 export interface RenderContext {
   config: DashboardConfig;
@@ -63,7 +63,7 @@ export function renderImage(
 ): TemplateResult | typeof nothing {
   const url = assetUrl(config, key);
   if (!url) return nothing;
-  return html`<img class=${className || nothing} alt=${alt} src=${url}>`;
+  return html`<img class=${className || nothing} alt=${alt} src=${url} @error=${hideBrokenImage}>`;
 }
 
 export function userAvatarUrl(hass: HomeAssistant | undefined): string {
@@ -82,5 +82,5 @@ export function renderUserAvatar(
 ): TemplateResult | typeof nothing {
   const url = userAvatarUrl(hass) || assetUrl(config, 'avatar');
   if (!url) return nothing;
-  return html`<img class=${className} alt="Avatar" src=${url}>`;
+  return html`<img class=${className} alt="Avatar" src=${url} @error=${hideBrokenImage}>`;
 }

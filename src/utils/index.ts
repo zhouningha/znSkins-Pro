@@ -241,6 +241,13 @@ export function assetUrl(config?: DashboardConfig, key?: string): string {
   return `${basePath.replace(/\/$/, '')}/${asset}`;
 }
 
+export function hideBrokenImage(event: Event): void {
+  const image = event.currentTarget as HTMLImageElement | null;
+  if (!image) return;
+  image.style.display = 'none';
+  image.removeAttribute('src');
+}
+
 export function assetHref(config?: DashboardConfig, key?: string): string {
   const url = assetUrl(config, key);
   if (!url) return '';
@@ -254,4 +261,3 @@ export function skinString(skin: string, key: string): string {
   const data = (SKIN_STRINGS[skin] || SKIN_STRINGS[DEFAULT_SKIN] || {}) as Record<string, string>;
   return data[key] || '';
 }
-

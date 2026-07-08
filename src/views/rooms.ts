@@ -6,7 +6,7 @@ import type { RenderContext } from '../render/context';
 import { areaCounts, areaScenes, areaActiveCounts, areaSummaryById } from '../selectors/areas';
 import { renderPageShell } from '../components/page-shell';
 import { areaRoomImageKey } from '../config';
-import { assetUrl, t } from '../utils';
+import { assetUrl, hideBrokenImage, t } from '../utils';
 
 interface RoomViewEntry {
   areaId: string;
@@ -91,7 +91,7 @@ export function renderAreaRooms(
 
   return html`${rooms.map((room) => {
     const imgSrc = useAreaPics && room.picture ? room.picture : assetUrl(ctx.config, room.image || 'room_living');
-    const roomImg = imgSrc ? html`<img alt=${room.name} src=${imgSrc}>` : nothing;
+    const roomImg = imgSrc ? html`<img alt=${room.name} src=${imgSrc} @error=${hideBrokenImage}>` : nothing;
 
     const sceneChips = room.scenes.length > 0 ? html`
       <div class="room-scenes">

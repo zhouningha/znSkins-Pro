@@ -88,8 +88,8 @@ jobs:
         with:
           script: |
             const pr = context.payload.pull_request;
-            const body = (pr.body || '').toUpperCase();
-            const isArchitecture = body.includes('ARCHITECTURE OPTIMIZATION') || (body.includes('- [X]') && body.includes('Architecture Optimization')) || (body.includes('- [x]') && body.includes('Architecture Optimization'));
+            const bodyUpper2 = (pr.body || '').toUpperCase();
+            const isArchitecture = bodyUpper2.includes('ARCHITECTURE OPTIMIZATION') || (bodyUpper2.includes('- [X]') && bodyUpper2.includes('Architecture Optimization')) || (bodyUpper2.includes('- [x]') && bodyUpper2.includes('Architecture Optimization'));
             if (!isArchitecture) { console.log('Not architecture PR, skipping.'); return; }
             const changed = await github.paginate(github.rest.pulls.listFiles, {
               owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number, per_page: 100,

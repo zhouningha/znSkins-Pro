@@ -1691,26 +1691,32 @@ export class MinecraftDashboardCard extends LitElement {
     }
   }
 
-  /** HA config is primary for cross-device; localStorage covers unsaved edits on this browser. */
+  private readDevicesHiddenStorage(): { hasValue: boolean; hidden: string[] } {
+    try {
+      const userId = this._hass?.user?.id || 'default';
+      const userKey = `skins-pro.devices.hidden.${userId}`;
+      const userStored = window.localStorage.getItem(userKey);
+      const legacyStored = window.localStorage.getItem('skins-pro.devices.hidden');
+      const stored = userStored !== null ? userStored : legacyStored;
+      if (stored === null) return { hasValue: false, hidden: [] };
+      const parsed = JSON.parse(stored) as unknown;
+      return {
+        hasValue: true,
+        hidden: Array.isArray(parsed) ? parsed.filter(Boolean) as string[] : [],
+      };
+    } catch {
+      return { hasValue: false, hidden: [] };
+    }
+  }
+
+  /** Local edits win so restored devices are not re-hidden by stale HA config. */
   private mergeDevicesHiddenFromSources(config: DashboardConfig): DashboardConfig {
     const merged = mergeConfig(config);
     const haHidden = normalizeDevicesHidden(config.devices_page);
-    let localHidden: string[] = [];
-    try {
-      const userId = this._hass?.user?.id || 'default';
-      const stored =
-        window.localStorage.getItem(`skins-pro.devices.hidden.${userId}`)
-        || window.localStorage.getItem('skins-pro.devices.hidden');
-      if (stored) {
-        const parsed = JSON.parse(stored) as unknown;
-        if (Array.isArray(parsed)) localHidden = parsed.filter(Boolean) as string[];
-      }
-    } catch {
-      // ignore
-    }
-    const hidden = [...new Set([...haHidden, ...localHidden])];
+    const local = this.readDevicesHiddenStorage();
+    const hidden = [...new Set(local.hasValue ? local.hidden : haHidden)];
     merged.devices_page = { ...merged.devices_page, hidden };
-    if (hidden.length > 0) this.syncDevicesHiddenStorage(hidden);
+    if (!local.hasValue && hidden.length > 0) this.syncDevicesHiddenStorage(hidden);
     return merged;
   }
 

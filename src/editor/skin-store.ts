@@ -4,12 +4,41 @@ import { t } from '../utils';
 import { deepClone, fire, type DashboardConfigRecord } from './config';
 
 export const CDN_STORE = 'https://cdn.jsdelivr.net/gh/ha-china/Skins-Pro@store';
+export const STATS_API = 'https://hachina.dpdns.org';
+
+function getVoterId(): string {
+  let id = localStorage.getItem('skins_pro_voter');
+  if (!id) {
+    try { id = crypto.randomUUID(); } catch { /* fallback */ }
+    if (!id) id = 'v' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+    localStorage.setItem('skins_pro_voter', id);
+  }
+  return id;
+}
+
+export let skinStats: Record<string, { downloads: number; liked: number }> = {};
+
+function getLikedSkins(): Set<string> {
+  try {
+    const raw = localStorage.getItem('skins_pro_liked');
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch { return new Set(); }
+}
+
+function saveLikedSkin(skin: string, liked: boolean): void {
+  const set = getLikedSkins();
+  liked ? set.add(skin) : set.delete(skin);
+  localStorage.setItem('skins_pro_liked', JSON.stringify([...set]));
+}
 
 export interface SkinStoreTheme {
   id: string;
   name: string;
   thumbnail: string;
   author?: string;
+  downloads?: number;
+  likes?: number;
+  userLiked?: boolean;
 }
 
 export interface SkinStoreState {
@@ -35,11 +64,20 @@ export function renderSkinStore(
     const downloaded: string[] = config.downloaded_skins || [];
     content = `<div class="store-grid">${state.themes.map(theme => {
       const installed = downloaded.includes(theme.id);
+      const dlCount = theme.downloads ?? '-';
+      const likeCount = theme.likes ?? 0;
+      const likedClass = theme.userLiked ? ' liked' : '';
       return `
       <div class="store-card ${installed ? 'store-installed' : ''}" data-store-theme="${theme.id}">
         <img src="${CDN_STORE}/${theme.thumbnail}" alt="${theme.name}" class="store-thumb" loading="lazy">
         <div class="store-info">
           <span class="store-name">${theme.name}${theme.author ? `<a href="https://github.com/${theme.author}" target="_blank" rel="noopener noreferrer" class="store-author">${theme.author}</a>` : ''}</span>
+          <div class="store-actions">
+            <span class="store-dl-count">⬇ ${dlCount}</span>
+            <button class="store-like${likedClass}" data-store-like="${theme.id}">
+              ${theme.userLiked ? '❤️' : '🤍'} <span class="store-like-count">${likeCount}</span>
+            </button>
+          </div>
           ${installed
             ? `<button class="store-remove" data-store-remove="${theme.id}">${t(language, 'editorSkinStoreRemove')}</button>`
             : `<button class="store-download" data-store-download="${theme.id}">${t(language, 'editorSkinStoreDownload')}</button>`
@@ -72,6 +110,30 @@ export async function fetchSkinThemes(): Promise<SkinStoreTheme[]> {
     [themes[i], themes[j]] = [themes[j]!, themes[i]!];
   }
   return themes;
+}
+
+export async function fetchSkinStats(): Promise<void> {
+  try {
+    const res = await fetch(`${STATS_API}/api/stats`);
+    if (res.ok) skinStats = await res.json();
+  } catch { /* ignore */ }
+}
+
+export async function toggleLike(skin: string): Promise<{ liked: boolean; total: number } | null> {
+  try {
+    const res = await fetch(`${STATS_API}/api/like/${skin}`, {
+      method: 'POST',
+      headers: { 'X-Skin-Voter': getVoterId() },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    saveLikedSkin(skin, data.userLiked);
+    return { liked: data.userLiked, total: data.liked };
+  } catch { return null; }
+}
+
+export function isSkinLiked(skin: string): boolean {
+  return getLikedSkins().has(skin);
 }
 
 export function removeSkin(
@@ -114,6 +176,7 @@ export async function downloadSkin(
     next.resource_pack.base_path = `/local/skins-pro/${skinId}/`;
     next.downloaded_skins = [...new Set([...(next.downloaded_skins || []), skinId])];
     fire(el, next);
+    fetch(`${STATS_API}/api/download/${skinId}`, { method: 'POST' }).catch(() => {});
     return { success: true };
   } catch (err: any) {
     const raw = err?.message || t(language, 'editorDownloadFailedHint');

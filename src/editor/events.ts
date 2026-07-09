@@ -9,7 +9,7 @@ import {
   type DashboardConfigRecord,
 } from './config';
 import { parseNavSave } from './nav-dialog';
-import { downloadSkin, fetchSkinThemes, removeSkin, type SkinStoreState } from './skin-store';
+import { downloadSkin, fetchSkinThemes, fetchSkinStats, toggleLike, isSkinLiked, skinStats, removeSkin, type SkinStoreState } from './skin-store';
 import { uploadBackgroundImage } from './bg-upload';
 import { ENTITY_PICKER_TAG } from './pickers';
 
@@ -173,7 +173,14 @@ function bindSkinStore(host: EditorHost): void {
       host.reload();
       try {
         const themes = await fetchSkinThemes();
-        host.onChange({ skinStore: { open: true, loading: false, error: '', themes } });
+        await fetchSkinStats();
+        const merged = themes.map(t => ({
+          ...t,
+          downloads: skinStats[t.id]?.downloads,
+          likes: skinStats[t.id]?.liked ?? 0,
+          userLiked: isSkinLiked(t.id),
+        }));
+        host.onChange({ skinStore: { open: true, loading: false, error: '', themes: merged } });
       } catch (err) {
         host.onChange({ skinStore: { ...host.state.skinStore, loading: false, error: String(err) } });
       }
@@ -221,6 +228,18 @@ function bindSkinStore(host: EditorHost): void {
         btn.textContent = origText;
         (btn as HTMLButtonElement).disabled = false;
       }
+    });
+  });
+  host.root.querySelectorAll<HTMLElement>('[data-store-like]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const skin = btn.getAttribute('data-store-like');
+      if (!skin) return;
+      const result = await toggleLike(skin);
+      if (!result) return;
+      const countSpan = btn.querySelector('.store-like-count');
+      if (countSpan) countSpan.textContent = String(result.total);
+      btn.classList.toggle('liked', result.liked);
+      btn.innerHTML = `${result.liked ? '❤️' : '🤍'} <span class="store-like-count">${result.total}</span>`;
     });
   });
 }

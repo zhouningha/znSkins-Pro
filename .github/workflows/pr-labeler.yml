@@ -3,6 +3,8 @@ name: Validate Skin Submission
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
+    paths-ignore:
+      - '.github/workflows/**'
 
 permissions:
   contents: read

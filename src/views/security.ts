@@ -50,7 +50,9 @@ function renderSecurityCards(ctx: RenderContext): TemplateResult | typeof nothin
     const snapshotUrl = baseUrl ? `${baseUrl}${sep}ts=${Date.now()}` : '';
     return html`
       <button class="camera-card" @click=${() => ctx.onHandleAction(entity.entity_id, 'more-info')}>
-        <div class="camera-preview"><img alt=${String(entity.attributes?.friendly_name || entity.entity_id)} src=${snapshotUrl}></div>
+        <div class="camera-preview" style="aspect-ratio:auto;min-height:0;max-height:none;background:transparent;">
+          <img alt=${String(entity.attributes?.friendly_name || entity.entity_id)} src=${snapshotUrl} style="width:100%;height:auto;display:block;object-fit:contain;">
+        </div>
         <div class="camera-meta">
           <div>
             <p class="device-name">${String(entity.attributes?.friendly_name || entity.entity_id)}</p>

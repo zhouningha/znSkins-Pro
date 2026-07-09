@@ -18,6 +18,13 @@
 | 皮肤文件夹名称与 `screenshots/<skin>.png` 预览图名称一致 / Skin folder name matches `screenshots/<skin>.png` preview name | - [ ] |
 | `skins-pro/<skin>/strings.json` 已包含 `author` 字段 / `skins-pro/<skin>/strings.json` includes `author` | - [ ] |
 
+### 架构影响确认 / Architecture Impact
+
+<!-- 仅优化架构时填写 / Fill only for architecture optimization -->
+
+- [ ] 此变更**不会**影响已有皮肤的显示（未改动 CSS 变量名、DOM 结构等） / This change does **not** affect existing skins
+- [ ] 如可能有影响，我已随机验证至少 2 款非自己制作的皮肤显示正常 / If likely affected, I have verified at least 2 skins I did not create render correctly
+
 ### 描述 / Description
 
 <!-- 请详细描述你的改动 / Please describe your changes in detail -->

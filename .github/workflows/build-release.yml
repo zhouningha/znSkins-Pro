@@ -3,6 +3,8 @@ name: Build and Release Skins Pro
 on:
   push:
     branches: [main, master]
+    paths-ignore:
+      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:
@@ -19,36 +21,56 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check release conditions
+        id: check
+        run: |
+          IS_MERGE=false
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            IS_MERGE=true
+          else
+            PARENT_COUNT=$(git rev-list --parents -1 HEAD | wc -w)
+            [ "$PARENT_COUNT" -gt 2 ] && IS_MERGE=true
+          fi
+
+          NEW_VER=$(jq -r '.version' package.json)
+          OLD_VER=$(git show HEAD~1:package.json 2>/dev/null | jq -r '.version' 2>/dev/null || echo "")
+          VER_CHANGED=false
+          if [ -n "$OLD_VER" ] && [ "$NEW_VER" != "$OLD_VER" ]; then
+            VER_CHANGED=true
+          elif ! git rev-parse "v$NEW_VER" >/dev/null 2>&1; then
+            VER_CHANGED=true
+          fi
+
+          echo "version=$NEW_VER" >> "$GITHUB_OUTPUT"
+          echo "version_changed=$VER_CHANGED" >> "$GITHUB_OUTPUT"
+
+          if [ "$IS_MERGE" = "true" ] || [ "$VER_CHANGED" = "true" ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup Node.js
+        if: steps.check.outputs.skip != 'true'
         uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: npm
 
       - name: Install dependencies
+        if: steps.check.outputs.skip != 'true'
         run: npm ci
 
       - name: Build
+        if: steps.check.outputs.skip != 'true'
         run: npm run build
 
       - name: Type check
+        if: steps.check.outputs.skip != 'true'
         run: npm run type-check
 
-      - name: Detect version change
-        id: version
-        run: |
-          NEW_VER=$(jq -r '.version' package.json)
-          OLD_VER=$(git show HEAD~1:package.json 2>/dev/null | jq -r '.version' 2>/dev/null || echo "")
-          echo "new=$NEW_VER" >> "$GITHUB_OUTPUT"
-          if [ -n "$OLD_VER" ] && [ "$NEW_VER" != "$OLD_VER" ]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          elif ! git rev-parse "v$NEW_VER" >/dev/null 2>&1; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Commit dist to master
+        if: steps.check.outputs.skip != 'true'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
@@ -58,7 +80,7 @@ jobs:
           fi
 
       - name: Generate changelog
-        if: steps.version.outputs.changed == 'true'
+        if: steps.check.outputs.version_changed == 'true'
         id: changelog
         uses: Desmond-Dong/actions/bilingual-changelog@main
         with:
@@ -67,20 +89,21 @@ jobs:
           llm-model: ${{ secrets.LLM_MODEL }}
 
       - name: Tag version
-        if: steps.version.outputs.changed == 'true'
+        if: steps.check.outputs.version_changed == 'true'
         run: |
-          git tag "v${{ steps.version.outputs.new }}"
+          git tag "v${{ steps.check.outputs.version }}"
 
       - name: Push master (including tags)
+        if: steps.check.outputs.skip != 'true'
         run: |
           git push origin --tags
           git push
 
       - name: Create Release
-        if: steps.version.outputs.changed == 'true'
+        if: steps.check.outputs.version_changed == 'true'
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: v${{ steps.version.outputs.new }}
+          tag_name: v${{ steps.check.outputs.version }}
           body: |
             ${{ steps.changelog.outputs.changelog }}
           draft: false
@@ -89,6 +112,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push store assets to store branch
+        if: steps.check.outputs.skip != 'true'
         run: |
           STORE_DIR="$(mktemp -d)"
           mv store/*.zip "$STORE_DIR/"
@@ -112,4 +136,5 @@ jobs:
           git checkout "${{ github.ref_name }}"
 
       - name: Purge jsdelivr cache
+        if: steps.check.outputs.skip != 'true'
         run: curl -s https://purge.jsdelivr.net/gh/ha-china/Skins-Pro@store/screenshots/registry.json

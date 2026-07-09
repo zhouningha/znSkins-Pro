@@ -172,9 +172,18 @@ npm run type-check  # TypeScript 类型检查
 
 1. 在 `skins-pro/<皮肤名>/` 下创建皮肤目录，放入所需文件
 2. 在 `screenshots/<皮肤名>.png` 添加预览截图（1920×1080 为宜）
-3. 提交 PR 到本仓库
+3. 使用 PR 模板提交 PR，填写所有必填字段
 
 合并后 CI 会自动构建卡片、将皮肤打包到 store 分支、并在卡片编辑器的皮肤商店中上架。
+
+### PR 模板要求（CI 强制）
+
+- PR 描述必须保留完整的模板章节结构
+- 必须勾选至少一个类型（`Contribute a Skin` / `Architecture Optimization`）
+- `### 描述 / Description` 必须填写
+- 贡献皮肤时：`### 皮肤名称 / Skin Name` 必须填写
+
+提交后机器人会自动在 PR 下发布一条 **Screenshot Preview** 评论，展示你的皮肤预览图。
 
 ### 必须文件
 
@@ -191,6 +200,8 @@ npm run type-check  # TypeScript 类型检查
 - 皮肤文件夹名（`skins-pro/<名称>/`）必须与预览图文件名（`screenshots/<名称>.png`）一致
 - `strings.json` 必须包含非空的 `author` 字段（你的 GitHub 用户名，不含 `@`）
 - `theme.css` 必须存在
+- 皮肤目录下只允许图片文件 + `theme.css` + `strings.json`
+- 每个皮肤只能有一张预览截图
 
 ### 建议
 

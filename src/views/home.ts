@@ -53,7 +53,9 @@ export function renderHomeView(
     return html`
       <section class="glass-card panel-camera" @click=${() => ctx.onHandleAction(cameraEntityId, 'more-info')}>
         <div class="section-title"><h2>${cameraState?.attributes?.friendly_name || cameraEntityId}</h2></div>
-        <div class="camera-preview"><img alt="" src=${snapshotUrl}></div>
+        <div class="camera-preview" style="aspect-ratio:auto;min-height:0;max-height:none;background:transparent;">
+          <img alt="" src=${snapshotUrl} style="width:100%;height:auto;display:block;object-fit:contain;">
+        </div>
       </section>
     `;
   })() : nothing;

@@ -172,9 +172,18 @@ We welcome skin contributions! Simply:
 
 1. **Create a skin folder** under `skins-pro/<skin-name>/` with the required files
 2. **Add a preview screenshot** `screenshots/<skin-name>.png` (1920×1080 recommended)
-3. **Submit a PR** to this repo
+3. **Submit a PR** using the PR template — fill in all required fields
 
 Once merged, CI automatically builds the card, packages your skin to the store branch, and makes it available in the card editor's skin store.
+
+### PR Template Requirements (enforced by CI)
+
+- PR description must keep the full template structure
+- At least one type must be checked (`Contribute a Skin` / `Architecture Optimization`)
+- `### 描述 / Description` must be filled in
+- For skin contributions: `### 皮肤名称 / Skin Name` must be filled in
+
+After submitting, a bot will automatically post a **Screenshot Preview** comment showing your skin's preview image.
 
 ### Required Files
 
@@ -191,6 +200,8 @@ Once merged, CI automatically builds the card, packages your skin to the store b
 - Skin folder name (`skins-pro/<name>/`) must match preview filename (`screenshots/<name>.png`)
 - `strings.json` must contain a non-empty `author` field (your GitHub username, without `@`)
 - `theme.css` must be present
+- Skin directory may only contain image files + `theme.css` + `strings.json`
+- Exactly one preview screenshot per skin
 
 ### Tips
 

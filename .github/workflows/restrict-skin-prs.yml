@@ -3,6 +3,8 @@ name: Restrict skin-contribution PRs
 on:
   pull_request:
     types: [opened, synchronize, labeled, unlabeled]
+    paths-ignore:
+      - '.github/workflows/**'
 
 permissions:
   pull-requests: write

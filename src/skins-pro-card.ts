@@ -1114,9 +1114,8 @@ export class MinecraftDashboardCard extends LitElement {
       const assetKey = assetKeyForDomain(skin, device.entityId.split('.')[0] || 'sensor');
       const domain = device.entityId.split('.')[0] || '';
       const isMedia = domain === 'media_player';
-      const isDirectMusic = isMedia && this.isDirectMusicMediaPlayer(device.entityId);
       const isClimate = domain === 'climate';
-      const action = isClimate ? 'climate-control' : (isMedia ? (isDirectMusic ? 'play-pause' : 'more-info') : (CONTROLLABLE_DOMAINS.has(domain) ? 'toggle' : 'more-info'));
+      const action: string = isClimate ? 'climate-control' : (isMedia ? 'more-info' : (CONTROLLABLE_DOMAINS.has(domain) ? 'toggle' : 'more-info'));
       const mediaState = isMedia ? this._hass?.states?.[device.entityId] : undefined;
       const albumArt = isMedia ? (mediaState?.attributes?.entity_picture as string | undefined) : undefined;
       const vol = isMedia ? (mediaState?.attributes?.volume_level as number | undefined) : undefined;
@@ -1474,13 +1473,13 @@ export class MinecraftDashboardCard extends LitElement {
     if (language === 'zh-CN') {
       const zh: Record<string, string> = {
         lights: '灯光', switches: '开关', climate: '空调',
-        covers: '窗帘', media: '音响', media_device: '影音设备', security: '安防', others: '其他',
+        covers: '窗帘', media_device: '影音设备', security: '安防', others: '其他',
       };
       return zh[key] || key;
     }
     const en: Record<string, string> = {
       lights: 'Lights', switches: 'Switches', climate: 'Climate',
-      covers: 'Covers', media: 'Speakers', media_device: 'AV devices', security: 'Security', others: 'Others',
+      covers: 'Covers', media_device: 'AV devices', security: 'Security', others: 'Others',
     };
     return en[key] || key;
   }
@@ -1843,25 +1842,8 @@ export class MinecraftDashboardCard extends LitElement {
     return this._domainGroupLabel(groupKey, language);
   }
 
-  private isDirectMusicMediaPlayer(entityId: string): boolean {
-    const stateObj = this._hass?.states?.[entityId];
-    const attrs = stateObj?.attributes || {};
-    const haystack = [
-      entityId,
-      attrs.friendly_name,
-      attrs.device_class,
-      attrs.app_name,
-      attrs.source,
-    ].filter(Boolean).join(' ').toLowerCase();
-
-    if (/(denon|avr|receiver|zidoo|z10|apple ?tv|appletv|tv|television|电视|功放|播放器|dlan|dlna)/i.test(haystack)) {
-      return false;
-    }
-    return /(homepod|airport|airplay|music assistant|music_assistant|音乐)/i.test(haystack);
-  }
-
-  private _deviceTypeGroupKey(detail: string, entityId?: string): string {
-    if (detail === 'media_player' && entityId && !this.isDirectMusicMediaPlayer(entityId)) return 'media_device';
+  private _deviceTypeGroupKey(detail: string, _entityId?: string): string {
+    if (detail === 'media_player') return 'media_device';
     return this._domainGroupMap[detail] || 'others';
   }
 
@@ -1901,9 +1883,8 @@ export class MinecraftDashboardCard extends LitElement {
             const statusClass = active ? `device-on-${device.color}` : (device.state === 'unavailable' ? 'device-unavailable' : 'device-off');
             const assetKey = assetKeyForDomain(skin, device.entityId.split('.')[0] || 'sensor');
             const isMedia = device.detail === 'media_player';
-            const isDirectMusic = isMedia && this.isDirectMusicMediaPlayer(device.entityId);
             const isClimate = device.detail === 'climate';
-            const action = isClimate ? 'climate-control' : (isMedia ? (isDirectMusic ? 'play-pause' : 'more-info') : (CONTROLLABLE_DOMAINS.has(device.detail) ? 'toggle' : 'more-info'));
+            const action: string = isClimate ? 'climate-control' : (isMedia ? 'more-info' : (CONTROLLABLE_DOMAINS.has(device.detail) ? 'toggle' : 'more-info'));
             const mediaState = isMedia ? this._hass?.states?.[device.entityId] : undefined;
             const albumArt = isMedia ? (mediaState?.attributes?.entity_picture as string | undefined) : undefined;
             const vol = isMedia ? (mediaState?.attributes?.volume_level as number | undefined) : undefined;

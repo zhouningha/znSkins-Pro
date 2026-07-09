@@ -315,6 +315,7 @@ export class MinecraftDashboardCard extends LitElement {
     } catch {
     } finally {
       this._energyPrefsLoading = false;
+      this.requestUpdate();
     }
   }
 

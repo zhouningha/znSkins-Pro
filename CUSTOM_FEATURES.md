@@ -10,6 +10,7 @@
 4. 后续新增任何定制设置，都必须同步写入本文件和 `UPGRADE_CHECKLIST.md`。
 5. HA 生产环境只安装 fork 版本，不直接安装官方版本。
 6. 每次部署必须同步更新 Lovelace resources 里的 `skins-pro.js` URL query（`hacstag/build`），否则 HA/平板会继续加载旧 JS；`scripts/deploy-ha-god-war.sh` 必须保留 `lovelace_resources` cache bump 和 `znSkins-Pro` mirror sync。
+7. 每次修复、构建、部署或同步官方完成后，必须把最新结果同步到 GitHub fork：检查 `git rev-list --left-right --count master...origin/master`，不是 `0 0` 就执行 `git push origin master`，不能只停在本地或 HA。
 
 ## 当前必须保留的定制功能
 

@@ -77,3 +77,4 @@
 - 截图确认房间卡没有蓝色问号/破图图标；若某张资源路径异常，应隐藏破图并显示卡片背景兜底
 - 检查浏览器控制台无关键错误
 - 保留本次发布备份路径
+- 同步到 GitHub fork `zhouningha/znSkins-Pro`：执行 `git push origin master`，并确认 `git rev-list --left-right --count master...origin/master` 输出 `0 0`

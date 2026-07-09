@@ -13,6 +13,7 @@
 5. 有冲突的功能先出方案，不直接覆盖。
 6. 合并后执行 `UPGRADE_CHECKLIST.md`。
 7. 检查通过后再部署到 HA。
+8. 修复、构建、部署确认完成后，必须同步到 GitHub fork `zhouningha/znSkins-Pro`：执行 `git push origin master`，并确认 `master...origin/master` 为 `0 0`。
 
 ## 决策优先级
 

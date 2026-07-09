@@ -32,6 +32,7 @@ export interface HomeAssistant {
 
 export interface AreaRegistryEntry {
   area_id: string;
+  id?: string;
   name: string;
   picture?: string | null;
   floor_id?: string | null;

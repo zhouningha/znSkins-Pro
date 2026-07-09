@@ -256,5 +256,5 @@ export function areaNameForEntity(
   if (!entry) return '';
   const areaId = entry.area_id || deviceRegistry?.find((d) => d.id === entry.device_id)?.area_id || '';
   if (!areaId) return '';
-  return areas?.find((area) => area.area_id === areaId)?.name || '';
+  return areas?.find((area) => (area.area_id || area.id) === areaId)?.name || '';
 }

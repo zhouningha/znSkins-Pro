@@ -1600,7 +1600,7 @@ export class MinecraftDashboardCard extends LitElement {
     if (!entry) return '';
     const areaId = entry.area_id || this._deviceRegistry?.find((d) => d.id === entry.device_id)?.area_id || '';
     if (!areaId) return '';
-    return this._areas?.find((area) => area.area_id === areaId)?.name || '';
+    return this._areas?.find((area) => (area.area_id || area.id) === areaId)?.name || '';
   }
 
   // ─── Device list for render ─────────────────────────────

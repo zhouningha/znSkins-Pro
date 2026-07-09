@@ -24,7 +24,11 @@ function getResizeOptions(filename) {
   if (name.startsWith('decor')) {
     return { height: 400, fit: 'inside' };
   }
-  if (name.startsWith('base-') || name.startsWith('stage-') || name.startsWith('background.')) {
+  if (name.startsWith('background.')) {
+    // Allow up to 4K for large control-panel screens (withoutEnlargement keeps smaller sources intact)
+    return { width: 3840 };
+  }
+  if (name.startsWith('base-') || name.startsWith('stage-')) {
     return { width: 2560 };
   }
   return { width: 1200 };

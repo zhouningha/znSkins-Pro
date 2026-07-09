@@ -14,8 +14,9 @@
 ## 必测功能
 
 - God of War 主题正常加载
+- 能源页显示 HA 能源配置里的电网 + 个体设备（`device_consumption`），每设备一张今日+30天柱状图卡
 - God of War 主题素材按官方主题标准：确认 `source-kratos-wallpaper.jpg` MD5 为 `204ca3b343688906f5ca57de48c827cd`，确认 `avatar.png` MD5 为 `98269216d3a9d5729f3572509d5b317e`
-- God of War 主舞台背景保持奥林匹斯远景：确认 `skins-pro/god_of_war_3_wall/background.jpg` MD5 为 `7124703c9d628a0ac0e214c1c94297fc`，不能回退为巨人脸/手臂特写图
+- God of War 主舞台背景保持奥林匹斯远景：确认 `skins-pro/god_of_war_3_wall/background.jpg` MD5 为 `218da48ed9efc26c8b6275d9d356dfc9`，不能回退为巨人脸/手臂特写图
 - God of War 房间图池至少 10 张作为素材池/备选；默认房间卡必须是透明卡片透出主题大图，不渲染独立房间 `<img>`；不得恢复用户排除的绿色大厅图 `source-room-gow3-daedalus-environment.jpg`
 - 房间卡图片加载失败时不能出现浏览器蓝色问号；确认 `hideBrokenImage` 和房间/头像图片的 `@error` 兜底仍在
 - 首页背景、头像、设备图标不丢失

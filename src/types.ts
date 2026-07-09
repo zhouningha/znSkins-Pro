@@ -253,6 +253,8 @@ export type TranslationKey =
   | 'roomSnapshots'
   | 'modes'
   | 'todayEnergy'
+  | 'totalEnergy'
+  | 'monthToDate'
   | 'maintenance'
   | 'compareYesterday'
   | 'loadingQuote'
@@ -357,6 +359,8 @@ export type TranslationKey =
 
 export interface EnergySourceData {
   key: TranslationKey;
+  /** Custom display label (used for HA individual devices); falls back to translate(key). */
+  label?: string;
   entityId: string;
   icon: string;
   unit: string;
@@ -390,8 +394,9 @@ export interface EnergySourceEntry {
 
 export interface EnergyPrefsResponse {
   energy_sources?: EnergySourceEntry[];
+  device_consumption?: Array<{ stat_consumption?: string; name?: string }>;
 }
 
-export type StatisticEntry = { change?: number | null; sum?: number | null; state?: number | null };
+export type StatisticEntry = { start?: number | string; change?: number | null; sum?: number | null; state?: number | null };
 
 export type StatisticsResponse = Record<string, StatisticEntry[]>;

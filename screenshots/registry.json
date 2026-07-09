@@ -217,6 +217,13 @@
     "package": "store/red-dead-redemption-2.zip"
   },
   {
+    "id": "red-smart-home",
+    "name": "red-smart-home",
+    "author": "xyiqq",
+    "thumbnail": "screenshots/thumbnails/red-smart-home.jpg",
+    "package": "store/red-smart-home.zip"
+  },
+  {
     "id": "resident-evil",
     "name": "resident-evil",
     "author": "xyiqq",
@@ -236,6 +243,13 @@
     "author": "xyiqq",
     "thumbnail": "screenshots/thumbnails/smarto-minimal.jpg",
     "package": "store/smarto-minimal.zip"
+  },
+  {
+    "id": "soft-home",
+    "name": "soft-home",
+    "author": "xyiqq",
+    "thumbnail": "screenshots/thumbnails/soft-home.jpg",
+    "package": "store/soft-home.zip"
   },
   {
     "id": "spirited-away",

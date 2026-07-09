@@ -13,6 +13,8 @@ const zh: Record<TranslationKey, string> = {
   roomSnapshots: '视窗快照',
   modes: '模式',
   todayEnergy: '今日用电',
+  totalEnergy: '今日总用电',
+  monthToDate: '本月累计',
   maintenance: '维护信息',
   compareYesterday: '较昨日',
   loadingQuote: '加载中',

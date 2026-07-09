@@ -8,6 +8,20 @@ import type {
 import type { TranslationKey } from './types';
 import { formatNumber } from './utils';
 
+/** Pick an icon for an HA energy "individual device" from its friendly name. */
+function energyDeviceIcon(name: string): string {
+  const n = (name || '').toLowerCase();
+  if (/空调|air|冷气|aircon|climate/.test(n)) return 'mdi:air-conditioner';
+  if (/插座|socket|outlet|插排|排插/.test(n)) return 'mdi:power-socket-cn';
+  if (/照明|灯|light|lamp/.test(n)) return 'mdi:lightbulb-group';
+  if (/机柜|服务器|server|rack|nas|网络|路由/.test(n)) return 'mdi:server';
+  if (/厨|kitchen|stove|oven/.test(n)) return 'mdi:stove';
+  if (/热水|water heater|地暖|采暖|heat/.test(n)) return 'mdi:water-boiler';
+  if (/充电|charger|ev\b/.test(n)) return 'mdi:ev-station';
+  if (/冰箱|fridge|refriger/.test(n)) return 'mdi:fridge';
+  return 'mdi:flash';
+}
+
 export async function fetchEnergySources(
   hass: HomeAssistant,
   config: DashboardConfig,
@@ -15,8 +29,16 @@ export async function fetchEnergySources(
   sources: EnergySourceData[];
   history: number[];
   yesterday: string | undefined;
+  monthToDate: string | undefined;
+  todayTotal: string | undefined;
 }> {
-  const empty = { sources: [] as EnergySourceData[], history: [] as number[], yesterday: undefined as string | undefined };
+  const empty = {
+    sources: [] as EnergySourceData[],
+    history: [] as number[],
+    yesterday: undefined as string | undefined,
+    monthToDate: undefined as string | undefined,
+    todayTotal: undefined as string | undefined,
+  };
 
   const connection = hass.connection;
   if (!connection?.sendMessagePromise) return empty;
@@ -36,21 +58,23 @@ async function tryGetEnergyPrefs(
   sources: EnergySourceData[];
   history: number[];
   yesterday: string | undefined;
+  monthToDate: string | undefined;
+  todayTotal: string | undefined;
 } | null> {
   const connection = hass.connection;
   if (!connection?.sendMessagePromise) return null;
 
   try {
     const prefs = await connection.sendMessagePromise<EnergyPrefsResponse>({ type: command });
-    if (!prefs?.energy_sources?.length) return null;
+    if (!prefs?.energy_sources?.length && !prefs?.device_consumption?.length) return null;
 
     const gridEntity = config?.energy?.entity;
     const energyUnit = config?.energy?.unit || 'kWh';
     const ids: string[] = [];
-    const entries: Array<{ key: TranslationKey; entityId: string; icon: string; unit: string }> = [];
+    const entries: Array<{ key: TranslationKey; entityId: string; icon: string; unit: string; label?: string }> = [];
     const added = new Set<string>();
 
-    for (const src of prefs.energy_sources) {
+    for (const src of prefs.energy_sources ?? []) {
       if (src.type === 'grid') {
         if (src.flow_from || src.flow_to) {
           for (const f of src.flow_from ?? []) {
@@ -101,12 +125,26 @@ async function tryGetEnergyPrefs(
       entries.unshift({ key: 'todayEnergy', entityId: gridEntity, icon: 'mdi:lightning-bolt', unit: energyUnit });
     }
 
+    // HA Energy dashboard "individual devices" — shown as per-device bars.
+    for (const dev of prefs.device_consumption ?? []) {
+      const entityId = dev?.stat_consumption;
+      if (!entityId || added.has(entityId)) continue;
+      added.add(entityId); ids.push(entityId);
+      const friendly = (hass.states[entityId]?.attributes?.friendly_name as string) || entityId;
+      const label = friendly
+        .replace(/总电量累计|电量累计|总电量|用电量|能耗|电量/g, '')
+        .trim() || friendly;
+      entries.push({ key: 'todayEnergy', entityId, icon: energyDeviceIcon(friendly), unit: 'kWh', label });
+    }
+
     if (entries.length === 0) return null;
 
     const now = new Date();
     const start = new Date(now);
     start.setDate(start.getDate() - 30);
     start.setHours(0, 0, 0, 0);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    if (monthStart.getTime() < start.getTime()) start.setTime(monthStart.getTime());
 
     let stats: StatisticsResponse = {};
     try {
@@ -134,6 +172,7 @@ async function tryGetEnergyPrefs(
       const latest = history.length > 0 ? history[history.length - 1] : undefined;
       return {
         key: e.key,
+        label: e.label,
         entityId: e.entityId,
         icon: e.icon,
         unit: (hass.states[e.entityId]?.attributes?.unit_of_measurement as string) || e.unit,
@@ -159,10 +198,36 @@ async function tryGetEnergyPrefs(
       }
     }
 
+    const monthStartMs = monthStart.getTime();
+    let monthSum = 0;
+    let monthHasData = false;
+    for (const e of entries) {
+      for (const entry of stats[e.entityId] ?? []) {
+        const ts = entry.start === undefined ? NaN : new Date(entry.start).getTime();
+        if (!Number.isFinite(ts) || ts < monthStartMs) continue;
+        const v = entry.change ?? entry.sum ?? entry.state;
+        if (v === null || v === undefined) continue;
+        monthSum += v;
+        monthHasData = true;
+      }
+    }
+
+    let todaySum = 0;
+    let todayCount = 0;
+    for (const src of sources) {
+      const t = parseFloat(src.today);
+      if (Number.isFinite(t)) {
+        todaySum += t;
+        todayCount++;
+      }
+    }
+
     return {
       sources,
       history: combinedHistory,
       yesterday: yesterdayCount > 0 ? formatNumber(String(yesterdaySum), 1) : undefined,
+      monthToDate: monthHasData ? formatNumber(String(monthSum), 1) : undefined,
+      todayTotal: todayCount > 0 ? formatNumber(String(todaySum), 1) : undefined,
     };
   } catch {
     return null;

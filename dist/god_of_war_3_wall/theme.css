@@ -2034,6 +2034,90 @@ button {
  margin-top: var(--sp-space-sm);
 }
 
+.energy-total-card .energy-total-head {
+ display: flex;
+ align-items: flex-end;
+ justify-content: space-between;
+ gap: var(--sp-space-md);
+ margin-top: var(--sp-space-xs);
+}
+.energy-total-value {
+ font-size: 2rem;
+ font-weight: 700;
+ line-height: 1;
+ white-space: nowrap;
+ color: var(--sp-text-primary, #fff);
+}
+.energy-total-unit {
+ font-size: 0.9rem;
+ font-weight: 500;
+ opacity: 0.7;
+ margin-left: 2px;
+}
+.energy-total-delta-box {
+ display: flex;
+ flex-direction: column;
+ align-items: flex-end;
+ gap: 2px;
+ text-align: right;
+}
+.energy-total-delta-label {
+ font-size: 0.8rem;
+ font-weight: 400;
+}
+.energy-total-delta {
+ display: inline-flex;
+ align-items: center;
+ gap: 4px;
+ font-size: 1.05rem;
+ font-weight: 700;
+ white-space: nowrap;
+}
+.energy-total-delta ha-icon {
+ --mdc-icon-size: 18px;
+}
+.energy-month-row {
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ gap: var(--sp-space-sm);
+ margin-top: var(--sp-space-sm);
+ padding-top: var(--sp-space-sm);
+ border-top: 1px solid var(--sp-border, rgba(255,255,255,0.08));
+ font-size: 0.95rem;
+}
+.energy-month-row ha-icon {
+ --mdc-icon-size: 18px;
+ vertical-align: -4px;
+ margin-right: 2px;
+}
+.energy-month-value {
+ font-weight: 700;
+ color: var(--sp-text-primary, #fff);
+ white-space: nowrap;
+}
+.energy-total-chart {
+ display: block;
+ width: 100%;
+ height: 96px;
+ margin-top: var(--sp-space-sm);
+ overflow: visible;
+}
+.energy-mini-chart {
+ height: 56px;
+ margin-top: var(--sp-space-sm);
+}
+.energy-total-chart-empty {
+ height: 96px;
+ display: flex;
+ align-items: center;
+ justify-content: center;
+ opacity: 0.5;
+}
+.energy-mini-chart-empty {
+ height: 56px;
+}
+
 .energy-bar-level-0 { height: 4%; opacity: 0.20; }
 .energy-bar-level-1 { height: 12%; }
 .energy-bar-level-2 { height: 20%; }

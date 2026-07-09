@@ -13,6 +13,8 @@ const en: Record<TranslationKey, string> = {
   roomSnapshots: 'Snapshots',
   modes: 'Modes',
   todayEnergy: 'Energy Today',
+  totalEnergy: 'Total Today',
+  monthToDate: 'Month to date',
   maintenance: 'Maintenance',
   compareYesterday: 'vs yesterday',
   loadingQuote: 'Loading',

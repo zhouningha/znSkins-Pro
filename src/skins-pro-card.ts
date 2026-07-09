@@ -120,6 +120,8 @@ export class MinecraftDashboardCard extends LitElement {
 
   @state() private _energyHistory?: number[];
   @state() private _energyYesterday?: string;
+  @state() private _energyMonthToDate?: string;
+  @state() private _energyTodayTotal?: string;
   private _energyHistoryDone = false;
   private _energyHistoryLoading = false;
 
@@ -187,6 +189,8 @@ export class MinecraftDashboardCard extends LitElement {
     this._config = merged;
     this._energyHistory = undefined;
     this._energyYesterday = undefined;
+    this._energyMonthToDate = undefined;
+    this._energyTodayTotal = undefined;
     this._energyHistoryDone = false;
     this._energySources = [];
     this._energyPrefsDone = false;
@@ -305,6 +309,8 @@ export class MinecraftDashboardCard extends LitElement {
       this._energySources = result.sources;
       this._energyHistory = result.history;
       this._energyYesterday = result.yesterday;
+      this._energyMonthToDate = result.monthToDate;
+      this._energyTodayTotal = result.todayTotal;
       this._energyPrefsDone = result.sources.length > 0;
     } catch {
     } finally {
@@ -383,8 +389,15 @@ export class MinecraftDashboardCard extends LitElement {
     const weatherIconName = weatherIcon(stateValue(this._hass, this._config.weather?.entity, language));
     const quote = stateValue(this._hass, this._config.info?.entity, language) || translate('loadingQuote');
     const energyEntityId = this._config.energy?.entity || '';
-    const energyValue = this._config.energy?.entity ? formatNumber(stateValue(this._hass, this._config.energy.entity, language), 1) : '--';
-    const energyUnit = (this._hass?.states[energyEntityId]?.attributes?.unit_of_measurement as string | undefined) || this._config.energy?.unit || 'kWh';
+    const entityEnergyValue = this._config.energy?.entity ? formatNumber(stateValue(this._hass, this._config.energy.entity, language), 1) : '--';
+    const hasCalculatedEnergy = Boolean(this._energyTodayTotal && this._energySources.length > 0);
+    const energyValue = hasCalculatedEnergy ? this._energyTodayTotal! : entityEnergyValue;
+    const energyTitleKey: TranslationKey = hasCalculatedEnergy && this._energySources.length >= 2 ? 'totalEnergy' : 'todayEnergy';
+    const energyUnit = (hasCalculatedEnergy
+      ? this._energySources[0]?.unit
+      : (this._hass?.states[energyEntityId]?.attributes?.unit_of_measurement as string | undefined))
+      || this._config.energy?.unit || 'kWh';
+    const showHomeEnergy = Boolean(this._config?.energy?.entity || hasCalculatedEnergy);
     const compareValue = this._energyYesterday || '';
     const energyBars = this.renderBars(this._energyHistory || []);
     const registriesLoading = this.renderRegistryLoading(language);
@@ -408,7 +421,7 @@ export class MinecraftDashboardCard extends LitElement {
                         <div class="sidebar-art" @click=${(e: Event) => this.onKioskCornerClick(e)}>${this.renderImage('decor', 'Decor', '')}</div>
           </aside>
           <main class="stage">
-            ${this.renderStageContent(language, translate, weatherIconName, quote, energyValue, energyUnit, compareValue, energyBars)}
+            ${this.renderStageContent(language, translate, weatherIconName, quote, energyValue, energyUnit, compareValue, energyBars, energyTitleKey, showHomeEnergy)}
           </main>
           <nav class="mobile-nav">${this.renderNav(language)}</nav>
         </div>
@@ -435,6 +448,8 @@ export class MinecraftDashboardCard extends LitElement {
     energyUnit: string,
     compareValue: string,
     energyBars: TemplateResult,
+    energyTitleKey: TranslationKey,
+    showHomeEnergy: boolean,
   ): TemplateResult {
     if (this._view === 'devices') return this.renderDevicesPage(language, translate);
     if (this._view === 'rooms') return this.renderRoomsPage(language, translate);
@@ -508,9 +523,9 @@ export class MinecraftDashboardCard extends LitElement {
             <div class="section-title"><h2>${translate('environment')}</h2></div>
             <div class="env-list">${this.renderEnvironment(language)}</div>
           </section>`}
-          ${this._config?.energy?.entity && (!window.matchMedia('(orientation: portrait)').matches || energyValue !== '--') ? html`
+          ${showHomeEnergy && (!window.matchMedia('(orientation: portrait)').matches || energyValue !== '--') ? html`
           <section class="glass-card panel-energy">
-            <div class="section-title"><h2>${translate('todayEnergy')}</h2></div>
+            <div class="section-title"><h2>${translate(energyTitleKey)}</h2></div>
             <div class="energy-value">${energyValue}<small> ${energyUnit}</small></div>
             <div class="bars">${energyBars}</div>
             <div class="energy-footer"><span class="muted">${localizedText(this._config?.energy?.compare_text, this._config?.energy?.compare_text_zh, this._config?.energy?.compare_text_en, language, translate('compareYesterday'))}</span><span class="down">${compareValue || '--'}</span></div>
@@ -844,6 +859,61 @@ export class MinecraftDashboardCard extends LitElement {
 
   // ─── Energy page ────────────────────────────────────────
 
+  /** Aggregate "total" card with a trapezoid (area) chart across all channels. */
+  private renderEnergyTotalCard(
+    sources: EnergySourceData[],
+    translate: (key: TranslationKey) => string,
+  ): TemplateResult {
+    if (sources.length < 2) return html``;
+
+    const combined: number[] = [];
+    for (const src of sources) {
+      for (let i = 0; i < src.history.length; i++) {
+        combined[i] = (combined[i] || 0) + (src.history[i] || 0);
+      }
+    }
+    if (!combined.length) return html``;
+
+    let todaySum = 0;
+    let yestSum = 0;
+    for (const src of sources) {
+      const t = parseFloat(src.today);
+      const y = parseFloat(src.yesterday ?? '');
+      if (Number.isFinite(t)) todaySum += t;
+      if (Number.isFinite(y)) yestSum += y;
+    }
+    const unit = sources[0]?.unit || 'kWh';
+    const monthToDate = this._energyMonthToDate;
+    const delta = todaySum - yestSum;
+    const up = delta > 0.05;
+    const down = delta < -0.05;
+    const deltaColor = up ? '#ff6b5a' : down ? '#4caf7d' : 'var(--sp-text-secondary,#9a9a9a)';
+    const deltaIcon = up ? 'mdi:arrow-up-bold' : down ? 'mdi:arrow-down-bold' : 'mdi:approximately-equal';
+
+    return html`
+      <section class="glass-card panel-energy page-energy-card energy-total-card">
+        <div class="section-title"><h2><ha-icon icon="mdi:chart-areaspline"></ha-icon> ${translate('totalEnergy')}</h2></div>
+        <div class="energy-total-head">
+          <div class="energy-total-value">${todaySum.toFixed(1)} <span class="energy-total-unit">${unit}</span></div>
+          <div class="energy-total-delta-box">
+            <span class="muted energy-total-delta-label">${translate('compareYesterday')}</span>
+            <div class="energy-total-delta" style="color:${deltaColor}">
+              <ha-icon icon="${deltaIcon}"></ha-icon>
+              <span>${delta >= 0 ? '+' : ''}${delta.toFixed(1)} ${unit}</span>
+            </div>
+          </div>
+        </div>
+        ${monthToDate !== undefined
+          ? html`<div class="energy-month-row">
+              <span class="muted"><ha-icon icon="mdi:calendar-month"></ha-icon> ${translate('monthToDate')}</span>
+              <span class="energy-month-value">${monthToDate} ${unit}</span>
+            </div>`
+          : html``}
+        ${this.renderTrapezoidChart(combined)}
+      </section>
+    `;
+  }
+
   private renderEnergyPage(language: Language, translate: (key: TranslationKey) => string, energyValue: string, _energyUnit: string, compareValue: string, _energyBars: TemplateResult): TemplateResult {
     const sources = this._energySources.length > 0 ? this._energySources : (
       energyValue !== '--' ? [{
@@ -863,16 +933,26 @@ export class MinecraftDashboardCard extends LitElement {
       html``,
       html`
         <div class="page-body single-column energy-detail-page">
+          ${this.renderEnergyTotalCard(sources, translate)}
           ${sources.map((src) => {
-            const bars = this.renderBars(src.history);
+            const srcLabel = src.label || translate(src.key);
+            const todayNum = parseFloat(src.today);
+            const yestNum = parseFloat(src.yesterday ?? '');
+            const hasDelta = Number.isFinite(todayNum) && Number.isFinite(yestNum);
+            const delta = hasDelta ? todayNum - yestNum : NaN;
+            const up = hasDelta && delta > 0.05;
+            const down = hasDelta && delta < -0.05;
+            const deltaColor = up ? '#ff6b5a' : down ? '#4caf7d' : 'var(--sp-text-secondary,#9a9a9a)';
+            const deltaIcon = up ? 'mdi:arrow-up-bold' : down ? 'mdi:arrow-down-bold' : (hasDelta ? 'mdi:approximately-equal' : 'mdi:compare-vertical');
+            const deltaText = hasDelta ? `${delta >= 0 ? '+' : ''}${delta.toFixed(1)} ${src.unit}` : (src.yesterday || '--');
             return html`
               <section class="glass-card panel-energy page-energy-card compact-energy-card">
-                <div class="section-title"><h2><ha-icon icon="${src.icon}"></ha-icon> ${translate(src.key)}</h2></div>
+                <div class="section-title"><h2><ha-icon icon="${src.icon}"></ha-icon> ${srcLabel}</h2></div>
                 <div class="env-list compact-energy-list">
-                  <div class="env-row"><div class="dot temp"><ha-icon icon="${src.icon}"></ha-icon></div><div class="muted">${translate(src.key)}</div><div class="env-value">${src.today} ${src.unit}</div></div>
-                  <div class="env-row"><div class="dot hum"><ha-icon icon="mdi:compare-vertical"></ha-icon></div><div class="muted">${translate('compareYesterday')}</div><div class="env-value">${src.yesterday || '--'}</div></div>
+                  <div class="env-row"><div class="dot temp"><ha-icon icon="${src.icon}"></ha-icon></div><div class="muted">${srcLabel}</div><div class="env-value">${src.today} ${src.unit}</div></div>
+                  <div class="env-row"><div class="dot hum"><ha-icon icon="${deltaIcon}" style="color:${deltaColor}"></ha-icon></div><div class="muted">${translate('compareYesterday')}</div><div class="env-value" style="color:${deltaColor}">${deltaText}</div></div>
                 </div>
-                <div class="bars compact-energy-bars">${bars}</div>
+                ${this.renderTrapezoidChart(src.history, 'mini')}
               </section>
             `;
           })}
@@ -2335,6 +2415,41 @@ export class MinecraftDashboardCard extends LitElement {
       const level = value <= 0 ? 0 : Math.max(1, Math.min(10, Math.round((value / max) * 10)));
       return html`<span class="energy-bar energy-bar-level-${level}" title=${String(value)}></span>`;
     })}`;
+  }
+
+  /** SVG area/step ("梯形") chart. variant 'mini' is a shorter per-channel version. */
+  private renderTrapezoidChart(values: number[], variant: 'total' | 'mini' = 'total'): TemplateResult {
+    const W = 320;
+    const H = 96;
+    const padTop = 8;
+    const padBottom = 6;
+    const cls = variant === 'mini' ? 'energy-total-chart energy-mini-chart' : 'energy-total-chart';
+    if (!values.length) {
+      return html`<div class="energy-total-chart-empty ${variant === 'mini' ? 'energy-mini-chart-empty' : ''}">--</div>`;
+    }
+    const max = Math.max(...values, 0.1);
+    const n = values.length;
+    const usableH = H - padTop - padBottom;
+    const x = (i: number) => (n === 1 ? W / 2 : (i / (n - 1)) * W);
+    const y = (v: number) => padTop + usableH - Math.max(0, v / max) * usableH;
+    const linePts = values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+    const areaPts = `0,${H} ${linePts} ${W},${H}`;
+    const uid = `sp-eg-${Math.random().toString(36).slice(2, 8)}`;
+    return html`
+      <svg class="${cls}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img">
+        <defs>
+          <linearGradient id="${uid}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="var(--sp-accent,#ff7a45)" stop-opacity="0.42"></stop>
+            <stop offset="100%" stop-color="var(--sp-accent,#ff7a45)" stop-opacity="0.02"></stop>
+          </linearGradient>
+        </defs>
+        <polygon points="${areaPts}" fill="url(#${uid})"></polygon>
+        <polyline points="${linePts}" fill="none" stroke="var(--sp-accent,#ff7a45)" stroke-width="2"
+          stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"></polyline>
+        ${values.map((v, i) => html`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="1.6"
+          fill="var(--sp-accent,#ff7a45)"><title>${String(v)}</title></circle>`)}
+      </svg>
+    `;
   }
 
   // ─── Lifecycle actions ──────────────────────────────────

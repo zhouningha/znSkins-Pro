@@ -669,6 +669,11 @@ button {
  margin-bottom: var(--sp-space-sm);
 }
 
+/* zn fork: hide official helper subtitles on the transparent God of War home stage. */
+.stage .section-title .muted {
+ display: none;
+}
+
 /* ==========================================================================
  11. Scrollbar
  ========================================================================== */

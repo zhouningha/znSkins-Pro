@@ -66,3 +66,4 @@
 - 2026-07-11：设备隐藏名单对所有实体类型统一生效，隐藏与恢复刷新后都必须保持，禁止恢复任何 `media_player.*` 特殊排除逻辑。
 - 2026-07-11：设备页全屏 / kiosk 时不生成整个顶部控制栏；保护点为 `renderDevicesPage` 对 `filter-bar` 的 `isKioskFullscreenActive` 条件渲染。
 - 2026-07-11：首页场景选择器扩展为场景/脚本快捷模式，支持 `scene.*` 与 `script.*`，首页保持配置顺序并调用对应域的 `turn_on`。
+- 2026-07-11：首页脚本的最近执行时间必须读取 `last_changed`，不能把脚本的 `on/off` 状态当日期传给 `Intl.RelativeTimeFormat`；无效日期必须跳过时间文案，禁止导致首页白屏。

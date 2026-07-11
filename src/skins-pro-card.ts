@@ -1955,8 +1955,10 @@ export class MinecraftDashboardCard extends LitElement {
     return html`${scenes.map((scene, index) => {
       const tones: Array<'morning' | 'night' | 'movie' | 'game'> = ['morning', 'night', 'movie', 'game'];
       const name = String(scene.attributes?.friendly_name || scene.entity_id);
-      const lastActivated = scene.state && scene.state !== 'unavailable' && scene.state !== 'unknown'
-        ? formatRelativeTime(new Date(scene.state), language)
+      const timestamp = scene.entity_id.startsWith('script.') ? scene.last_changed : scene.state;
+      const activatedAt = timestamp ? new Date(timestamp) : undefined;
+      const lastActivated = activatedAt && Number.isFinite(activatedAt.getTime())
+        ? formatRelativeTime(activatedAt, language)
         : undefined;
       return html`
         <button class="scene ${tones[index % tones.length]}" @click=${() => this.runScene(scene.entity_id)}>

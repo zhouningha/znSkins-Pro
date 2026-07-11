@@ -1,4 +1,4 @@
-import { SKINS } from './skins.generated';
+import { SKINS } from './skins/generated';
 import { STRINGS } from './i18n.generated';
 import type { AreaRegistryEntry, HomeAssistant, TranslationKey, NavItemConfig } from './types';
 import { DEFAULT_NAV } from './constants';

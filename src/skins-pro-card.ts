@@ -720,11 +720,11 @@ export class MinecraftDashboardCard extends LitElement {
   private renderDevicesPage(language: Language, translate: (key: TranslationKey) => string): TemplateResult {
     const rooms = this.getDeviceRooms();
     const types = this.getDeviceTypes();
-    const showDeviceHideControls = !this.isKioskFullscreenActive();
+    const showDeviceControls = !this.isKioskFullscreenActive();
     return this.renderPageShell(
       translate('devices'),
       translate('quickControl'),
-      html`
+      showDeviceControls ? html`
         <div class="filter-bar">
           <button class="chip${this._deviceGrouping === 'area' ? ' active' : ''}" @click=${() => { this._deviceGrouping = 'area'; }}>${translate('byArea')}</button>
           <button class="chip${this._deviceGrouping === 'domain' ? ' active' : ''}" @click=${() => { this._deviceGrouping = 'domain'; }}>${translate('byType')}</button>
@@ -740,15 +740,13 @@ export class MinecraftDashboardCard extends LitElement {
             <option value="true" .selected=${this._hideUnassigned}>${translate('hideUnassigned')}</option>
             <option value="false" .selected=${!this._hideUnassigned}>${translate('showAll')}</option>
           </select>
-          ${showDeviceHideControls ? html`
-            <button class="chip${this._showHiddenDevices ? ' active' : ''}" @click=${() => { this._showHiddenDevices = !this._showHiddenDevices; }}>${translate('showHiddenDevices')}${this.getHiddenDeviceIds().length > 0 ? html` (${this.getHiddenDeviceIds().length})` : nothing}</button>
-            <button class="chip${this._deviceHideEditMode ? ' active' : ''}" @click=${() => { this._deviceHideEditMode = !this._deviceHideEditMode; }}>${language === 'zh-CN' ? '编辑隐藏' : 'Edit hidden'}</button>
-            ${this._deviceHideEditMode ? html`<span class="muted device-hide-hint" style="font-size:12px;opacity:0.85;">${translate('hideDeviceHint')}</span>` : nothing}
-          ` : nothing}
+          <button class="chip${this._showHiddenDevices ? ' active' : ''}" @click=${() => { this._showHiddenDevices = !this._showHiddenDevices; }}>${translate('showHiddenDevices')}${this.getHiddenDeviceIds().length > 0 ? html` (${this.getHiddenDeviceIds().length})` : nothing}</button>
+          <button class="chip${this._deviceHideEditMode ? ' active' : ''}" @click=${() => { this._deviceHideEditMode = !this._deviceHideEditMode; }}>${language === 'zh-CN' ? '编辑隐藏' : 'Edit hidden'}</button>
+          ${this._deviceHideEditMode ? html`<span class="muted device-hide-hint" style="font-size:12px;opacity:0.85;">${translate('hideDeviceHint')}</span>` : nothing}
           <button class="action-btn" @click=${() => this.batchControl('on', translate)}>${translate('turnOnAll')}</button>
           <button class="action-btn" @click=${() => this.batchControl('off', translate)}>${translate('turnOffAll')}</button>
         </div>
-      `,
+      ` : html``,
       html`
         <div class="page-scroll themed-scrollbar">
           ${this._deviceHideToast ? html`<div class="device-hide-toast" style="position:sticky;top:0;z-index:3;padding:10px 12px;margin:0 0 10px;border-radius:12px;background:rgba(20,10,8,0.82);color:#fff;text-align:center;font-size:13px;">${this._deviceHideToast}</div>` : nothing}

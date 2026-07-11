@@ -29,6 +29,8 @@
 - 官方楼层功能可以保留，但不能覆盖首页环境卡的房间切换逻辑
 - 空调 `climate` 卡片不能退化为只有开关：卡片主体点击必须打开 God of War 风格调温弹层，右侧开关只负责开/关；弹层读取 HA climate 属性，支持目标温度加减、模式、风速
 - 设备页长按隐藏必须受“编辑隐藏/管理隐藏”状态保护：默认浏览设备时长按不隐藏；打开编辑隐藏后才显示提示并允许长按隐藏/恢复
+- 设备页隐藏/恢复必须对所有实体类型统一持久化，`media_player.*` 不得在刷新初始化或版本迁移时被从隐藏名单剔除
+- 全屏 / kiosk 模式下设备页整个顶部控制栏都不渲染，包括房间/类型筛选、未分配筛选、隐藏管理和全部开启/关闭；退出全屏后恢复
 - 平板浏览器全屏 / kiosk 模式必须铺满真实可视高度，不能露出底边；保护点为 `visualViewport.height`、`data-kiosk-fullscreen`、God of War 主题里的 `tablet browser fullscreen must fill the real viewport` 覆盖规则
 - 平板 kiosk 适配
 - 深色启动页和“正在启动中”显示
@@ -60,3 +62,5 @@
 - 2026-07-08：空调调温弹层：`climate` 设备卡主体点击使用 `climate-control` 动作打开弹层，保留开关独立开/关；弹层用 `climate.set_temperature`、`set_hvac_mode`、`set_fan_mode`，样式类为 `climate-control-*`。
 - 2026-07-08：部署缓存保护：部署脚本必须同步 `skins-pro` 与 `znSkins-Pro`，并更新 `/config/.storage/lovelace_resources` 中 `skins-pro.js?hacstag=...&build=...`；只上传文件但不更新 resource URL 会导致清浏览器历史也继续无效。
 - 2026-07-08：God of War 主背景替换为战神熔岩神殿远景：`background.jpg` 从 `source-gow-4k-bg.png` 生成，保留右侧战神雕像和神殿/熔岩主体；禁止回退到山景奥林匹斯远景或巨人脸特写。
+- 2026-07-11：设备隐藏名单对所有实体类型统一生效，隐藏与恢复刷新后都必须保持，禁止恢复任何 `media_player.*` 特殊排除逻辑。
+- 2026-07-11：设备页全屏 / kiosk 时不生成整个顶部控制栏；保护点为 `renderDevicesPage` 对 `filter-bar` 的 `isKioskFullscreenActive` 条件渲染。

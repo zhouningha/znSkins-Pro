@@ -1,6 +1,6 @@
 import type { HomeAssistant, DashboardConfig, TranslationKey, HassEntity } from './types';
 import type { Language } from './i18n.generated';
-import { SKINS, DEFAULT_SKIN, SKIN_STRINGS, SKIN_ICON_MAPS } from './skins.generated';
+import { SKINS, DEFAULT_SKIN, SKIN_STRINGS, SKIN_ICON_MAPS } from './skins/generated';
 import { DEFAULT_ASSETS } from './constants';
 import { STRINGS } from './i18n.generated';
 import { BUILD_VERSION } from './version.generated';

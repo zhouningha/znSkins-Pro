@@ -1942,10 +1942,13 @@ export class MinecraftDashboardCard extends LitElement {
   private renderRealScenes(language: Language, limit = 12, selectedScenes: string[] = []): TemplateResult | typeof nothing {
     if (!this._hass) return nothing;
 
-    const scenes = Object.values(this._hass.states)
-      .filter((entity): entity is HassEntity => Boolean(entity?.entity_id?.startsWith('scene.')))
-      .filter((entity) => selectedScenes.length === 0 || selectedScenes.includes(entity.entity_id))
-      .slice(0, limit);
+    const available = Object.values(this._hass.states)
+      .filter((entity): entity is HassEntity => Boolean(entity && /^(scene|script)\./.test(entity.entity_id)));
+    const byId = new Map(available.map((entity) => [entity.entity_id, entity]));
+    const scenes = (selectedScenes.length > 0
+      ? selectedScenes.map((entityId) => byId.get(entityId)).filter((entity): entity is HassEntity => Boolean(entity))
+      : available
+    ).slice(0, limit);
 
     if (scenes.length === 0) return nothing;
 
@@ -2719,7 +2722,9 @@ export class MinecraftDashboardCard extends LitElement {
   }
 
   private async runScene(entityId: string): Promise<void> {
-    await this._hass?.callService('scene', 'turn_on', { entity_id: entityId });
+    const domain = entityId.split('.')[0];
+    if (domain !== 'scene' && domain !== 'script') return;
+    await this._hass?.callService(domain, 'turn_on', { entity_id: entityId });
   }
 
   private async toggleEntity(entityId: string): Promise<void> {

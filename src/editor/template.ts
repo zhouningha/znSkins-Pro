@@ -99,7 +99,7 @@ export function renderEditorTemplate(data: EditorTemplateData): string {
       <div class="sp-row">
         <div class="sp-card">
           <h3>${loc('editorHomeScenes')}</h3>
-          ${listPicker(loc('scenes'), 'home_selection.scenes', hs.scenes || [], ['scene'], hl.scenes || 6)}
+          ${listPicker(`${loc('scenes')} / Scripts`, 'home_selection.scenes', hs.scenes || [], ['scene', 'script'], hl.scenes || 6)}
         </div>
         <div class="sp-card">
           <h3>${loc('editorHomeEnv')}</h3>

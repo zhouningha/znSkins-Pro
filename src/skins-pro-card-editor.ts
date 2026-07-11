@@ -400,7 +400,7 @@ export class SkinsProCardEditor extends HTMLElement {
         <div class="sp-row">
           <div class="sp-card">
             <h3>${this._loc('editorHomeScenes')}</h3>
-            ${this.listPicker('Scenes', 'home_selection.scenes', hs.scenes || [], ['scene'], hl.scenes || 6)}
+            ${this.listPicker('Scenes / Scripts', 'home_selection.scenes', hs.scenes || [], ['scene', 'script'], hl.scenes || 6)}
           </div>
           <div class="sp-card">
             <h3>${this._loc('editorHomeEnv')}</h3>

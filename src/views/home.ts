@@ -208,10 +208,13 @@ function renderRealScenes(
   limit = 12,
   selectedScenes: string[] = [],
 ): TemplateResult | typeof nothing {
-  const scenes = Object.values(ctx.hass.states)
-    .filter((entity): entity is HassEntity => Boolean(entity?.entity_id?.startsWith('scene.')))
-    .filter((entity) => selectedScenes.length === 0 || selectedScenes.includes(entity.entity_id))
-    .slice(0, limit);
+  const available = Object.values(ctx.hass.states)
+    .filter((entity): entity is HassEntity => Boolean(entity && /^(scene|script)\./.test(entity.entity_id)));
+  const byId = new Map(available.map((entity) => [entity.entity_id, entity]));
+  const scenes = (selectedScenes.length > 0
+    ? selectedScenes.map((entityId) => byId.get(entityId)).filter((entity): entity is HassEntity => Boolean(entity))
+    : available
+  ).slice(0, limit);
 
   if (scenes.length === 0) return nothing;
 

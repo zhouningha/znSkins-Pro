@@ -3,11 +3,18 @@ import type { TemplateResult } from 'lit';
 
 import type { HomeAssistant, TranslationKey } from '../types';
 
-const PRE_MUTE_VOLUMES = new WeakMap<object, number>();
+const MUSIC_SOURCE_ENTITY = 'input_select.living_room_music_source';
+const MUSIC_PLAYLISTS: Record<string, string> = {
+  '低锥': 'library://playlist/12',
+  '快速播放': 'library://playlist/11',
+  '喜爱歌曲': 'library://playlist/9',
+  'Homekitzhou喜欢的音乐': 'library://playlist/10',
+};
 
 export function renderMediaPlayer(
   hass: HomeAssistant,
   entityId: string | undefined,
+  configuredControlId: string | undefined,
   translate: (key: TranslationKey) => string,
 ): TemplateResult | typeof nothing {
   if (!entityId) return nothing;
@@ -32,29 +39,56 @@ export function renderMediaPlayer(
   const artist = attrs.media_artist as string | undefined;
   const albumArt = attrs.entity_picture as string | undefined;
   const source = (attrs.app_name as string) || (attrs.source as string) || '';
-  const isPlaying = state === 'playing';
-  const vol = attrs.volume_level as number | undefined;
-  const volZero = vol !== undefined && vol === 0;
+  const baseEntityId = entityId.replace(/_\d+$/, '');
+  const controlEntityId = configuredControlId && hass.states?.[configuredControlId]
+    ? configuredControlId
+    : baseEntityId !== entityId && hass.states?.[baseEntityId] ? baseEntityId : entityId;
+  const controlStateObj = hass.states?.[controlEntityId];
+  const baseState = controlStateObj?.state;
+  const effectiveState = state === 'playing' || state === 'paused' ? state : baseState || state;
+  const isPlaying = effectiveState === 'playing';
+  const hasQueue = Boolean(attrs.media_title || attrs.media_content_id || attrs.active_queue);
+  const playbackLabel = isPlaying ? '正在播放' : effectiveState === 'paused' || hasQueue ? '已暂停' : '待播放';
+  const controlAttrs = controlStateObj?.attributes || attrs;
+  const vol = controlAttrs.volume_level as number | undefined;
+  const isMuted = Boolean(controlAttrs.is_volume_muted);
+  const volZero = isMuted || vol !== undefined && vol === 0;
   const volPct = vol !== undefined ? Math.round(vol * 100) : undefined;
+  const playlistState = hass.states?.[MUSIC_SOURCE_ENTITY];
+  const playlistOptions = Array.isArray(playlistState?.attributes?.options)
+    ? (playlistState.attributes.options as string[]).filter((option) => MUSIC_PLAYLISTS[option])
+    : [];
+  const selectedPlaylist = String(playlistState?.state || '');
+  const playPlaylist = async (playlist: string) => {
+    const mediaId = MUSIC_PLAYLISTS[playlist];
+    if (!mediaId) return;
+    await hass.callService('input_select', 'select_option', { entity_id: MUSIC_SOURCE_ENTITY, option: playlist });
+    await hass.callService('music_assistant', 'play_media', {
+      entity_id: entityId,
+      media_id: mediaId,
+      media_type: 'playlist',
+      enqueue: 'replace',
+    });
+  };
   const handleVolTrack = (e: MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    hass.callService('media_player', 'volume_set', { entity_id: entityId, volume_level: pct });
+    const rawPct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const pct = Math.round(rawPct / 5) * 5 / 100;
+    hass.callService('media_player', 'volume_set', { entity_id: controlEntityId, volume_level: pct });
   };
   const handleMute = () => {
-    if (vol !== undefined) {
-      if (vol > 0) {
-        PRE_MUTE_VOLUMES.set(stateObj, vol);
-        hass.callService('media_player', 'volume_set', { entity_id: entityId, volume_level: 0 });
-      } else {
-        const restored = PRE_MUTE_VOLUMES.get(stateObj) ?? 0.3;
-        hass.callService('media_player', 'volume_set', { entity_id: entityId, volume_level: restored });
-      }
-    }
+    hass.callService('media_player', 'volume_mute', { entity_id: controlEntityId, is_volume_muted: !isMuted });
   };
   return html`
     <section class="glass-card panel-media">
-      <div class="section-title"><h2>${translate('mediaPlayer')}</h2></div>
+      <div class="section-title media-title-row">
+        <h2>${translate('mediaPlayer')}</h2>
+        ${playlistOptions.length > 0 ? html`
+          <select class="media-playlist-select" aria-label="歌曲分区" @change=${(e: Event) => void playPlaylist((e.target as HTMLSelectElement).value)}>
+            ${playlistOptions.map((option) => html`<option value=${option} .selected=${option === selectedPlaylist}>${option}</option>`)}
+          </select>
+        ` : nothing}
+      </div>
       <div class="media-content">
         <div class="media-row">
           ${albumArt ? html`<div class="media-cover"><img alt="" src=${albumArt}></div>` : html`<div class="media-cover media-cover-null"><ha-icon icon="mdi:music"></ha-icon></div>`}
@@ -62,10 +96,11 @@ export function renderMediaPlayer(
             <div class="media-title">${title}</div>
             ${artist ? html`<div class="media-artist">${artist}</div>` : ''}
             ${source ? html`<div class="media-source">${source}</div>` : ''}
+            <div class="media-playback-state ${isPlaying ? 'playing' : ''}"><span></span>${playbackLabel}</div>
           </div>
           <div class="media-actions">
             <button class="media-btn" @click=${() => hass.callService('media_player', 'media_previous_track', { entity_id: entityId })} title=${translate('previous')}><ha-icon icon="mdi:skip-previous"></ha-icon></button>
-            <button class="media-btn media-playbtn" @click=${() => hass.callService('media_player', 'media_play_pause', { entity_id: entityId })} title=${isPlaying ? translate('pause') : translate('play')}><ha-icon icon=${isPlaying ? 'mdi:pause-circle' : 'mdi:play-circle'}></ha-icon></button>
+            <button class="media-btn media-playbtn" @click=${() => hass.callService('media_player', isPlaying ? 'media_pause' : 'media_play', { entity_id: entityId })} title=${isPlaying ? translate('pause') : translate('play')}><ha-icon icon=${isPlaying ? 'mdi:pause-circle' : 'mdi:play-circle'}></ha-icon></button>
             <button class="media-btn" @click=${() => hass.callService('media_player', 'media_next_track', { entity_id: entityId })} title=${translate('next')}><ha-icon icon="mdi:skip-next"></ha-icon></button>
           </div>
         </div>

@@ -150,6 +150,7 @@ export interface EnergyConfig {
 
 export interface MediaPlayerConfig {
   entity?: string;
+  control_entity?: string;
 }
 
 export interface CameraConfig {

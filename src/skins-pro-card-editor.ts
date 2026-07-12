@@ -366,7 +366,8 @@ export class SkinsProCardEditor extends HTMLElement {
           </div>
           <div class="sp-card">
             <h3>${this._loc('editorMediaPlayer')}</h3>
-            ${this.entityPicker('Media Player', 'media_player.entity', c.media_player?.entity || '', ['media_player'])}
+            ${this.entityPicker('歌曲与队列', 'media_player.entity', c.media_player?.entity || '', ['media_player'])}
+            ${this.entityPicker('播放与音量控制', 'media_player.control_entity', c.media_player?.control_entity || '', ['media_player'])}
           </div>
           <div class="sp-card">
             <h3>${this._loc('editorCamera')}</h3>

@@ -66,6 +66,13 @@ import { getMaintenanceItems } from './maintenance';
 import { enableKiosk, isKioskLocked, setKioskLocked, toggleKiosk } from './kiosk';
 
 const CONTROLLABLE_DOMAINS = new Set(['light', 'switch', 'fan', 'cover', 'valve', 'media_player', 'lock', 'climate', 'vacuum', 'humidifier', 'water_heater', 'siren', 'automation', 'group', 'input_boolean']);
+const MUSIC_SOURCE_ENTITY = 'input_select.living_room_music_source';
+const MUSIC_PLAYLISTS: Record<string, string> = {
+  '低锥': 'library://playlist/12',
+  '快速播放': 'library://playlist/11',
+  '喜爱歌曲': 'library://playlist/9',
+  'Homekitzhou喜欢的音乐': 'library://playlist/10',
+};
 
 export class MinecraftDashboardCard extends LitElement {
   private _config?: DashboardConfig;
@@ -79,6 +86,9 @@ export class MinecraftDashboardCard extends LitElement {
   @state() private _showHiddenDevices = false;
   @state() private _deviceHideEditMode = false;
   @state() private _deviceHideToast = '';
+  @state() private _mediaPending = false;
+  @state() private _mediaError = '';
+  @state() private _mediaAssumedPlaying: boolean | undefined;
 
   @state() private _doorConfirm?: {
     entityId: string;
@@ -136,7 +146,6 @@ export class MinecraftDashboardCard extends LitElement {
   private _autoFullscreenDone = false;
   private _autoFullscreenAttempts = 0;
   private static readonly AUTO_FULLSCREEN_MAX = 40;
-  private _preMuteVolume = 0.3;
   private readonly _handleWindowResize = () => this.applyLayoutHeight();
 
   public get hass(): HomeAssistant | undefined {
@@ -1001,28 +1010,45 @@ export class MinecraftDashboardCard extends LitElement {
     const artist = attrs.media_artist as string | undefined;
     const albumArt = attrs.entity_picture as string | undefined;
     const source = (attrs.app_name as string) || (attrs.source as string) || '';
-    const isPlaying = state === 'playing';
-    const vol = attrs.volume_level as number | undefined;
-    const volZero = vol !== undefined && vol === 0;
+    const baseEntityId = entityId.replace(/_\d+$/, '');
+    const configuredControlId = this._config?.media_player?.control_entity;
+    const controlEntityId = configuredControlId && this._hass?.states?.[configuredControlId]
+      ? configuredControlId
+      : baseEntityId !== entityId && this._hass?.states?.[baseEntityId] ? baseEntityId : entityId;
+    const controlStateObj = this._hass?.states?.[controlEntityId];
+    const baseState = controlStateObj?.state;
+    const effectiveState = state === 'playing' || state === 'paused' ? state : baseState || state;
+    const storedPlaying = window.localStorage.getItem(`skins-pro-media-playing:${entityId}`) === '1';
+    const isPlaying = effectiveState === 'playing' || (this._mediaAssumedPlaying ?? storedPlaying);
+    const hasQueue = Boolean(attrs.media_title || attrs.media_content_id || attrs.active_queue);
+    const playbackLabel = this._mediaPending ? '正在连接' : isPlaying ? '正在播放' : effectiveState === 'paused' || hasQueue ? '已暂停' : '待播放';
+    const controlAttrs = controlStateObj?.attributes || attrs;
+    const vol = controlAttrs.volume_level as number | undefined;
+    const isMuted = Boolean(controlAttrs.is_volume_muted);
+    const volZero = isMuted || vol !== undefined && vol === 0;
     const volPct = vol !== undefined ? Math.round(vol * 100) : undefined;
-    const handleVolTrack = (e: MouseEvent) => {
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      this._hass?.callService('media_player', 'volume_set', { entity_id: entityId, volume_level: pct });
+    const playlistState = this._hass?.states?.[MUSIC_SOURCE_ENTITY];
+    const playlistOptions = Array.isArray(playlistState?.attributes?.options)
+      ? (playlistState.attributes.options as string[]).filter((option) => MUSIC_PLAYLISTS[option])
+      : [];
+    const selectedPlaylist = String(playlistState?.state || '');
+    const adjustVolume = (delta: number) => {
+      const next = Math.max(0, Math.min(1, Math.round(((vol || 0) + delta) * 20) / 20));
+      this._hass?.callService('media_player', 'volume_set', { entity_id: controlEntityId, volume_level: next });
     };
     const handleMute = () => {
-      if (vol !== undefined) {
-        if (vol > 0) {
-          this._preMuteVolume = vol;
-          this._hass?.callService('media_player', 'volume_set', { entity_id: entityId, volume_level: 0 });
-        } else {
-          this._hass?.callService('media_player', 'volume_set', { entity_id: entityId, volume_level: this._preMuteVolume });
-        }
-      }
+      this._hass?.callService('media_player', 'volume_mute', { entity_id: controlEntityId, is_volume_muted: !isMuted });
     };
     return html`
       <section class="glass-card panel-media">
-        <div class="section-title"><h2>${translate('mediaPlayer')}</h2></div>
+        <div class="section-title media-title-row">
+          <h2>${translate('mediaPlayer')}</h2>
+          ${playlistOptions.length > 0 ? html`
+            <select class="media-playlist-select" aria-label="歌曲分区" ?disabled=${this._mediaPending} @change=${(e: Event) => void this.playMusicPlaylist(entityId, (e.target as HTMLSelectElement).value)}>
+              ${playlistOptions.map((option) => html`<option value=${option} .selected=${option === selectedPlaylist}>${option}</option>`)}
+            </select>
+          ` : nothing}
+        </div>
         <div class="media-content">
           <div class="media-row">
             ${albumArt ? html`<div class="media-cover"><img alt="" src=${albumArt}></div>` : html`<div class="media-cover media-cover-null"><ha-icon icon="mdi:music"></ha-icon></div>`}
@@ -1030,21 +1056,129 @@ export class MinecraftDashboardCard extends LitElement {
               <div class="media-title">${title}</div>
               ${artist ? html`<div class="media-artist">${artist}</div>` : ''}
               ${source ? html`<div class="media-source">${source}</div>` : ''}
+              <div class="media-playback-state ${isPlaying ? 'playing' : ''} ${this._mediaPending ? 'pending' : ''}"><span></span>${playbackLabel}</div>
+              ${this._mediaError ? html`<div class="media-playback-error">${this._mediaError}</div>` : nothing}
             </div>
             <div class="media-actions">
-              <button class="media-btn" @click=${() => this._hass?.callService('media_player', 'media_previous_track', { entity_id: entityId })} title="Previous"><ha-icon icon="mdi:skip-previous"></ha-icon></button>
-              <button class="media-btn media-playbtn" @click=${() => this._hass?.callService('media_player', 'media_play_pause', { entity_id: entityId })} title=${isPlaying ? 'Pause' : 'Play'}><ha-icon icon=${isPlaying ? 'mdi:pause-circle' : 'mdi:play-circle'}></ha-icon></button>
-              <button class="media-btn" @click=${() => this._hass?.callService('media_player', 'media_next_track', { entity_id: entityId })} title="Next"><ha-icon icon="mdi:skip-next"></ha-icon></button>
+              <button class="media-btn" @click=${() => void this.handleMediaTrack(entityId, 'media_previous_track')} title="Previous"><ha-icon icon="mdi:skip-previous"></ha-icon></button>
+              <button class="media-btn media-playbtn" ?disabled=${this._mediaPending} @click=${() => void this.handleMediaPlayback(entityId, isPlaying, hasQueue, selectedPlaylist)} title=${isPlaying ? 'Pause' : 'Play'}><ha-icon icon=${this._mediaPending ? 'mdi:loading' : isPlaying ? 'mdi:pause-circle' : 'mdi:play-circle'}></ha-icon></button>
+              <button class="media-btn" @click=${() => void this.handleMediaTrack(entityId, 'media_next_track')} title="Next"><ha-icon icon="mdi:skip-next"></ha-icon></button>
             </div>
           </div>
           ${volPct !== undefined ? html`
           <div class="media-row media-volrow">
             <button class="media-volbtn" @click=${handleMute}><ha-icon icon=${volZero ? 'mdi:volume-off' : 'mdi:volume-high'}></ha-icon></button>
-            <div class="media-voltrack" @click=${handleVolTrack}><div class="media-volfill" style="width:${volPct}%"></div></div>
+            <button class="media-volume-step" @click=${() => adjustVolume(-0.05)} aria-label="音量减小"><ha-icon icon="mdi:minus"></ha-icon></button>
+            <span class="media-volume-value">${volPct}%</span>
+            <button class="media-volume-step" @click=${() => adjustVolume(0.05)} aria-label="音量增大"><ha-icon icon="mdi:plus"></ha-icon></button>
           </div>` : ''}
         </div>
       </section>
     `;
+  }
+
+  private async playMusicPlaylist(entityId: string, playlist: string): Promise<void> {
+    const mediaId = MUSIC_PLAYLISTS[playlist];
+    if (!mediaId || !this._hass || this._mediaPending) return;
+    this._mediaPending = true;
+    this._mediaError = '';
+    try {
+      await this._hass.callService('input_select', 'select_option', {
+        entity_id: MUSIC_SOURCE_ENTITY,
+        option: playlist,
+      });
+      await this._hass.callService('music_assistant', 'play_media', {
+        entity_id: entityId,
+        media_id: mediaId,
+        media_type: 'playlist',
+        enqueue: 'replace',
+      });
+      this.setMediaAssumedPlaying(entityId, true);
+    } catch (_error) {
+      this._mediaError = '播放失败，请检查 Music Assistant 和功放连接';
+    } finally {
+      this._mediaPending = false;
+    }
+  }
+
+  private async handleMediaPlayback(entityId: string, isPlaying: boolean, hasQueue: boolean, selectedPlaylist: string): Promise<void> {
+    if (!this._hass || this._mediaPending) return;
+    this._mediaPending = true;
+    this._mediaError = '';
+    try {
+      if (isPlaying) {
+        await this._hass.callService('media_player', 'media_pause', { entity_id: entityId });
+        this.setMediaAssumedPlaying(entityId, false);
+      } else if (hasQueue) {
+        await this._hass.callService('media_player', 'media_play', { entity_id: entityId });
+        this.setMediaAssumedPlaying(entityId, true);
+      } else if (MUSIC_PLAYLISTS[selectedPlaylist]) {
+        await this._hass.callService('music_assistant', 'play_media', {
+          entity_id: entityId,
+          media_id: MUSIC_PLAYLISTS[selectedPlaylist],
+          media_type: 'playlist',
+          enqueue: 'replace',
+        });
+        this.setMediaAssumedPlaying(entityId, true);
+      } else {
+        this._mediaError = '请先选择一个歌单';
+      }
+    } catch (_error) {
+      if (!isPlaying && this._hass) {
+        try {
+          const currentMediaId = String(this._hass.states?.[entityId]?.attributes?.media_content_id || '');
+          if (!currentMediaId) throw new Error('Missing current track');
+          await this._hass.callService('music_assistant', 'play_media', {
+            entity_id: entityId,
+            media_id: currentMediaId,
+            media_type: 'track',
+            enqueue: 'replace',
+          });
+          this.setMediaAssumedPlaying(entityId, true);
+          return;
+        } catch (_retryError) {
+          if (MUSIC_PLAYLISTS[selectedPlaylist]) {
+            try {
+              await this._hass.callService('music_assistant', 'play_media', {
+                entity_id: entityId,
+                media_id: MUSIC_PLAYLISTS[selectedPlaylist],
+                media_type: 'playlist',
+                enqueue: 'replace',
+              });
+              this.setMediaAssumedPlaying(entityId, true);
+              return;
+            } catch (_playlistError) {
+              this._mediaError = '当前歌曲链接已过期，重新加载歌曲失败';
+            }
+          } else {
+            this._mediaError = '当前歌曲链接已过期，重新加载歌曲失败';
+          }
+        }
+      } else {
+        this._mediaError = 'Music Assistant 暂停失败';
+      }
+    } finally {
+      this._mediaPending = false;
+    }
+  }
+
+  private setMediaAssumedPlaying(entityId: string, playing: boolean): void {
+    this._mediaAssumedPlaying = playing;
+    window.localStorage.setItem(`skins-pro-media-playing:${entityId}`, playing ? '1' : '0');
+  }
+
+  private async handleMediaTrack(entityId: string, service: 'media_previous_track' | 'media_next_track'): Promise<void> {
+    if (!this._hass || this._mediaPending) return;
+    this._mediaPending = true;
+    this._mediaError = '';
+    try {
+      await this._hass.callService('media_player', service, { entity_id: entityId });
+      this.setMediaAssumedPlaying(entityId, true);
+    } catch (_error) {
+      this._mediaError = '切歌失败，请检查 Music Assistant 连接';
+    } finally {
+      this._mediaPending = false;
+    }
   }
 
   private renderMaintenanceCard(language: Language, translate: (key: TranslationKey) => string): TemplateResult | typeof nothing {

@@ -77,7 +77,8 @@ export function renderEditorTemplate(data: EditorTemplateData): string {
         </div>
         <div class="sp-card">
           <h3>${loc('editorMediaPlayer')}</h3>
-          ${entityPicker(loc('editorMediaPlayer'), 'media_player.entity', c.media_player?.entity || '', ['media_player'])}
+          ${entityPicker(data.language === 'zh-CN' ? '歌曲与队列' : 'Track and queue', 'media_player.entity', c.media_player?.entity || '', ['media_player'])}
+          ${entityPicker(data.language === 'zh-CN' ? '播放与音量控制' : 'Playback and volume', 'media_player.control_entity', c.media_player?.control_entity || '', ['media_player'])}
         </div>
         <div class="sp-card">
           <h3>${loc('editorCamera')}</h3>

@@ -105,7 +105,7 @@ export function renderHomeView(
           <div class="env-list">${renderEnvironment(ctx.config, ctx.hass, ctx.areas, ctx.entityRegistry, ctx.deviceRegistry, ctx.floors, ctx.language)}</div>
         </section>`}
         ${renderHomeEnergyCard(ctx, energyValue, energyUnit, compareValue, energyBars)}
-        ${renderMediaPlayer(ctx.hass, ctx.config.media_player?.entity, ctx.translate)}
+        ${renderMediaPlayer(ctx.hass, ctx.config.media_player?.entity, ctx.config.media_player?.control_entity, ctx.translate)}
         ${renderMaintenanceCard(ctx.hass, ctx.translate)}
         <section class="glass-card panel-scenes" data-section="scenes">
           <div class="section-title"><h2>${ctx.translate('scenes')}</h2><p class="muted">${ctx.translate('modes')}</p></div>

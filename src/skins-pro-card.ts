@@ -1451,9 +1451,9 @@ export class MinecraftDashboardCard extends LitElement {
           ${volPct !== undefined ? html`
           <div class="media-row media-volrow">
             <button class="media-volbtn" @click=${handleMute}><ha-icon icon=${volZero ? 'mdi:volume-off' : 'mdi:volume-high'}></ha-icon></button>
-            <button class="media-volume-step" style="-webkit-appearance:none;appearance:none;box-sizing:border-box;width:38px;height:38px;min-width:38px;min-height:38px;padding:0;border:1px solid rgba(255,190,61,.34);border-radius:50%;background:rgba(66,22,16,.72);color:#fff0d6" @click=${() => adjustVolume(-0.05)} aria-label="音量减小"><ha-icon icon="mdi:minus"></ha-icon></button>
+            <button class="media-volume-step" style="-webkit-appearance:none;appearance:none;box-sizing:border-box;width:54px;height:54px;min-width:54px;min-height:54px;padding:0;border:1px solid rgba(255,190,61,.34);border-radius:50%;background:rgba(66,22,16,.72);color:#fff0d6" @click=${() => adjustVolume(-0.05)} aria-label="音量减小"><ha-icon icon="mdi:minus"></ha-icon></button>
             <span class="media-volume-value">${volPct}%</span>
-            <button class="media-volume-step" style="-webkit-appearance:none;appearance:none;box-sizing:border-box;width:38px;height:38px;min-width:38px;min-height:38px;padding:0;border:1px solid rgba(255,190,61,.34);border-radius:50%;background:rgba(66,22,16,.72);color:#fff0d6" @click=${() => adjustVolume(0.05)} aria-label="音量增大"><ha-icon icon="mdi:plus"></ha-icon></button>
+            <button class="media-volume-step" style="-webkit-appearance:none;appearance:none;box-sizing:border-box;width:54px;height:54px;min-width:54px;min-height:54px;padding:0;border:1px solid rgba(255,190,61,.34);border-radius:50%;background:rgba(66,22,16,.72);color:#fff0d6" @click=${() => adjustVolume(0.05)} aria-label="音量增大"><ha-icon icon="mdi:plus"></ha-icon></button>
           </div>` : ''}
         </div>
       </section>

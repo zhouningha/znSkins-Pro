@@ -21,6 +21,9 @@
 - 房间卡图片加载失败时不能出现浏览器蓝色问号；确认 `hideBrokenImage` 和房间/头像图片的 `@error` 兜底仍在
 - 首页背景、头像、设备图标不丢失
 - 圆角自绘开关正常显示，不变方块
+- God of War 媒体播放器外层四角保持圆角，内部内容未溢出；确认 `.glass-card,.time-card` 同时存在 `border-radius: var(--sp-radius-lg)` 和 `overflow: hidden`
+- God of War 媒体播放器歌单下拉框保持深色胶囊圆角，音量减/加按钮保持深色圆形；在 Android WebView 上确认没有系统白色方框，并检查两类控件均有 `-webkit-appearance: none` 与 `appearance: none`
+- 切换到 God of War 后，`resource_pack.base_path` 必须为 `/local/skins-pro/god_of_war_3_wall/`，并确认 HTTP 200；不得指向不存在的 `/local/community/skins-pro/god_of_war_3_wall/`，否则会显示未样式化页面
 - 点击开关仍能控制设备
 - 点击切换房间可用
 - 当前房间名正常显示
@@ -43,6 +46,12 @@
 - 屏保/黑屏逻辑正常
 - 场景框高度正常
 - 场景框高度跟随官方房间/产品卡真实高度，不使用固定像素猜测
+- 1080p 平板墙控首页场景保持一行两卡；配置超过 2 项时能在场景区域左右滑动，横向吸附正常且不显示滚动条
+- My-Home 配置的 4 个快捷方式按顺序可达：离场、KTV、芝度观影、Apple TV；不能只显示首屏两项，也不能把后两项排到被裁切的第二行
+- Mac/桌面浏览器与其他官方皮肤不受 God of War `data-wall-panel="1080p"` 横滑规则影响
+- 从 God of War 切换到任一官方皮肤后，host 不再保留 God of War 专属属性和尺寸变量，卡片位置、侧栏高度和 overflow 恢复官方响应式布局；切回 God of War 后墙控布局重新生效
+- 官方皮肤验证时检查 host 没有内联 `--sp-runtime-height` 或 `--sp-runtime-min-height`；官方布局高度、横竖屏与断点必须只由该主题 CSS 决定
+- Kiosk APK 源码和最终 APK 不得全局注入固定 viewport；必须只设置 `__skinsProKioskAndroid`。在 Android Kiosk 中切换主题验证：God of War 使用 1920×1080，官方皮肤恢复原 viewport，来回切换均不能半屏或错位
 - 媒体播放器高度正常
 - 媒体播放器左上标题栏显示歌曲分区；切换分区后 `input_select.living_room_music_source` 更新并由 Music Assistant 播放对应歌单
 - 音乐播放时卡片显示“正在播放”和闪动状态点，中间按钮为暂停；点击暂停不能从头重播，暂停后显示“已暂停”，再次点击只继续当前队列
@@ -73,6 +82,8 @@
 - `downloaded_skins` 必须包含 `god_of_war_3_wall`（否则编辑器下拉只有 modern）
 - `base_path` 与当前安装方式一致（`__AUTO__`）
 - Lovelace resources 里的 `skins-pro.js` URL 必须更新到当前 `dist/version.json` 的 `build`，不能停留旧 `hacstag/build`
+- 安卓 Kiosk 的设备页必须保留 `data-android-kiosk` 环境标记、16 张分页，以及 `.device` 的低合成成本和离屏延迟绘制规则，避免旧 WebView 超出 tile memory 上限后丢失卡片内容；Mac 不分页
+- 构建完成后检查最终待部署的 `god_of_war_3_wall/theme.css`，必须同时包含 `grid-auto-flow: column`、`grid-template-rows: minmax(0, 1fr)` 和 `scroll-snap-type: x mandatory`；若 `build-skins.cjs` 用发行包基线覆盖 `dist`，不得部署缺少这些标记的产物
 - `znSkins-Pro` 镜像目录必须同步到与 `skins-pro` 同版本
 - 优先使用 `scripts/deploy-ha-god-war.sh` 一键部署；恢复步骤见 `HA_RESTORE.md`
 - HA `core check` 通过

@@ -1,6 +1,9 @@
 import { SKINS } from '../skins/generated';
 
 export type DashboardConfigRecord = Record<string, any>;
+const CUSTOM_SKIN_BASE_PATHS: Record<string, string> = {
+  god_of_war_3_wall: '/local/skins-pro/god_of_war_3_wall/',
+};
 
 export function fire(el: HTMLElement, config: DashboardConfigRecord): void {
   el.dispatchEvent(new CustomEvent('config-changed', {
@@ -74,9 +77,8 @@ export function applySkin(el: HTMLElement, current: DashboardConfigRecord, skin:
   const next = deepClone(current);
   next.resource_pack = next.resource_pack || {};
   next.resource_pack.skin = skin;
-  if (SKINS.includes(skin)) {
-    next.resource_pack.base_path = '__AUTO__';
-  }
+  next.resource_pack.base_path = CUSTOM_SKIN_BASE_PATHS[skin]
+    || (SKINS.includes(skin) ? '__AUTO__' : `/local/skins-pro/${skin}/`);
   fire(el, next);
   return next;
 }

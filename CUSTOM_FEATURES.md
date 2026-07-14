@@ -22,6 +22,9 @@
 - 房间卡图片必须有破图兜底：保留 `hideBrokenImage` 和房间/头像 `<img @error=...>` 处理，任何资源路径短暂失效时不能显示浏览器蓝色问号，只能隐藏破图并使用卡片背景兜底
 - God of War 视觉偏好：深色暗红玻璃侧边栏 + 更强背景压暗（见 `HA_RESTORE.md`）
 - 圆角自绘开关：使用主题 `.switch` 样式，不直接依赖会破坏视觉的 `ha-control-switch`
+- God of War 媒体播放器外层必须保持主题圆角，并裁切内部背景、封面和动态内容：`.glass-card,.time-card` 保留 `border-radius: var(--sp-radius-lg)` 与 `overflow: hidden`；不得因切换主题、构建或原生控件样式覆盖而变成直角面板
+- God of War 媒体播放器的歌单下拉框与音量减/加按钮必须在 Android WebView 中保持深色圆角控件；`.media-playlist-select` 和 `.media-volume-step` 必须同时设置 `-webkit-appearance: none`、`appearance: none` 与明确的 `border-radius`，禁止退化为系统白色方框
+- God of War 是唯一的本地定制皮肤包，资源路径固定为 `/local/skins-pro/god_of_war_3_wall/`，并由 `znSkins-Pro/skins-pro/god_of_war_3_wall/` 同步部署；不能指向不存在的 `/local/community/skins-pro/god_of_war_3_wall/`，否则整份主题 CSS 会 404 并退化为未样式化页面
 - 点击切换房间
 - 当前房间名显示
 - 首页环境卡按“房间/区域”切换，不按官方默认楼层静态分组
@@ -46,6 +49,12 @@
 - 音量控制使用静音、减 5%、当前百分比、加 5% 四个固定控件，不使用可拖动或点击任意位置跳变的音量进度条；所有音量和静音命令只发给天龙 `control_entity`。
 - 编辑器媒体播放器必须分别配置“歌曲与队列”实体和“播放与音量控制”实体；`control_entity` 优先，实体名去尾号自动识别只作兜底
 - 首页场景框高度必须跟随官方房间/产品卡渲染后的真实高度，不写死像素值；官方结构变更时先重新取官方卡片高度，再同步场景框
+- God of War 1080p 墙控首页场景必须保持“一行两卡、超出向右分页”的横向滑动：使用 `data-wall-panel="1080p"` 限定作用域，场景容器采用横向 overflow 和 scroll snap；不能恢复成两行后被面板裁切，也不能用固定像素高度猜卡片尺寸
+- 普通 Mac/桌面浏览器和其他官方皮肤不能继承 God of War 墙控专属横滑规则；墙控专属适配必须留在 `god_of_war_3_wall/theme.css` 的 `data-wall-panel="1080p"` 选择器内
+- `skins-pro-card.ts` 必须通过当前皮肤名隔离 God of War 墙控状态。切换到其他官方皮肤时主动移除 `data-wall-panel`、`data-kiosk-fullscreen`、`--sp-home-room-card-height`、`--sp-runtime-height`、`--sp-runtime-min-height`、`--sp-app-padding`、`--sp-sidebar-width`、`--sp-stage-radius`；切回 `god_of_war_3_wall` 后再测量并恢复
+- Kiosk APK 只负责 WebView、沉浸全屏、系统栏控制并暴露 `__skinsProKioskAndroid` 身份标记，禁止全局注入 `meta viewport width=1920,height=1080`。物理屏固定 1920×1080，但 Android density 可能让 WebView CSS 视口不同；仅在 `Android Kiosk + god_of_war_3_wall` 时由 Skins Pro 临时设置 1920×1080 viewport，切换官方皮肤时恢复原 viewport
+- 切换官方皮肤后，共享卡片层只能清理 God of War 的 host 属性、变量和 viewport；不得向官方皮肤写入 `--sp-runtime-height`、`--sp-runtime-min-height` 或任何布局尺寸，必须完全使用该主题原有的 CSS 与 `@media` 规则
+- `scripts/build-skins.cjs` 可能从发行包基线重新生成 `dist/god_of_war_3_wall/theme.css`；每次构建后必须确认横滑规则进入最终部署文件，不能只确认源码存在。保护标记：`grid-auto-flow: column`、`grid-template-rows: minmax(0, 1fr)`、`scroll-snap-type: x mandatory`
 - 保留物理按键相关逻辑
 - 保留安全性补充，但不影响现有平板使用
 
@@ -74,6 +83,9 @@
 - 2026-07-11：首页场景选择器扩展为场景/脚本快捷模式，支持 `scene.*` 与 `script.*`，首页保持配置顺序并调用对应域的 `turn_on`。
 - 2026-07-11：首页脚本的最近执行时间必须读取 `last_changed`，不能把脚本的 `on/off` 状态当日期传给 `Intl.RelativeTimeFormat`；无效日期必须跳过时间文案，禁止导致首页白屏。
 - 2026-07-11：空调弹层增加 `100dvh` 最大高度和内部触控滚动，短高度视口改为顶部对齐及紧凑间距，避免 `2018` kiosk 账户只显示半个弹层。
-- 2026-07-11：歌曲分区正式并入 fork 主源码，支持低锥、快速播放、喜爱歌曲、Homekitzhou喜欢的音乐，不再依赖 `skins-pro-custom` 外层补丁。
+- 2026-07-11：歌曲分区正式并入 fork 主源码，读取 `input_select.living_room_music_source` 的歌单选项名称并直接传给 Music Assistant 播放；新建歌单只要加入该 input_select 选项就会自动出现在卡片中，不再依赖固定歌单 ID 或外层补丁。
 - 2026-07-11：修复 Music Assistant 队列实体长期显示 `idle` 导致暂停按钮重新播放；使用基础功放实体判断真实状态，显示状态点，并将暂停/继续拆成独立服务调用。
 - 2026-07-12：Music Assistant 客厅播放器最终验证使用 AirPlay 首选输出协议后，播放、暂停、恢复和上下曲正常。HEOS Native 强制队列 Flow 模式，暂停会在约 2 秒后被 Music Assistant 自动续播；`stop` 会推进下一首，均不得作为暂停替代。最终分工：Music Assistant 负责全部歌曲与队列控制，天龙只负责音量和静音。
+- 2026-07-12：God of War 1080p 墙控首页场景改为一行两卡横向分页。My-Home 当前顺序为离场、KTV、芝度观影、Apple TV；首屏显示前两项，向左滑动查看后两项。高度继续读取 `--sp-home-room-card-height`，禁止写死行高；规则仅限 `data-wall-panel="1080p"`。
+- 2026-07-12：墙控布局按皮肤隔离。只有 `god_of_war_3_wall` 可设置专属 host 属性和尺寸变量；其他官方皮肤切入时必须清理残留状态并走自身响应式布局。Kiosk 0.2.36 使用 Android 身份标记：God of War 条件化使用 1920×1080 viewport，官方皮肤恢复原 viewport。
+- 2026-07-13：安卓 Kiosk 设备页兼容旧 WebView 的瓦片内存上限：同时支持 `data-android-kiosk` 与旧版 `data-kiosk-fullscreen` 宿主标记，仅在设备页降低 `.device` 合成成本并延迟离屏 `.device-group` 绘制；新版可再按 16 张分页，避免 Chromium 报 `tile memory limits exceeded` 并把设备卡闪成空白背景块。Mac 普通页面和其他页面不受影响。

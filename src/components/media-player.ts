@@ -4,12 +4,10 @@ import type { TemplateResult } from 'lit';
 import type { HomeAssistant, TranslationKey } from '../types';
 
 const MUSIC_SOURCE_ENTITY = 'input_select.living_room_music_source';
-const MUSIC_PLAYLISTS: Record<string, string> = {
-  '低锥': 'library://playlist/12',
-  '快速播放': 'library://playlist/11',
-  '喜爱歌曲': 'library://playlist/9',
-  'Homekitzhou喜欢的音乐': 'library://playlist/10',
-};
+
+function musicPlaylistMediaId(option: string): string {
+  return option;
+}
 
 export function renderMediaPlayer(
   hass: HomeAssistant,
@@ -44,8 +42,7 @@ export function renderMediaPlayer(
     ? configuredControlId
     : baseEntityId !== entityId && hass.states?.[baseEntityId] ? baseEntityId : entityId;
   const controlStateObj = hass.states?.[controlEntityId];
-  const baseState = controlStateObj?.state;
-  const effectiveState = state === 'playing' || state === 'paused' ? state : baseState || state;
+  const effectiveState = state;
   const isPlaying = effectiveState === 'playing';
   const hasQueue = Boolean(attrs.media_title || attrs.media_content_id || attrs.active_queue);
   const playbackLabel = isPlaying ? '正在播放' : effectiveState === 'paused' || hasQueue ? '已暂停' : '待播放';
@@ -56,11 +53,11 @@ export function renderMediaPlayer(
   const volPct = vol !== undefined ? Math.round(vol * 100) : undefined;
   const playlistState = hass.states?.[MUSIC_SOURCE_ENTITY];
   const playlistOptions = Array.isArray(playlistState?.attributes?.options)
-    ? (playlistState.attributes.options as string[]).filter((option) => MUSIC_PLAYLISTS[option])
+    ? (playlistState.attributes.options as string[]).filter((option) => option.trim())
     : [];
   const selectedPlaylist = String(playlistState?.state || '');
   const playPlaylist = async (playlist: string) => {
-    const mediaId = MUSIC_PLAYLISTS[playlist];
+    const mediaId = musicPlaylistMediaId(playlist);
     if (!mediaId) return;
     await hass.callService('input_select', 'select_option', { entity_id: MUSIC_SOURCE_ENTITY, option: playlist });
     await hass.callService('music_assistant', 'play_media', {
@@ -84,9 +81,29 @@ export function renderMediaPlayer(
       <div class="section-title media-title-row">
         <h2>${translate('mediaPlayer')}</h2>
         ${playlistOptions.length > 0 ? html`
-          <select class="media-playlist-select" aria-label="歌曲分区" @change=${(e: Event) => void playPlaylist((e.target as HTMLSelectElement).value)}>
-            ${playlistOptions.map((option) => html`<option value=${option} .selected=${option === selectedPlaylist}>${option}</option>`)}
-          </select>
+          <details class="media-playlist-menu">
+            <summary class="media-playlist-select" aria-label="歌曲分区">
+              <span>${selectedPlaylist || playlistOptions[0] || '歌曲分区'}</span>
+              <ha-icon icon="mdi:chevron-down"></ha-icon>
+            </summary>
+            <div class="media-playlist-options" role="listbox">
+              ${playlistOptions.map((option) => html`
+                <button
+                  class="media-playlist-option ${option === selectedPlaylist ? 'active' : ''}"
+                  role="option"
+                  aria-selected=${option === selectedPlaylist ? 'true' : 'false'}
+                  @click=${(e: Event) => {
+                    const details = (e.currentTarget as HTMLElement).closest('details');
+                    if (details) details.open = false;
+                    void playPlaylist(option);
+                  }}
+                >
+                  ${option === selectedPlaylist ? html`<ha-icon icon="mdi:check"></ha-icon>` : html`<span class="media-playlist-check-spacer"></span>`}
+                  <span>${option}</span>
+                </button>
+              `)}
+            </div>
+          </details>
         ` : nothing}
       </div>
       <div class="media-content">

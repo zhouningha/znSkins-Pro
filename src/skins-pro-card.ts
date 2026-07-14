@@ -32,6 +32,7 @@ import {
   assetHref,
   assetKeyForDomain,
   assetUrl,
+  BUNDLED_SKINS,
   cameraSnapshotUrl,
   dateText,
   deviceStateLabel,
@@ -67,12 +68,11 @@ import { enableKiosk, isKioskLocked, setKioskLocked, toggleKiosk } from './kiosk
 
 const CONTROLLABLE_DOMAINS = new Set(['light', 'switch', 'fan', 'cover', 'valve', 'media_player', 'lock', 'climate', 'vacuum', 'humidifier', 'water_heater', 'siren', 'automation', 'group', 'input_boolean']);
 const MUSIC_SOURCE_ENTITY = 'input_select.living_room_music_source';
-const MUSIC_PLAYLISTS: Record<string, string> = {
-  '低锥': 'library://playlist/12',
-  '快速播放': 'library://playlist/11',
-  '喜爱歌曲': 'library://playlist/9',
-  'Homekitzhou喜欢的音乐': 'library://playlist/10',
-};
+const GOD_OF_WAR_WALL_SKIN = 'god_of_war_3_wall';
+
+function musicPlaylistMediaId(option: string): string {
+  return option;
+}
 
 export class MinecraftDashboardCard extends LitElement {
   private _config?: DashboardConfig;
@@ -86,9 +86,10 @@ export class MinecraftDashboardCard extends LitElement {
   @state() private _showHiddenDevices = false;
   @state() private _deviceHideEditMode = false;
   @state() private _deviceHideToast = '';
+  @state() private _androidDevicePage = 0;
   @state() private _mediaPending = false;
   @state() private _mediaError = '';
-  @state() private _mediaAssumedPlaying: boolean | undefined;
+  @state() private _mediaPlaylistOpen = false;
 
   @state() private _doorConfirm?: {
     entityId: string;
@@ -145,6 +146,10 @@ export class MinecraftDashboardCard extends LitElement {
 
   private _autoFullscreenDone = false;
   private _autoFullscreenAttempts = 0;
+  private _themeLoadKey = '';
+  private _themeStylesReady = true;
+  private _themeRevealTimer = 0;
+  private _themeFallbackTimer = 0;
   private static readonly AUTO_FULLSCREEN_MAX = 40;
   private readonly _handleWindowResize = () => this.applyLayoutHeight();
 
@@ -160,6 +165,7 @@ export class MinecraftDashboardCard extends LitElement {
 
   public connectedCallback(): void {
     super.connectedCallback();
+    this.syncRuntimeEnvironmentAttributes();
     try {
       const savedView = window.sessionStorage.getItem('skins-pro.view');
       const valid: ViewName[] = ['home', 'devices', 'rooms', 'scenes', 'automations', 'security', 'energy'];
@@ -184,6 +190,8 @@ export class MinecraftDashboardCard extends LitElement {
     super.disconnectedCallback();
     window.removeEventListener('resize', this._handleWindowResize);
     window.clearTimeout(this._devicesHiddenHaSyncTimer);
+    window.clearTimeout(this._themeRevealTimer);
+    window.clearTimeout(this._themeFallbackTimer);
     this.dismissDoorConfirmDialog();
     this._stopCameraSnapshotRefreshTimer();
     this._revokeCameraSnapshots();
@@ -195,6 +203,17 @@ export class MinecraftDashboardCard extends LitElement {
       throw new Error('Card type must be custom:skins-pro-card');
     }
     const merged = this.mergeDevicesHiddenFromSources(config);
+    const nextThemeLoadKey = `${selectedSkin(merged)}|${merged.resource_pack?.base_path || '__AUTO__'}`;
+    if (this._themeLoadKey && this._themeLoadKey !== nextThemeLoadKey) {
+      this._themeStylesReady = false;
+      window.clearTimeout(this._themeRevealTimer);
+      window.clearTimeout(this._themeFallbackTimer);
+      this._themeFallbackTimer = window.setTimeout(() => {
+        this._themeStylesReady = true;
+        this.requestUpdate();
+      }, 8000);
+    }
+    this._themeLoadKey = nextThemeLoadKey;
     this._config = merged;
     this._energyHistory = undefined;
     this._energyYesterday = undefined;
@@ -413,7 +432,8 @@ export class MinecraftDashboardCard extends LitElement {
     const registriesLoading = this.renderRegistryLoading(language);
 
     return html`
-      <link rel="stylesheet" href="${assetHref(this._config, 'theme_css')}">
+      <link rel="stylesheet" href="${assetHref(this._config, 'theme_css')}" @load=${this.onThemeStylesLoaded} @error=${this.onThemeStylesFailed}>
+      ${this.renderStandardSkinCompatibilityStyles()}
       <ha-card>
         ${registriesLoading}
         <div class="mc-app" data-view=${this._view}>
@@ -437,8 +457,320 @@ export class MinecraftDashboardCard extends LitElement {
         </div>
         ${this.renderDoorConfirmDialog(language)}
         ${this.renderClimateControlDialog(language)}
+        ${!this._themeStylesReady ? html`
+          <div class="skin-loading-cover" aria-hidden="true">
+            <div class="skin-loading-mark">Skins Pro</div>
+          </div>
+        ` : nothing}
       </ha-card>
+      <style>
+        ha-card { position: relative; }
+        .skin-loading-cover {
+          position: absolute;
+          inset: 0;
+          z-index: 2147483000;
+          display: grid;
+          place-items: center;
+          overflow: hidden;
+          background: #090504;
+          color: rgba(255,255,255,.9);
+          opacity: 1;
+          pointer-events: auto;
+        }
+        .skin-loading-mark {
+          font: 700 22px/1.2 sans-serif;
+          letter-spacing: 0;
+        }
+      </style>
     `;
+  }
+
+  private onThemeStylesLoaded = async (): Promise<void> => {
+    const loadKey = this._themeLoadKey;
+    window.clearTimeout(this._themeRevealTimer);
+    window.clearTimeout(this._themeFallbackTimer);
+    await this.waitForVisibleThemeAssets();
+    if (loadKey !== this._themeLoadKey) return;
+    this._themeRevealTimer = window.setTimeout(() => {
+      if (loadKey !== this._themeLoadKey) return;
+      this._themeStylesReady = true;
+      this.requestUpdate();
+    }, 120);
+  };
+
+  private onThemeStylesFailed = (): void => {
+    window.clearTimeout(this._themeRevealTimer);
+    window.clearTimeout(this._themeFallbackTimer);
+    this._themeStylesReady = true;
+    this.requestUpdate();
+  };
+
+  private async waitForVisibleThemeAssets(): Promise<void> {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    const urls = new Set<string>();
+    this.shadowRoot?.querySelectorAll<HTMLImageElement>('img').forEach((img) => {
+      const url = img.currentSrc || img.src;
+      if (url) urls.add(url);
+    });
+    this.shadowRoot?.querySelectorAll<HTMLElement>('.mc-app, .stage, .sidebar, .glass-card, .time-card, .device, .room').forEach((el) => {
+      const backgroundImage = getComputedStyle(el).backgroundImage;
+      for (const match of backgroundImage.matchAll(/url\(["']?([^"')]+)["']?\)/g)) {
+        if (match[1]) urls.add(new URL(match[1], window.location.href).href);
+      }
+    });
+
+    const preload = [...urls].map((url) => new Promise<void>((resolve) => {
+      const image = new Image();
+      const done = () => resolve();
+      image.onload = done;
+      image.onerror = done;
+      image.src = url;
+      if (image.complete) {
+        void image.decode?.().catch(() => undefined).finally(done);
+      }
+    }));
+    await Promise.race([
+      Promise.allSettled(preload),
+      new Promise((resolve) => window.setTimeout(resolve, 6000)),
+    ]);
+  }
+
+  private renderStandardSkinCompatibilityStyles(): TemplateResult | typeof nothing {
+    if (this.isGodOfWarWallSkin()) {
+      return html`<style>
+        .panel-media {
+          position: relative !important;
+        }
+        .panel-media .media-title-row {
+          position: relative !important;
+          padding-right: 150px !important;
+        }
+        .media-playlist-select {
+          position: absolute !important;
+          top: var(--sp-space-lg, 16px) !important;
+          right: var(--sp-space-lg, 16px) !important;
+          box-sizing: border-box !important;
+          width: 132px !important;
+          height: 30px !important;
+          min-width: 108px !important;
+          padding: 0 30px 0 14px !important;
+          border: 1px solid rgba(255, 190, 61, 0.34) !important;
+          border-radius: 999px !important;
+          background-color: rgba(66, 22, 16, 0.8) !important;
+          color: var(--sp-text-primary, #fff0d6) !important;
+          font: inherit !important;
+          font-size: var(--sp-font-2xs, 12px) !important;
+          text-align: center !important;
+          text-overflow: ellipsis !important;
+          white-space: nowrap !important;
+          cursor: pointer !important;
+        }
+        .media-playlist-select option {
+          background: rgba(24, 8, 7, 0.98) !important;
+          color: var(--sp-text-primary, #fff0d6) !important;
+        }
+        .media-volume-step {
+          -webkit-appearance: none !important;
+          appearance: none !important;
+          box-sizing: border-box !important;
+          width: 38px !important;
+          height: 38px !important;
+          min-width: 38px !important;
+          min-height: 38px !important;
+          padding: 0 !important;
+          border: 1px solid var(--sp-border-color, rgba(255, 190, 61, 0.34)) !important;
+          border-radius: 50% !important;
+          background: rgba(66, 22, 16, 0.72) !important;
+          color: var(--sp-text-primary, #fff0d6) !important;
+        }
+      </style>`;
+    }
+    return html`<style>
+      :host([data-kiosk-fullscreen="true"]) .stage-grid,
+      :host([data-kiosk-fullscreen="true"]) .side {
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+      :host([data-kiosk-fullscreen="true"]) .side > section {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        overflow: hidden;
+      }
+      :host([data-kiosk-fullscreen="true"]) .side > section.panel-media,
+      :host([data-kiosk-fullscreen="true"]) .panel-media {
+        overflow: visible !important;
+      }
+      :host([data-kiosk-fullscreen="true"]) .weather-with-meta {
+        display: flex;
+        align-items: flex-start;
+        gap: clamp(12px, 1.5vw, 24px);
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+      }
+      :host([data-kiosk-fullscreen="true"]) .weather-block {
+        flex: 0 1 auto;
+        min-width: 0;
+      }
+      :host([data-kiosk-fullscreen="true"]) .welcome-meta {
+        flex: 0 1 420px;
+        min-width: 260px;
+        max-width: 420px;
+      }
+      :host([data-kiosk-fullscreen="true"]) .env-list-inline {
+        min-width: 0;
+        max-width: 100%;
+      }
+      :host([data-kiosk-fullscreen="true"]) .panel-camera .camera-preview,
+      :host([data-kiosk-fullscreen="true"]) .panel-camera .camera-preview img {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box;
+      }
+      :host([data-kiosk-fullscreen="true"]) .panel-media {
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+      :host([data-kiosk-fullscreen="true"]) .panel-media .media-title-row {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 0;
+        min-height: 32px;
+        padding-right: 150px;
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-playlist-select {
+        position: absolute;
+        top: var(--sp-space-lg, 16px);
+        right: var(--sp-space-lg, 16px);
+        box-sizing: border-box;
+        width: 132px;
+        height: 30px;
+        min-width: 108px;
+        border: 1px solid var(--sp-border-glass, rgba(255,255,255,.2));
+        border-radius: var(--sp-radius-pill, 999px);
+        padding: 0 30px 0 14px;
+        background: var(--sp-device-bg, rgba(0,0,0,.2));
+        color: var(--sp-text-primary, inherit);
+        font: inherit;
+        text-align: center;
+        text-overflow: ellipsis;
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-content {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 6px;
+        min-width: 0;
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-row {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-space-xs, 8px);
+        min-width: 0;
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-cover {
+        width: 44px !important;
+        height: 44px !important;
+        min-width: 44px;
+        max-width: 44px;
+        flex: 0 0 44px;
+        overflow: hidden;
+        border-radius: var(--sp-radius-sm, 12px);
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-cover img {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover;
+        display: block;
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-body {
+        min-width: 0;
+        flex: 1;
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-title,
+      :host([data-kiosk-fullscreen="true"]) .media-artist,
+      :host([data-kiosk-fullscreen="true"]) .media-source {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-actions,
+      :host([data-kiosk-fullscreen="true"]) .media-volrow {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-actions {
+        justify-content: center;
+        gap: var(--sp-space-xs, 8px);
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-btn,
+      :host([data-kiosk-fullscreen="true"]) .media-volbtn {
+        appearance: none;
+        background: none;
+        border: 0;
+        color: var(--sp-text-primary, inherit);
+        cursor: pointer;
+        padding: 6px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: auto;
+        width: auto;
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-btn ha-icon {
+        --mdc-icon-size: 24px;
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-playbtn ha-icon {
+        --mdc-icon-size: 36px;
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-volbtn ha-icon {
+        --mdc-icon-size: 20px;
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-volume-step {
+        appearance: none;
+        width: 32px;
+        height: 32px;
+        display: inline-grid;
+        place-items: center;
+        border: 1px solid var(--sp-border-glass, rgba(255,255,255,.2));
+        border-radius: 50%;
+        background: var(--sp-device-bg, rgba(0,0,0,.2));
+        color: var(--sp-text-primary, inherit);
+        cursor: pointer;
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-volume-value {
+        min-width: 44px;
+        text-align: center;
+        color: var(--sp-text-primary, inherit);
+        font-variant-numeric: tabular-nums;
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-playback-state {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 2px;
+        color: var(--sp-text-muted, currentColor);
+        font-size: var(--sp-font-3xs, 11px);
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-playback-state span {
+        width: 7px;
+        height: 7px;
+        flex: 0 0 7px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      :host([data-kiosk-fullscreen="true"]) .media-playback-state.playing {
+        color: var(--sp-accent, currentColor);
+      }
+    </style>`;
   }
 
   private renderRegistryLoading(language: Language): TemplateResult | typeof nothing {
@@ -557,14 +889,19 @@ export class MinecraftDashboardCard extends LitElement {
     const host = this.shadowRoot?.host as HTMLElement | undefined;
     if (!host) return;
 
-    try {
-      const roomCard = this.shadowRoot?.querySelector('.bottom-stack .room') as HTMLElement | null;
-      const height = roomCard?.getBoundingClientRect().height || 0;
-      if (Number.isFinite(height) && height > 0) {
-        host.style.setProperty('--sp-home-room-card-height', `${Math.round(height)}px`);
+    const isGodOfWarWall = this.isGodOfWarWallSkin();
+    if (!isGodOfWarWall) {
+      this.clearGodOfWarWallLayout(host);
+    } else {
+      try {
+        const roomCard = this.shadowRoot?.querySelector('.bottom-stack .room') as HTMLElement | null;
+        const height = roomCard?.getBoundingClientRect().height || 0;
+        if (Number.isFinite(height) && height > 0) {
+          host.style.setProperty('--sp-home-room-card-height', `${Math.round(height)}px`);
+        }
+      } catch {
+        // Best-effort visual sync with the official room/product card height.
       }
-    } catch {
-      // Best-effort visual sync with the official room/product card height.
     }
 
     this.syncKioskFullscreenHostState(host);
@@ -573,7 +910,7 @@ export class MinecraftDashboardCard extends LitElement {
       return;
     }
 
-    if (this.applyWallPanel1080Layout(host)) return;
+    if (isGodOfWarWall && this.applyWallPanel1080Layout(host)) return;
 
     if (window.matchMedia('(orientation: portrait)').matches) {
       host.style.setProperty('--sp-runtime-height', 'auto');
@@ -602,6 +939,10 @@ export class MinecraftDashboardCard extends LitElement {
 
   private kioskViewportHeight(): number {
     const viewportH = this.viewportHeight();
+    if (window.__skinsProKioskAndroid === true && window.matchMedia('(orientation: landscape)').matches) {
+      const wallPanelHeight = Math.round(window.innerWidth * 9 / 16);
+      return Math.max(viewportH, wallPanelHeight);
+    }
     const isShortLandscape = window.matchMedia('(orientation: landscape)').matches && viewportH < 500;
     return isShortLandscape ? Math.max(240, viewportH) : Math.max(560, viewportH);
   }
@@ -611,6 +952,54 @@ export class MinecraftDashboardCard extends LitElement {
     host.dataset.kioskFullscreen = 'true';
     host.style.setProperty('--sp-runtime-height', `${h}px`);
     host.style.setProperty('--sp-runtime-min-height', `${h}px`);
+  }
+
+  private isGodOfWarWallSkin(): boolean {
+    return selectedSkin(this._config) === GOD_OF_WAR_WALL_SKIN;
+  }
+
+  private clearGodOfWarWallLayout(host: HTMLElement): void {
+    host.removeAttribute('data-wall-panel');
+    host.removeAttribute('data-kiosk-fullscreen');
+    host.style.removeProperty('--sp-home-room-card-height');
+    host.style.removeProperty('--sp-runtime-height');
+    host.style.removeProperty('--sp-runtime-min-height');
+    host.style.removeProperty('--sp-app-padding');
+    host.style.removeProperty('--sp-sidebar-width');
+    host.style.removeProperty('--sp-stage-radius');
+  }
+
+  private applySkinViewportPolicy(): void {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+
+    let viewport = document.querySelector('meta[name="viewport"]') as HTMLMetaElement | null;
+    const useOfficialKioskViewport = BUNDLED_SKINS.includes(selectedSkin(this._config))
+      && window.__skinsProKioskAndroid === true;
+
+    if (useOfficialKioskViewport) {
+      if (!viewport) {
+        viewport = document.createElement('meta');
+        viewport.name = 'viewport';
+        viewport.dataset.skinsProCreated = 'true';
+        document.head.appendChild(viewport);
+      }
+      if (viewport.dataset.skinsProOriginalContent === undefined) {
+        viewport.dataset.skinsProOriginalContent = viewport.content || '';
+      }
+      viewport.content = 'width=1920,height=1080,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover';
+      return;
+    }
+
+    if (!viewport || viewport.dataset.skinsProOriginalContent === undefined) return;
+    const originalContent = viewport.dataset.skinsProOriginalContent;
+    const createdBySkinsPro = viewport.dataset.skinsProCreated === 'true';
+    delete viewport.dataset.skinsProOriginalContent;
+    delete viewport.dataset.skinsProCreated;
+    if (createdBySkinsPro && !originalContent) {
+      viewport.remove();
+    } else {
+      viewport.content = originalContent;
+    }
   }
 
   private syncKioskFullscreenHostState(host: HTMLElement): void {
@@ -1016,10 +1405,8 @@ export class MinecraftDashboardCard extends LitElement {
       ? configuredControlId
       : baseEntityId !== entityId && this._hass?.states?.[baseEntityId] ? baseEntityId : entityId;
     const controlStateObj = this._hass?.states?.[controlEntityId];
-    const baseState = controlStateObj?.state;
-    const effectiveState = state === 'playing' || state === 'paused' ? state : baseState || state;
-    const storedPlaying = window.localStorage.getItem(`skins-pro-media-playing:${entityId}`) === '1';
-    const isPlaying = effectiveState === 'playing' || (this._mediaAssumedPlaying ?? storedPlaying);
+    const effectiveState = state;
+    const isPlaying = effectiveState === 'playing';
     const hasQueue = Boolean(attrs.media_title || attrs.media_content_id || attrs.active_queue);
     const playbackLabel = this._mediaPending ? '正在连接' : isPlaying ? '正在播放' : effectiveState === 'paused' || hasQueue ? '已暂停' : '待播放';
     const controlAttrs = controlStateObj?.attributes || attrs;
@@ -1029,7 +1416,7 @@ export class MinecraftDashboardCard extends LitElement {
     const volPct = vol !== undefined ? Math.round(vol * 100) : undefined;
     const playlistState = this._hass?.states?.[MUSIC_SOURCE_ENTITY];
     const playlistOptions = Array.isArray(playlistState?.attributes?.options)
-      ? (playlistState.attributes.options as string[]).filter((option) => MUSIC_PLAYLISTS[option])
+      ? (playlistState.attributes.options as string[]).filter((option) => option.trim())
       : [];
     const selectedPlaylist = String(playlistState?.state || '');
     const adjustVolume = (delta: number) => {
@@ -1043,11 +1430,7 @@ export class MinecraftDashboardCard extends LitElement {
       <section class="glass-card panel-media">
         <div class="section-title media-title-row">
           <h2>${translate('mediaPlayer')}</h2>
-          ${playlistOptions.length > 0 ? html`
-            <select class="media-playlist-select" aria-label="歌曲分区" ?disabled=${this._mediaPending} @change=${(e: Event) => void this.playMusicPlaylist(entityId, (e.target as HTMLSelectElement).value)}>
-              ${playlistOptions.map((option) => html`<option value=${option} .selected=${option === selectedPlaylist}>${option}</option>`)}
-            </select>
-          ` : nothing}
+          ${playlistOptions.length > 0 ? this.renderMediaPlaylistMenu(entityId, playlistOptions, selectedPlaylist) : nothing}
         </div>
         <div class="media-content">
           <div class="media-row">
@@ -1068,17 +1451,58 @@ export class MinecraftDashboardCard extends LitElement {
           ${volPct !== undefined ? html`
           <div class="media-row media-volrow">
             <button class="media-volbtn" @click=${handleMute}><ha-icon icon=${volZero ? 'mdi:volume-off' : 'mdi:volume-high'}></ha-icon></button>
-            <button class="media-volume-step" @click=${() => adjustVolume(-0.05)} aria-label="音量减小"><ha-icon icon="mdi:minus"></ha-icon></button>
+            <button class="media-volume-step" style="-webkit-appearance:none;appearance:none;box-sizing:border-box;width:38px;height:38px;min-width:38px;min-height:38px;padding:0;border:1px solid rgba(255,190,61,.34);border-radius:50%;background:rgba(66,22,16,.72);color:#fff0d6" @click=${() => adjustVolume(-0.05)} aria-label="音量减小"><ha-icon icon="mdi:minus"></ha-icon></button>
             <span class="media-volume-value">${volPct}%</span>
-            <button class="media-volume-step" @click=${() => adjustVolume(0.05)} aria-label="音量增大"><ha-icon icon="mdi:plus"></ha-icon></button>
+            <button class="media-volume-step" style="-webkit-appearance:none;appearance:none;box-sizing:border-box;width:38px;height:38px;min-width:38px;min-height:38px;padding:0;border:1px solid rgba(255,190,61,.34);border-radius:50%;background:rgba(66,22,16,.72);color:#fff0d6" @click=${() => adjustVolume(0.05)} aria-label="音量增大"><ha-icon icon="mdi:plus"></ha-icon></button>
           </div>` : ''}
         </div>
       </section>
     `;
   }
 
+  private renderMediaPlaylistMenu(entityId: string, playlistOptions: string[], selectedPlaylist: string): TemplateResult {
+    const current = selectedPlaylist || playlistOptions[0] || '歌曲分区';
+    return html`
+      <div class="media-playlist-menu">
+        <button
+          class="media-playlist-select"
+          aria-label="歌曲分区"
+          aria-haspopup="listbox"
+          aria-expanded=${this._mediaPlaylistOpen ? 'true' : 'false'}
+          ?disabled=${this._mediaPending}
+          @click=${(e: Event) => {
+            e.stopPropagation();
+            this._mediaPlaylistOpen = !this._mediaPlaylistOpen;
+          }}
+        >
+          <span>${current}</span>
+          <ha-icon icon="mdi:chevron-down"></ha-icon>
+        </button>
+        ${this._mediaPlaylistOpen ? html`
+          <div class="media-playlist-options" role="listbox">
+            ${playlistOptions.map((option) => html`
+              <button
+                class="media-playlist-option ${option === selectedPlaylist ? 'active' : ''}"
+                role="option"
+                aria-selected=${option === selectedPlaylist ? 'true' : 'false'}
+                @click=${(e: Event) => {
+                  e.stopPropagation();
+                  this._mediaPlaylistOpen = false;
+                  void this.playMusicPlaylist(entityId, option);
+                }}
+              >
+                ${option === selectedPlaylist ? html`<ha-icon icon="mdi:check"></ha-icon>` : html`<span class="media-playlist-check-spacer"></span>`}
+                <span>${option}</span>
+              </button>
+            `)}
+          </div>
+        ` : nothing}
+      </div>
+    `;
+  }
+
   private async playMusicPlaylist(entityId: string, playlist: string): Promise<void> {
-    const mediaId = MUSIC_PLAYLISTS[playlist];
+    const mediaId = musicPlaylistMediaId(playlist);
     if (!mediaId || !this._hass || this._mediaPending) return;
     this._mediaPending = true;
     this._mediaError = '';
@@ -1093,7 +1517,6 @@ export class MinecraftDashboardCard extends LitElement {
         media_type: 'playlist',
         enqueue: 'replace',
       });
-      this.setMediaAssumedPlaying(entityId, true);
     } catch (_error) {
       this._mediaError = '播放失败，请检查 Music Assistant 和功放连接';
     } finally {
@@ -1108,18 +1531,15 @@ export class MinecraftDashboardCard extends LitElement {
     try {
       if (isPlaying) {
         await this._hass.callService('media_player', 'media_pause', { entity_id: entityId });
-        this.setMediaAssumedPlaying(entityId, false);
       } else if (hasQueue) {
         await this._hass.callService('media_player', 'media_play', { entity_id: entityId });
-        this.setMediaAssumedPlaying(entityId, true);
-      } else if (MUSIC_PLAYLISTS[selectedPlaylist]) {
+      } else if (selectedPlaylist) {
         await this._hass.callService('music_assistant', 'play_media', {
           entity_id: entityId,
-          media_id: MUSIC_PLAYLISTS[selectedPlaylist],
+          media_id: musicPlaylistMediaId(selectedPlaylist),
           media_type: 'playlist',
           enqueue: 'replace',
         });
-        this.setMediaAssumedPlaying(entityId, true);
       } else {
         this._mediaError = '请先选择一个歌单';
       }
@@ -1134,18 +1554,16 @@ export class MinecraftDashboardCard extends LitElement {
             media_type: 'track',
             enqueue: 'replace',
           });
-          this.setMediaAssumedPlaying(entityId, true);
           return;
         } catch (_retryError) {
-          if (MUSIC_PLAYLISTS[selectedPlaylist]) {
+          if (selectedPlaylist) {
             try {
               await this._hass.callService('music_assistant', 'play_media', {
                 entity_id: entityId,
-                media_id: MUSIC_PLAYLISTS[selectedPlaylist],
+                media_id: musicPlaylistMediaId(selectedPlaylist),
                 media_type: 'playlist',
                 enqueue: 'replace',
               });
-              this.setMediaAssumedPlaying(entityId, true);
               return;
             } catch (_playlistError) {
               this._mediaError = '当前歌曲链接已过期，重新加载歌曲失败';
@@ -1162,18 +1580,12 @@ export class MinecraftDashboardCard extends LitElement {
     }
   }
 
-  private setMediaAssumedPlaying(entityId: string, playing: boolean): void {
-    this._mediaAssumedPlaying = playing;
-    window.localStorage.setItem(`skins-pro-media-playing:${entityId}`, playing ? '1' : '0');
-  }
-
   private async handleMediaTrack(entityId: string, service: 'media_previous_track' | 'media_next_track'): Promise<void> {
     if (!this._hass || this._mediaPending) return;
     this._mediaPending = true;
     this._mediaError = '';
     try {
       await this._hass.callService('media_player', service, { entity_id: entityId });
-      this.setMediaAssumedPlaying(entityId, true);
     } catch (_error) {
       this._mediaError = '切歌失败，请检查 Music Assistant 连接';
     } finally {
@@ -1986,14 +2398,22 @@ export class MinecraftDashboardCard extends LitElement {
   }
 
   private renderRealDeviceGroups(language: Language, translate: (key: TranslationKey) => string): TemplateResult | typeof nothing {
-    const devices = this.getRealDevicesForRender();
-    if (devices.length === 0) {
+    const allDevices = this.getRealDevicesForRender();
+    if (allDevices.length === 0) {
       const showHiddenDevices = this._showHiddenDevices && !this.isKioskFullscreenActive();
       const emptyText = showHiddenDevices
         ? (language === 'zh-CN' ? '没有已隐藏的设备' : 'No hidden devices')
         : translate('noDevices');
       return html`<div class="empty-state">${emptyText}</div>`;
     }
+
+    const isAndroidKiosk = typeof window !== 'undefined' && window.__skinsProKioskAndroid === true;
+    const pageSize = 16;
+    const pageCount = isAndroidKiosk ? Math.max(1, Math.ceil(allDevices.length / pageSize)) : 1;
+    const page = isAndroidKiosk ? Math.min(this._androidDevicePage, pageCount - 1) : 0;
+    const devices = isAndroidKiosk
+      ? allDevices.slice(page * pageSize, (page + 1) * pageSize)
+      : allDevices;
 
     const groups = new Map<string, RenderedDevice[]>();
     for (const device of devices) {
@@ -2007,7 +2427,19 @@ export class MinecraftDashboardCard extends LitElement {
 
     const skin = selectedSkin(this._config);
 
-    return html`${Array.from(groups.entries()).map(([group, items]) => {
+    const pager = isAndroidKiosk && pageCount > 1 ? html`
+      <nav class="android-device-pager" aria-label=${language === 'zh-CN' ? '设备分页' : 'Device pages'}>
+        <button class="android-device-page-button" ?disabled=${page === 0} @click=${() => this.setAndroidDevicePage(page - 1)} aria-label=${language === 'zh-CN' ? '上一页' : 'Previous page'}>
+          <ha-icon icon="mdi:chevron-left"></ha-icon>
+        </button>
+        <span>${page + 1} / ${pageCount}</span>
+        <button class="android-device-page-button" ?disabled=${page >= pageCount - 1} @click=${() => this.setAndroidDevicePage(page + 1)} aria-label=${language === 'zh-CN' ? '下一页' : 'Next page'}>
+          <ha-icon icon="mdi:chevron-right"></ha-icon>
+        </button>
+      </nav>
+    ` : nothing;
+
+    return html`${pager}${Array.from(groups.entries()).map(([group, items]) => {
       const groupLabel = this._deviceGrouping === 'domain'
         ? items.length > 0 ? this._deviceTypeLabel(items[0].detail, language) : group
         : group;
@@ -2069,6 +2501,11 @@ export class MinecraftDashboardCard extends LitElement {
         </div>
       </section>
     `})}`;
+  }
+
+  private setAndroidDevicePage(page: number): void {
+    this._androidDevicePage = Math.max(0, page);
+    requestAnimationFrame(() => this.shadowRoot?.querySelector<HTMLElement>('.page-scroll')?.scrollTo({ top: 0 }));
   }
 
   // ─── Real scenes ────────────────────────────────────────
@@ -2600,9 +3037,16 @@ export class MinecraftDashboardCard extends LitElement {
   // ─── Lifecycle actions ──────────────────────────────────
 
   protected updated(_changed?: PropertyValues): void {
+    this.syncRuntimeEnvironmentAttributes();
     this.applyThemeVariables();
+    this.applySkinViewportPolicy();
     this.applyLayoutHeight();
     this.tryAutoFullscreen();
+  }
+
+  private syncRuntimeEnvironmentAttributes(): void {
+    const isAndroidKiosk = typeof window !== 'undefined' && window.__skinsProKioskAndroid === true;
+    this.toggleAttribute('data-android-kiosk', isAndroidKiosk);
   }
 
   private currentHaUsername(): string {
@@ -2642,11 +3086,15 @@ export class MinecraftDashboardCard extends LitElement {
 
     const host = this.shadowRoot?.host as HTMLElement | undefined;
     if (host) {
-      host.dataset.kioskFullscreen = 'true';
-      if (this.applyWallPanel1080Layout(host)) {
-        // locked to wall panel viewport
+      if (this.isGodOfWarWallSkin()) {
+        host.dataset.kioskFullscreen = 'true';
+        if (this.applyWallPanel1080Layout(host)) {
+          // locked to wall panel viewport
+        } else {
+          this.applyKioskViewportHeight(host);
+        }
       } else {
-        this.applyKioskViewportHeight(host);
+        this.clearGodOfWarWallLayout(host);
       }
     }
 

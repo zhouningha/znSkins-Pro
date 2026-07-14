@@ -12,7 +12,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 DOMAIN = "skins_pro"
 DEFAULT_STORE_BASE = "https://cdn.jsdelivr.net/gh/ha-china/Skins-Pro@store/store"
-CUSTOM_STORE_BASE = "https://cdn.jsdelivr.net/gh/zhouningha/znSkins-Pro@master/store"
+CUSTOM_STORE_BASE = "https://cdn.jsdelivr.net/gh/zhouningha/znSkins-Pro@store/store"
 WWW_ROOT = Path("/config/www/skins-pro")
 SAFE_SKIN_ID = re.compile(r"^[A-Za-z0-9_-]+$")
 

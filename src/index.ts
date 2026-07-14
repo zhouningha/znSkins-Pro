@@ -43,6 +43,7 @@ declare global {
     }>;
   skinsProSetKiosk?: (enabled: boolean, force?: boolean) => boolean;
   __skinsProKioskLocked?: boolean;
+  __skinsProKioskAndroid?: boolean;
   }
 }
 

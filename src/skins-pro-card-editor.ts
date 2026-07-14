@@ -3,11 +3,11 @@ import { STRINGS } from './i18n.generated';
 import type { AreaRegistryEntry, HomeAssistant, TranslationKey, NavItemConfig } from './types';
 import { DEFAULT_NAV } from './constants';
 import { normalizeSecurityCameras, normalizeSecurityDevices } from './config';
-import { assetHref, normalizeLanguage } from './utils';
+import { normalizeLanguage } from './utils';
 
 const LOCAL_STORE_BASE = '/local/community/skins-pro';
 const OFFICIAL_STORE_BASE = 'https://cdn.jsdelivr.net/gh/ha-china/Skins-Pro@store';
-const CUSTOM_STORE_BASE = 'https://cdn.jsdelivr.net/gh/zhouningha/znSkins-Pro@master';
+const CUSTOM_STORE_BASE = 'https://cdn.jsdelivr.net/gh/zhouningha/znSkins-Pro@store';
 const STORE_SOURCES = [
   { key: 'local', label: 'Local', base: LOCAL_STORE_BASE },
   { key: 'custom', label: 'Mine', base: CUSTOM_STORE_BASE },
@@ -69,6 +69,57 @@ const deepClone = <T,>(obj: T): T => {
 
 const ENTITY_PICKER_TAG = 'ha-entity-picker';
 const CONTROLLABLE_DOMAINS = ['light', 'switch', 'fan', 'cover', 'lock', 'climate', 'media_player', 'vacuum', 'humidifier', 'water_heater', 'valve', 'siren', 'automation', 'group', 'input_boolean'];
+const CUSTOM_SKIN_BASE_PATHS: Record<string, string> = {
+  god_of_war_3_wall: '/local/skins-pro/god_of_war_3_wall/',
+};
+const EDITOR_STYLES = `
+  :host { display:block; color:var(--primary-text-color); font:inherit; }
+  *, *::before, *::after { box-sizing:border-box; }
+  .sp-wrap { display:grid; gap:16px; padding:16px; background:var(--card-background-color, transparent); }
+  .sp-card { display:grid; gap:12px; min-width:0; padding:16px; border:1px solid var(--divider-color); border-radius:8px; background:var(--card-background-color); }
+  .sp-card h3 { margin:0; font-size:16px; color:var(--primary-text-color); }
+  .sp-card h4 { color:var(--primary-text-color); }
+  .sp-card p, .muted { margin:0; color:var(--secondary-text-color); font-size:13px; }
+  .sp-card label, .sp-field { display:grid; min-width:0; gap:6px; }
+  .sp-card label > span, .sp-field > span { color:var(--secondary-text-color); font-size:12px; font-weight:600; }
+  .sp-card input:not([type=checkbox]), .sp-card select { width:100%; min-height:40px; padding:8px 10px; border:1px solid var(--divider-color); border-radius:6px; background:var(--card-background-color); color:var(--primary-text-color); font:inherit; }
+  .sp-card input:focus, .sp-card select:focus { outline:2px solid var(--primary-color); outline-offset:1px; }
+  .sp-card button { min-height:38px; padding:0 14px; border:0; border-radius:6px; background:var(--primary-color); color:var(--text-primary-color, #fff); cursor:pointer; font:inherit; font-weight:600; }
+  .sp-card button:hover { filter:brightness(1.06); }
+  .sp-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; }
+  .sp-list { display:grid; gap:8px; }
+  .selector-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; }
+  .sp-del { min-width:38px; padding:0 !important; background:transparent !important; color:var(--error-color, #db4437) !important; font-size:18px !important; }
+  .sp-add { width:38px; padding:0 !important; font-size:20px !important; }
+  .bg-preview { max-width:120px; max-height:60px; border-radius:6px; display:block; flex-shrink:0; }
+  .sp-card input[type=checkbox] { width:auto; min-height:auto; margin:0; }
+  .sp-card label:has(input[type=checkbox]) { display:flex; align-items:center; gap:8px; }
+  .sp-btn-configure { cursor:pointer; }
+  .nav-overlay { position:fixed; inset:0; z-index:999; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; }
+  .nav-dialog { min-width:280px; max-width:380px; padding:20px; border:1px solid var(--divider-color); border-radius:8px; background:var(--card-background-color); box-shadow:var(--ha-card-box-shadow, 0 2px 8px rgba(0,0,0,.24)); }
+  .nav-dialog h3 { margin:0 0 12px; color:var(--primary-text-color); font-size:16px; }
+  .nav-dialog-item { display:flex; align-items:center; gap:8px; padding:4px 0; color:var(--primary-text-color); }
+  .nav-dialog-item input[type=checkbox] { width:auto; margin-left:auto; accent-color:var(--primary-color); }
+  .nav-dialog-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+  .nav-dialog-actions button { min-height:38px; padding:0 14px; border:0; border-radius:6px; cursor:pointer; font:inherit; font-weight:600; }
+  .nav-cancel { background:transparent !important; color:var(--primary-color) !important; }
+  .nav-save, .store-download { background:var(--primary-color) !important; color:var(--text-primary-color, #fff) !important; }
+  .store-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; max-height:70vh; overflow-y:auto; }
+  .store-card { display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--divider-color); border-radius:8px; }
+  .store-thumb { width:100%; height:auto; border-radius:6px; display:block; }
+  .store-info { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .store-name { color:var(--primary-text-color); font-size:13px; font-weight:600; }
+  .store-source { margin-left:6px; color:var(--secondary-text-color); font-size:11px; font-weight:500; }
+  .store-author { margin-left:6px; color:var(--primary-color); font-size:12px; text-decoration:none; }
+  .store-download, .store-remove { min-height:32px; padding:0 12px; border:0; border-radius:6px; cursor:pointer; font:inherit; font-weight:600; }
+  .store-remove { background:var(--error-color, #db4437); color:#fff; }
+  .store-installed { border-color:var(--primary-color); }
+  @media (max-width:700px) { .sp-row { grid-template-columns:minmax(0,1fr) !important; } .store-grid { grid-template-columns:minmax(0,1fr); } }
+`;
+
+function skinBasePath(skin: string): string {
+  return CUSTOM_SKIN_BASE_PATHS[skin] || (SKINS.includes(skin) ? '__AUTO__' : `/local/skins-pro/${skin}/`);
+}
 
 export class SkinsProCardEditor extends HTMLElement {
   private _config: DashboardConfigRecord = { type: 'custom:skins-pro-card' };
@@ -120,10 +171,6 @@ export class SkinsProCardEditor extends HTMLElement {
   private _loc(key: TranslationKey): string {
     const lang = normalizeLanguage(this._hass?.language);
     return STRINGS[lang][key];
-  }
-
-  private themeCssUrl(): string {
-    return assetHref(this._config as any, 'theme_css');
   }
 
   private setField(path: string, value: any): void {
@@ -287,7 +334,7 @@ export class SkinsProCardEditor extends HTMLElement {
   private _renderNavDialog(): string {
     const lang = normalizeLanguage(this._hass?.language);
     return `
-      <div class="nav-overlay" data-nav-overlay>
+      <div class="nav-overlay" data-nav-overlay style="display:${this._navDialogOpen ? 'flex' : 'none'}">
         <div class="nav-dialog">
           <h3>${this._loc('editorNavigation')}</h3>
           ${DEFAULT_NAV.map(item => `
@@ -312,8 +359,7 @@ export class SkinsProCardEditor extends HTMLElement {
     const hl = c.home_limits || {};
 
     this.shadowRoot.innerHTML = `
-      <link rel="stylesheet" href="${this.themeCssUrl()}">
-      <style>.bg-preview{max-width:120px;max-height:60px;border-radius:6px;display:block;flex-shrink:0}.sp-card input[type=checkbox]{width:auto;min-height:auto;margin:0}.sp-card label:has(input[type=checkbox]){display:flex;align-items:center;gap:8px}.sp-btn-configure{cursor:pointer}.nav-overlay{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.5);display:${this._navDialogOpen ? 'flex' : 'none'};align-items:center;justify-content:center}.nav-dialog{background:var(--sp-card-bg,var(--sp-panel-bg,var(--glass-regular,var(--ha-card-background,#fff))));border-radius:var(--sp-radius-lg);padding:var(--sp-space-xl);min-width:280px;max-width:380px;box-shadow:var(--sp-shadow-card);border:var(--sp-border-width,1px) solid var(--sp-border-device,var(--sp-border-glass,var(--divider-color,rgba(0,0,0,0.12))));backdrop-filter:var(--sp-blur-lg,none);-webkit-backdrop-filter:var(--sp-blur-lg,none)}.nav-dialog h3{margin:0 0 var(--sp-space-md);font-size:var(--sp-font-md);font-weight:700;color:var(--sp-text-main,var(--sp-text-primary,inherit))}.nav-dialog-item{display:flex;align-items:center;gap:var(--sp-space-sm);padding:var(--sp-space-2xs) 0}.nav-dialog-item span{font-size:var(--sp-font-xs);color:var(--sp-text-main,var(--sp-text-primary,inherit))}.nav-dialog-item input[type=checkbox]{width:auto;min-height:auto;margin:0;margin-left:auto;accent-color:var(--sp-accent)}.nav-dialog-actions{display:flex;gap:var(--sp-space-sm);justify-content:flex-end;margin-top:var(--sp-space-lg)}.nav-dialog-actions button{min-height:38px;border:0;border-radius:var(--sp-radius-sm,8px);padding:0 var(--sp-space-lg);cursor:pointer;font:inherit;font-weight:600;font-size:var(--sp-font-xs);white-space:nowrap}.nav-dialog-actions .nav-cancel{background:var(--sp-device-bg,rgba(128,128,128,0.1));color:var(--sp-text-main,var(--sp-text-primary,inherit));border:var(--sp-border-width,1px) solid var(--sp-border-muted,var(--sp-border-glass,transparent))}.nav-dialog-actions .nav-cancel:hover{filter:brightness(0.96)}.nav-dialog-actions .nav-save{background:var(--sp-accent);color:var(--sp-text-on-accent,#fff)}.nav-dialog-actions .nav-save:hover{filter:brightness(1.08)}.store-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;max-height:70vh;overflow-y:auto}.store-card{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:8px;background:var(--sp-device-bg,rgba(128,128,128,0.06))}.store-thumb{width:100%;height:auto;border-radius:6px;display:block}.store-info{display:flex;align-items:center;justify-content:space-between;gap:8px}.store-name{font-size:var(--sp-font-xs,13px);font-weight:600;color:var(--sp-text-main,var(--sp-text-primary,inherit))}.store-source{display:inline-block;margin-left:6px;padding:1px 5px;border-radius:5px;background:rgba(128,128,128,0.16);font-size:var(--sp-font-3xs,11px);font-weight:600;opacity:.82}.store-author{margin-left:6px;font-weight:400;font-size:var(--sp-font-2xs,12px);color:var(--sp-accent,#8ab8cc);text-decoration:none}.store-author:hover{text-decoration:underline}.store-download{min-height:32px;border:0;border-radius:6px;padding:0 12px;cursor:pointer;font:inherit;font-weight:600;font-size:var(--sp-font-2xs,12px);white-space:nowrap;background:var(--sp-accent,#8ab8cc);color:#fff}.store-download:hover{filter:brightness(1.1)}.store-installed{border:1px solid var(--sp-accent,#8ab8cc)}.store-remove{min-height:32px;border:0;border-radius:6px;padding:0 12px;cursor:pointer;font:inherit;font-weight:600;font-size:var(--sp-font-2xs,12px);white-space:nowrap;background:var(--sp-error,#e44);color:#fff}.store-remove:hover{filter:brightness(1.1)}</style>
+      <style>${EDITOR_STYLES}</style>
       <div class="sp-wrap">
         <div class="sp-card">
           <h3>${this._loc('editorSkin')}</h3>
@@ -443,9 +489,7 @@ export class SkinsProCardEditor extends HTMLElement {
           const next = deepClone(this._config);
           next.resource_pack = next.resource_pack || {};
           next.resource_pack.skin = value;
-          if (SKINS.includes(value)) {
-            next.resource_pack.base_path = '__AUTO__';
-          }
+          next.resource_pack.base_path = skinBasePath(value);
           this._config = next;
           fire(this, this._config);
           return;
@@ -628,7 +672,7 @@ export class SkinsProCardEditor extends HTMLElement {
           const next = deepClone(this._config);
           next.resource_pack = next.resource_pack || {};
           next.resource_pack.skin = skin;
-          next.resource_pack.base_path = `/local/skins-pro/${skin}/`;
+          next.resource_pack.base_path = skinBasePath(skin);
           next.downloaded_skins = [...new Set([...(next.downloaded_skins || []), skin])];
           this._config = next;
           fire(this, this._config);

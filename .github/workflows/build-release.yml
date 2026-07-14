@@ -44,11 +44,9 @@ jobs:
           echo "version=$NEW_VER" >> "$GITHUB_OUTPUT"
           echo "version_changed=$VER_CHANGED" >> "$GITHUB_OUTPUT"
 
-          if [ "$IS_MERGE" = "true" ] || [ "$VER_CHANGED" = "true" ]; then
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          fi
+          # Every fork push must publish matching dist and store assets so HACS
+          # installations never lag behind the source commit.
+          echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node.js
         if: steps.check.outputs.skip != 'true'
@@ -137,4 +135,4 @@ jobs:
 
       - name: Purge jsdelivr cache
         if: steps.check.outputs.skip != 'true'
-        run: curl -s https://purge.jsdelivr.net/gh/ha-china/Skins-Pro@store/screenshots/registry.json
+        run: curl -s https://purge.jsdelivr.net/gh/zhouningha/znSkins-Pro@store/screenshots/registry.json

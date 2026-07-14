@@ -6,6 +6,9 @@ import { STRINGS } from './i18n.generated';
 import { BUILD_VERSION } from './version.generated';
 
 export const BUNDLED_SKINS: readonly string[] = SKINS;
+const CUSTOM_SKIN_BASE_PATHS: Record<string, string> = {
+  god_of_war_3_wall: '/local/skins-pro/god_of_war_3_wall',
+};
 
 export type { Language } from './i18n.generated';
 export type { TranslationKey } from './types';
@@ -418,8 +421,11 @@ export function assetUrl(config?: DashboardConfig, key?: string): string {
   if (!key) return '';
   const skin = selectedSkin(config);
   const configuredBasePath = config?.resource_pack?.base_path || '';
-  const basePath = configuredBasePath === '__AUTO__' || !configuredBasePath
-    ? bundledSkinBasePath(skin)
+  const configuredPathSkin = configuredBasePath.replace(/\/$/, '').split('/').pop() || '';
+  const staleBasePath = configuredBasePath !== '__AUTO__' && !!configuredBasePath && configuredPathSkin !== skin;
+  const customBasePath = CUSTOM_SKIN_BASE_PATHS[skin];
+  const basePath = customBasePath || configuredBasePath === '__AUTO__' || !configuredBasePath || staleBasePath
+    ? (customBasePath || (BUNDLED_SKINS.includes(skin) ? bundledSkinBasePath(skin) : `/local/skins-pro/${skin}`))
     : configuredBasePath;
   const asset = config?.resource_pack?.assets?.[key] || DEFAULT_ASSETS[key] || '';
   if (!asset) return '';

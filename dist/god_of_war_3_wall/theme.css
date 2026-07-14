@@ -884,6 +884,71 @@ button {
  opacity: 0.65;
 }
 
+/* Keep the old Android WebView within its tile-memory budget on long device lists. */
+:host([data-android-kiosk="true"]) .mc-app[data-view="devices"] .device,
+:host([data-kiosk-fullscreen="true"]) .mc-app[data-view="devices"] .device {
+ backdrop-filter: none !important;
+ -webkit-backdrop-filter: none !important;
+ box-shadow: none !important;
+ transition: none !important;
+ transform: none !important;
+ content-visibility: auto;
+ contain: layout paint style;
+ contain-intrinsic-size: auto 110px;
+}
+
+:host([data-android-kiosk="true"]) .mc-app[data-view="devices"] .device-group,
+:host([data-kiosk-fullscreen="true"]) .mc-app[data-view="devices"] .device-group {
+ content-visibility: auto;
+ contain: layout paint style;
+ contain-intrinsic-size: auto 560px;
+}
+
+:host([data-android-kiosk="true"]) .mc-app[data-view="devices"] .page-scroll,
+:host([data-kiosk-fullscreen="true"]) .mc-app[data-view="devices"] .page-scroll {
+ contain: strict;
+ overscroll-behavior: contain;
+}
+
+:host([data-android-kiosk="true"]) .mc-app[data-view="devices"] .item-img,
+:host([data-android-kiosk="true"]) .mc-app[data-view="devices"] .item-icon,
+:host([data-kiosk-fullscreen="true"]) .mc-app[data-view="devices"] .item-img,
+:host([data-kiosk-fullscreen="true"]) .mc-app[data-view="devices"] .item-icon {
+ box-shadow: none !important;
+ filter: none !important;
+ transition: none !important;
+}
+
+.android-device-pager {
+ display: flex;
+ align-items: center;
+ justify-content: flex-end;
+ gap: var(--sp-space-sm);
+ margin-bottom: var(--sp-space-sm);
+ color: var(--sp-text-secondary);
+ font-size: var(--sp-font-sm);
+}
+
+.android-device-page-button {
+ display: grid;
+ place-items: center;
+ width: 36px;
+ height: 36px;
+ padding: 0;
+ border: var(--sp-border-w) solid var(--sp-border-glass);
+ border-radius: 50%;
+ background: var(--glass-thick);
+ color: var(--sp-text-primary);
+}
+
+.android-device-page-button ha-icon {
+ --mdc-icon-size: 22px;
+}
+
+.android-device-page-button:disabled {
+ opacity: 0.35;
+}
+
 /* ---- Device Grid Compact ---- */
 
 .devices-page-grid .device {
@@ -1512,6 +1577,7 @@ button {
 .climate-control-dialog {
  position: relative;
  width: min(520px, 100%);
+ max-height: calc(100dvh - 48px);
  padding: 24px;
  border-radius: 34px;
  border: 1px solid rgba(255, 177, 61, 0.36);
@@ -1522,8 +1588,28 @@ button {
   0 24px 60px rgba(0, 0, 0, 0.48),
   inset 0 1px 0 rgba(255, 240, 210, 0.14);
  color: var(--sp-text-primary);
- overflow: hidden;
+ overflow-x: hidden;
+ overflow-y: auto;
+ overscroll-behavior: contain;
+ -webkit-overflow-scrolling: touch;
  animation: door-confirm-pop 0.24s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+@media (max-height: 720px) {
+ .climate-control-overlay {
+  align-items: flex-start;
+  padding: 12px;
+ }
+
+ .climate-control-dialog {
+  max-height: calc(100dvh - 24px);
+  padding: 18px;
+  border-radius: 24px;
+ }
+
+ .climate-control-temp {
+  margin: 16px 0 14px;
+ }
 }
 
 .climate-control-head {
@@ -1667,6 +1753,7 @@ button {
  border-radius: var(--sp-radius-lg);
  padding: var(--sp-space-lg);
  box-sizing: border-box;
+ overflow: hidden;
  background: var(--glass-regular);
  backdrop-filter: var(--sp-blur-lg);
  -webkit-backdrop-filter: var(--sp-blur-lg);
@@ -1791,11 +1878,225 @@ button {
  width: 100%;
  max-width: 100%;
  min-width: 0;
+ position: relative;
  justify-self: stretch;
  align-self: stretch;
  min-height: 0;
  display: flex;
  flex-direction: column;
+ overflow: visible;
+}
+
+.panel-media .media-title-row {
+ position: relative;
+ display: flex;
+ align-items: center;
+ justify-content: flex-start;
+ gap: 0;
+ min-height: 28px;
+ padding-right: 128px;
+}
+
+.panel-media .media-title-row h2 {
+ flex: 0 0 auto;
+ min-width: 0;
+ margin: 0;
+ white-space: nowrap;
+}
+
+.media-playlist-menu {
+ position: absolute;
+ top: 6px;
+ right: 10px;
+ z-index: 30;
+}
+
+.media-playlist-select {
+ box-sizing: border-box;
+ width: 112px;
+ height: 28px;
+ min-width: 100px;
+ padding: 0 9px 0 12px;
+ display: flex;
+ align-items: center;
+ justify-content: center;
+ gap: 4px;
+ border: 1px solid rgba(255, 190, 61, 0.34);
+ border-radius: 999px;
+ background-color: rgba(66, 22, 16, 0.8);
+ color: var(--sp-text-primary);
+ font: inherit;
+ font-size: var(--sp-font-3xs, 11px);
+ text-align: center;
+ line-height: 1;
+ cursor: pointer;
+ -webkit-appearance: none;
+ appearance: none;
+ outline: none;
+ box-shadow: inset 0 0 0 1px rgba(255, 190, 61, 0.08), 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.media-playlist-select::-webkit-details-marker,
+.media-playlist-select::marker {
+ display: none;
+ content: "";
+}
+
+.media-playlist-select span {
+ min-width: 0;
+ overflow: hidden;
+ text-overflow: ellipsis;
+ white-space: nowrap;
+}
+
+.media-playlist-select ha-icon {
+ width: 14px;
+ height: 14px;
+ flex: 0 0 14px;
+ color: var(--sp-accent-hover);
+}
+
+.media-playlist-options {
+ position: absolute;
+ top: calc(100% + 8px);
+ right: 0;
+ width: 210px;
+ max-height: 238px;
+ padding: 6px;
+ display: flex;
+ flex-direction: column;
+ gap: 2px;
+ border: 1px solid rgba(255, 190, 61, 0.38);
+ border-radius: 16px;
+ background:
+  linear-gradient(180deg, rgba(74, 20, 14, 0.96), rgba(18, 5, 6, 0.98));
+ color: var(--sp-text-primary);
+ box-shadow: 0 18px 42px rgba(0, 0, 0, 0.48), inset 0 0 0 1px rgba(255, 232, 195, 0.05);
+ backdrop-filter: blur(22px) saturate(145%);
+ -webkit-backdrop-filter: blur(22px) saturate(145%);
+ overflow-y: auto;
+}
+
+.media-playlist-option {
+ min-height: 32px;
+ padding: 0 10px;
+ display: grid;
+ grid-template-columns: 18px minmax(0, 1fr);
+ align-items: center;
+ gap: 6px;
+ border: 0;
+ border-radius: 11px;
+ background: transparent;
+ color: rgba(255, 235, 205, 0.82);
+ font: inherit;
+ font-size: var(--sp-font-xs, 12px);
+ text-align: left;
+ cursor: pointer;
+}
+
+.media-playlist-option span:last-child {
+ min-width: 0;
+ overflow: hidden;
+ text-overflow: ellipsis;
+ white-space: nowrap;
+}
+
+.media-playlist-option ha-icon,
+.media-playlist-check-spacer {
+ width: 18px;
+ height: 18px;
+}
+
+.media-playlist-option ha-icon {
+ color: var(--sp-accent-hover);
+}
+
+.media-playlist-option:hover,
+.media-playlist-option.active {
+ background: rgba(255, 190, 61, 0.14);
+ color: var(--sp-text-primary);
+}
+
+.media-playlist-select option {
+ background: #180807;
+ color: var(--sp-text-primary);
+}
+
+.media-playback-state {
+ display: flex;
+ align-items: center;
+ gap: 6px;
+ margin-top: 4px;
+ color: rgba(255, 232, 195, 0.68);
+ font-size: var(--sp-font-3xs, 11px);
+}
+
+.media-playback-state span {
+ width: 7px;
+ height: 7px;
+ flex: 0 0 7px;
+ border-radius: 50%;
+ background: rgba(255, 232, 195, 0.42);
+}
+
+.media-playback-state.playing {
+ color: var(--sp-accent-hover);
+}
+
+.media-playback-state.playing span {
+ background: #ffbe3d;
+ box-shadow: 0 0 0 4px rgba(255, 190, 61, 0.14);
+ animation: media-playing-pulse 1.4s ease-in-out infinite;
+}
+
+.media-playback-state.pending ha-icon,
+.media-playbtn[disabled] ha-icon {
+ animation: media-control-spin 0.9s linear infinite;
+}
+
+.media-playback-error {
+ margin-top: 4px;
+ color: #ff9b88;
+ font-size: var(--sp-font-3xs, 11px);
+ line-height: 1.25;
+}
+
+.media-btn[disabled],
+.media-playlist-select[disabled] {
+ opacity: 0.55;
+ pointer-events: none;
+}
+
+.media-volume-step {
+ -webkit-appearance: none;
+ appearance: none;
+ box-sizing: border-box;
+ width: 54px;
+ height: 54px;
+ padding: 0;
+ display: inline-grid;
+ place-items: center;
+ border: 1px solid var(--sp-border-color);
+ border-radius: 50%;
+ background: rgba(66, 22, 16, 0.72);
+ color: var(--sp-text-primary);
+ cursor: pointer;
+}
+
+.media-volume-value {
+ min-width: 58px;
+ text-align: center;
+ color: var(--sp-text-primary);
+ font-size: var(--sp-font-md, 15px);
+ font-variant-numeric: tabular-nums;
+}
+
+@keyframes media-control-spin {
+ to { transform: rotate(360deg); }
+}
+
+@keyframes media-playing-pulse {
+ 50% { opacity: 0.48; transform: scale(0.82); }
 }
 
 .media-content {
@@ -1814,6 +2115,10 @@ button {
 .media-volrow {
  margin-top: 0;
  padding-top: var(--sp-space-sm);
+}
+
+.media-voltrack {
+ touch-action: manipulation;
 }
 
 .media-cover {
@@ -1879,7 +2184,7 @@ button {
  display: flex;
  align-items: center;
  justify-content: center;
- gap: var(--sp-space-xs);
+ gap: var(--sp-space-md);
  flex-shrink: 0;
 }
 
@@ -1888,7 +2193,7 @@ button {
  border: none;
  color: var(--sp-text-primary);
  cursor: pointer;
- padding: 6px;
+ padding: 7px;
  border-radius: 50%;
  display: flex;
  align-items: center;
@@ -1903,11 +2208,11 @@ button {
 }
 
 .media-btn ha-icon {
- --mdc-icon-size: 24px;
+ --mdc-icon-size: 26px;
 }
 
 .media-playbtn ha-icon {
- --mdc-icon-size: 36px;
+ --mdc-icon-size: 42px;
 }
 
 .media-volume {
@@ -2992,34 +3297,62 @@ button {
 }
 
 :host([data-wall-panel="1080p"]) .panel-media .media-content {
- gap: var(--sp-space-lg);
+ gap: var(--sp-space-xs);
 }
 
 :host([data-wall-panel="1080p"]) .panel-media .media-row:not(.media-volrow) {
  flex-wrap: wrap;
  align-items: flex-start;
- row-gap: var(--sp-space-sm);
- column-gap: var(--sp-space-md);
+ row-gap: var(--sp-space-xs);
+ column-gap: var(--sp-space-sm);
 }
 
 :host([data-wall-panel="1080p"]) .panel-media .media-actions {
  width: 100%;
  justify-content: center;
- margin-top: var(--sp-space-xs);
+ margin-top: 0;
 }
 
 :host([data-wall-panel="1080p"]) .panel-media .media-volrow {
- padding-top: var(--sp-space-md);
+ padding-top: 0;
  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 :host([data-wall-panel="1080p"]) .panel-media .media-cover {
- width: 52px;
- height: 52px;
+ width: 44px;
+ height: 44px;
 }
 
 :host([data-wall-panel="1080p"]) .panel-media .media-voltrack {
  height: 12px;
+}
+
+/* Wall panels show one scene row and page additional shortcuts horizontally. */
+:host([data-wall-panel="1080p"]) .panel-scenes .scene-grid {
+ grid-template-columns: none;
+ grid-template-rows: minmax(0, 1fr);
+ grid-auto-flow: column;
+ grid-auto-columns: calc((100% - var(--sp-space-sm)) / 2);
+ align-content: stretch;
+ overflow-x: auto;
+ overflow-y: hidden;
+ overscroll-behavior-x: contain;
+ scroll-snap-type: x mandatory;
+ scrollbar-width: none;
+ touch-action: pan-x;
+}
+
+:host([data-wall-panel="1080p"]) .panel-scenes .scene-grid::-webkit-scrollbar {
+ display: none;
+}
+
+:host([data-wall-panel="1080p"]) .panel-scenes .scene {
+ width: 100%;
+ min-width: 0;
+ min-height: 0;
+ height: 100%;
+ box-sizing: border-box;
+ scroll-snap-align: start;
 }
 
 /* zn fork: keep interactive room/environment and scene sizing aligned with official cards. */

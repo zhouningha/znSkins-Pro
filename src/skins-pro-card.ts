@@ -112,6 +112,7 @@ export class MinecraftDashboardCard extends LitElement {
   private _longPressTimer?: number;
   private _longPressDone = false;
   private _sceneSwipeStartX = 0;
+  private _sceneSwipeSuppressClickUntil = 0;
   private _devicesHiddenHaSyncTimer?: number;
   private _devicesHiddenHaSyncing = false;
   @state() private _selectedEnvironmentAreaId = '';
@@ -2592,11 +2593,20 @@ export class MinecraftDashboardCard extends LitElement {
       ? formatRelativeTime(activatedAt, language)
       : undefined;
     return html`
-      <button class="scene ${tones[index % tones.length]}" @click=${() => this.runScene(scene.entity_id)}>
+      <button class="scene ${tones[index % tones.length]}" @click=${(event: Event) => this.handleSceneClick(event, scene.entity_id)}>
         <strong>${name}</strong>
         ${lastActivated ? html`<p class="muted">${lastActivated}</p>` : nothing}
       </button>
     `;
+  }
+
+  private handleSceneClick(event: Event, entityId: string): void {
+    if (Date.now() < this._sceneSwipeSuppressClickUntil) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    void this.runScene(entityId);
   }
 
   private handleSceneSwipeStart(event: TouchEvent): void {
@@ -2608,7 +2618,10 @@ export class MinecraftDashboardCard extends LitElement {
     const delta = endX - this._sceneSwipeStartX;
     if (Math.abs(delta) < 48) return;
     const next = delta < 0 ? this._homeScenePage + 1 : this._homeScenePage - 1;
-    this._homeScenePage = Math.max(0, Math.min(pageCount - 1, next));
+    const bounded = Math.max(0, Math.min(pageCount - 1, next));
+    if (bounded === this._homeScenePage) return;
+    this._sceneSwipeSuppressClickUntil = Date.now() + 450;
+    this._homeScenePage = bounded;
   }
 
   // ─── Real automations ──────────────────────────────────

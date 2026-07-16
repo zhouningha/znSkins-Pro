@@ -87,6 +87,7 @@ export class MinecraftDashboardCard extends LitElement {
   @state() private _deviceHideEditMode = false;
   @state() private _deviceHideToast = '';
   @state() private _androidDevicePage = 0;
+  @state() private _homeScenePage = 0;
   @state() private _mediaPending = false;
   @state() private _mediaError = '';
   @state() private _mediaPlaylistOpen = false;
@@ -110,6 +111,7 @@ export class MinecraftDashboardCard extends LitElement {
   private _longPressEntity = '';
   private _longPressTimer?: number;
   private _longPressDone = false;
+  private _sceneSwipeStartX = 0;
   private _devicesHiddenHaSyncTimer?: number;
   private _devicesHiddenHaSyncing = false;
   @state() private _selectedEnvironmentAreaId = '';
@@ -886,7 +888,7 @@ export class MinecraftDashboardCard extends LitElement {
           ${this.renderMaintenanceCard(language, translate)}
           <section class="glass-card panel-scenes" data-section="scenes">
             <div class="section-title"><h2>${translate('scenes')}</h2><p class="muted">${translate('modes')}</p></div>
-            <div class="scene-grid">${this.renderHomeScenes(language, translate)}</div>
+            ${this.renderHomeScenesPanel(language, translate)}
           </section>
         </aside>
       </div>
@@ -1782,12 +1784,40 @@ export class MinecraftDashboardCard extends LitElement {
 
   // ─── Home: scenes ──────────────────────────────────────
 
-  private renderHomeScenes(language: Language, translate: (key: TranslationKey) => string): TemplateResult {
+  private renderHomeScenesPanel(language: Language, translate: (key: TranslationKey) => string): TemplateResult {
     const limit = this._config?.home_limits?.scenes || 6;
     const selectedScenes = this._config?.home_selection?.scenes || [];
-    const scenes = this.renderRealScenes(language, limit, selectedScenes);
-    if (scenes !== nothing) return scenes;
-    return html`<div class="empty-state compact-empty">${translate('noScenes')}</div>`;
+    const scenes = this.getRealSceneEntities(limit, selectedScenes);
+    if (scenes.length === 0) {
+      return html`<div class="scene-grid"><div class="empty-state compact-empty">${translate('noScenes')}</div></div>`;
+    }
+
+    const pageSize = this.isGodOfWarWallSkin() ? 4 : scenes.length;
+    const pageCount = Math.max(1, Math.ceil(scenes.length / pageSize));
+    const page = Math.min(this._homeScenePage, pageCount - 1);
+    const visibleScenes = scenes.slice(page * pageSize, (page + 1) * pageSize);
+    const showPager = pageCount > 1;
+
+    return html`
+      <div
+        class="scene-grid"
+        @touchstart=${(e: TouchEvent) => this.handleSceneSwipeStart(e)}
+        @touchend=${(e: TouchEvent) => this.handleSceneSwipeEnd(e, pageCount)}
+      >
+        ${visibleScenes.map((scene, index) => this.renderSceneButton(scene, page * pageSize + index, language))}
+      </div>
+      ${showPager ? html`
+        <nav class="scene-pager" aria-label=${language === 'zh-CN' ? '场景分页' : 'Scene pages'}>
+          <button class="scene-page-button" ?disabled=${page === 0} @click=${() => this.setHomeScenePage(page - 1)} aria-label=${language === 'zh-CN' ? '上一页' : 'Previous page'}>
+            <ha-icon icon="mdi:chevron-left"></ha-icon>
+          </button>
+          <span>${page + 1} / ${pageCount}</span>
+          <button class="scene-page-button" ?disabled=${page >= pageCount - 1} @click=${() => this.setHomeScenePage(page + 1)} aria-label=${language === 'zh-CN' ? '下一页' : 'Next page'}>
+            <ha-icon icon="mdi:chevron-right"></ha-icon>
+          </button>
+        </nav>
+      ` : nothing}
+    `;
   }
 
   // ─── Home: rooms ────────────────────────────────────────
@@ -2548,34 +2578,47 @@ export class MinecraftDashboardCard extends LitElement {
 
   // ─── Real scenes ────────────────────────────────────────
 
-  private renderRealScenes(language: Language, limit = 12, selectedScenes: string[] = []): TemplateResult | typeof nothing {
-    if (!this._hass) return nothing;
-
+  private getRealSceneEntities(limit = 12, selectedScenes: string[] = []): HassEntity[] {
+    if (!this._hass) return [];
     const available = Object.values(this._hass.states)
       .filter((entity): entity is HassEntity => Boolean(entity && /^(scene|script)\./.test(entity.entity_id)));
     const byId = new Map(available.map((entity) => [entity.entity_id, entity]));
-    const scenes = (selectedScenes.length > 0
+    return (selectedScenes.length > 0
       ? selectedScenes.map((entityId) => byId.get(entityId)).filter((entity): entity is HassEntity => Boolean(entity))
       : available
     ).slice(0, limit);
+  }
 
-    if (scenes.length === 0) return nothing;
+  private renderSceneButton(scene: HassEntity, index: number, language: Language): TemplateResult {
+    const tones: Array<'morning' | 'night' | 'movie' | 'game'> = ['morning', 'night', 'movie', 'game'];
+    const name = String(scene.attributes?.friendly_name || scene.entity_id);
+    const timestamp = scene.entity_id.startsWith('script.') ? scene.last_changed : scene.state;
+    const activatedAt = timestamp ? new Date(timestamp) : undefined;
+    const lastActivated = activatedAt && Number.isFinite(activatedAt.getTime())
+      ? formatRelativeTime(activatedAt, language)
+      : undefined;
+    return html`
+      <button class="scene ${tones[index % tones.length]}" @click=${() => this.runScene(scene.entity_id)}>
+        <strong>${name}</strong>
+        ${lastActivated ? html`<p class="muted">${lastActivated}</p>` : nothing}
+      </button>
+    `;
+  }
 
-    return html`${scenes.map((scene, index) => {
-      const tones: Array<'morning' | 'night' | 'movie' | 'game'> = ['morning', 'night', 'movie', 'game'];
-      const name = String(scene.attributes?.friendly_name || scene.entity_id);
-      const timestamp = scene.entity_id.startsWith('script.') ? scene.last_changed : scene.state;
-      const activatedAt = timestamp ? new Date(timestamp) : undefined;
-      const lastActivated = activatedAt && Number.isFinite(activatedAt.getTime())
-        ? formatRelativeTime(activatedAt, language)
-        : undefined;
-      return html`
-        <button class="scene ${tones[index % tones.length]}" @click=${() => this.runScene(scene.entity_id)}>
-          <strong>${name}</strong>
-          ${lastActivated ? html`<p class="muted">${lastActivated}</p>` : nothing}
-        </button>
-      `;
-    })}`;
+  private setHomeScenePage(page: number): void {
+    this._homeScenePage = Math.max(0, page);
+  }
+
+  private handleSceneSwipeStart(event: TouchEvent): void {
+    this._sceneSwipeStartX = event.changedTouches[0]?.clientX || 0;
+  }
+
+  private handleSceneSwipeEnd(event: TouchEvent, pageCount: number): void {
+    const endX = event.changedTouches[0]?.clientX || 0;
+    const delta = endX - this._sceneSwipeStartX;
+    if (Math.abs(delta) < 48) return;
+    const next = delta < 0 ? this._homeScenePage + 1 : this._homeScenePage - 1;
+    this._homeScenePage = Math.max(0, Math.min(pageCount - 1, next));
   }
 
   // ─── Real automations ──────────────────────────────────

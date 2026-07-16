@@ -152,6 +152,8 @@ export class MinecraftDashboardCard extends LitElement {
   private _themeFallbackTimer = 0;
   private static readonly AUTO_FULLSCREEN_MAX = 40;
   private readonly _handleWindowResize = () => this.applyLayoutHeight();
+  private readonly _handleDocumentPointerDown = (event: PointerEvent) => this.handleDocumentPointerDown(event);
+  private readonly _handleDocumentKeyDown = (event: KeyboardEvent) => this.handleDocumentKeyDown(event);
 
   public get hass(): HomeAssistant | undefined {
     return this._hass;
@@ -176,6 +178,8 @@ export class MinecraftDashboardCard extends LitElement {
       // ignore
     }
     window.addEventListener('resize', this._handleWindowResize);
+    document.addEventListener('pointerdown', this._handleDocumentPointerDown, { capture: true });
+    document.addEventListener('keydown', this._handleDocumentKeyDown);
     void refreshAssetVersionFromServer().then((changed) => {
       if (changed) this.requestUpdate();
     });
@@ -189,6 +193,8 @@ export class MinecraftDashboardCard extends LitElement {
   public disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('resize', this._handleWindowResize);
+    document.removeEventListener('pointerdown', this._handleDocumentPointerDown, { capture: true });
+    document.removeEventListener('keydown', this._handleDocumentKeyDown);
     window.clearTimeout(this._devicesHiddenHaSyncTimer);
     window.clearTimeout(this._themeRevealTimer);
     window.clearTimeout(this._themeFallbackTimer);
@@ -1499,6 +1505,18 @@ export class MinecraftDashboardCard extends LitElement {
         ` : nothing}
       </div>
     `;
+  }
+
+  private handleDocumentPointerDown(event: PointerEvent): void {
+    if (!this._mediaPlaylistOpen) return;
+    const path = event.composedPath();
+    if (path.some((target) => target instanceof HTMLElement && target.classList.contains('media-playlist-menu'))) return;
+    this._mediaPlaylistOpen = false;
+  }
+
+  private handleDocumentKeyDown(event: KeyboardEvent): void {
+    if (!this._mediaPlaylistOpen || event.key !== 'Escape') return;
+    this._mediaPlaylistOpen = false;
   }
 
   private async playMusicPlaylist(entityId: string, playlist: string): Promise<void> {

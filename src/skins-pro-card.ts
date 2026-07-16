@@ -1796,9 +1796,14 @@ export class MinecraftDashboardCard extends LitElement {
     const pageCount = Math.max(1, Math.ceil(scenes.length / pageSize));
     const page = Math.min(this._homeScenePage, pageCount - 1);
     const visibleScenes = scenes.slice(page * pageSize, (page + 1) * pageSize);
-    const showPager = pageCount > 1;
+    const showPageDots = pageCount > 1;
 
     return html`
+      ${showPageDots ? html`
+        <div class="scene-page-dots" aria-label=${language === 'zh-CN' ? '场景还有更多页' : 'More scene pages'}>
+          ${Array.from({ length: pageCount }).map((_, index) => html`<span class=${index === page ? 'active' : ''}></span>`)}
+        </div>
+      ` : nothing}
       <div
         class="scene-grid"
         @touchstart=${(e: TouchEvent) => this.handleSceneSwipeStart(e)}
@@ -1806,17 +1811,6 @@ export class MinecraftDashboardCard extends LitElement {
       >
         ${visibleScenes.map((scene, index) => this.renderSceneButton(scene, page * pageSize + index, language))}
       </div>
-      ${showPager ? html`
-        <nav class="scene-pager" aria-label=${language === 'zh-CN' ? '场景分页' : 'Scene pages'}>
-          <button class="scene-page-button" ?disabled=${page === 0} @click=${() => this.setHomeScenePage(page - 1)} aria-label=${language === 'zh-CN' ? '上一页' : 'Previous page'}>
-            <ha-icon icon="mdi:chevron-left"></ha-icon>
-          </button>
-          <span>${page + 1} / ${pageCount}</span>
-          <button class="scene-page-button" ?disabled=${page >= pageCount - 1} @click=${() => this.setHomeScenePage(page + 1)} aria-label=${language === 'zh-CN' ? '下一页' : 'Next page'}>
-            <ha-icon icon="mdi:chevron-right"></ha-icon>
-          </button>
-        </nav>
-      ` : nothing}
     `;
   }
 
@@ -2603,10 +2597,6 @@ export class MinecraftDashboardCard extends LitElement {
         ${lastActivated ? html`<p class="muted">${lastActivated}</p>` : nothing}
       </button>
     `;
-  }
-
-  private setHomeScenePage(page: number): void {
-    this._homeScenePage = Math.max(0, page);
   }
 
   private handleSceneSwipeStart(event: TouchEvent): void {

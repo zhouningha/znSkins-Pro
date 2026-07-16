@@ -2486,6 +2486,7 @@ button {
  overflow: hidden;
  display: flex;
  flex-direction: column;
+ position: relative;
 }
 
 .panel-scenes .scene-grid {
@@ -2494,42 +2495,28 @@ button {
  align-content: start;
 }
 
-.scene-pager {
- display: flex;
+.scene-page-dots {
+ position: absolute;
+ top: var(--sp-space-lg);
+ right: var(--sp-space-lg);
+ z-index: 2;
+ display: inline-flex;
  align-items: center;
- justify-content: center;
- gap: var(--sp-space-sm);
- min-height: 26px;
- margin-top: var(--sp-space-xs);
- color: var(--sp-text-muted);
- font-size: var(--sp-font-3xs);
- font-variant-numeric: tabular-nums;
+ gap: 5px;
+ pointer-events: none;
 }
 
-.scene-page-button {
- width: 28px;
- height: 28px;
- min-width: 28px;
- padding: 0;
- display: inline-grid;
- place-items: center;
- border: 1px solid rgba(255, 190, 61, 0.28);
+.scene-page-dots span {
+ width: 5px;
+ height: 5px;
  border-radius: 50%;
- background: rgba(66, 22, 16, 0.72);
- color: var(--sp-text-primary);
- cursor: pointer;
- -webkit-appearance: none;
- appearance: none;
+ background: rgba(255, 235, 205, 0.38);
+ box-shadow: 0 0 0 1px rgba(255, 190, 61, 0.18);
 }
 
-.scene-page-button[disabled] {
- opacity: 0.38;
- cursor: default;
-}
-
-.scene-page-button ha-icon {
- width: 18px;
- height: 18px;
+.scene-page-dots span.active {
+ background: var(--sp-accent-hover);
+ box-shadow: 0 0 10px rgba(255, 190, 61, 0.52);
 }
 
 /* ---- Maintenance ---- */
@@ -3393,9 +3380,9 @@ button {
  box-sizing: border-box;
 }
 
-:host([data-wall-panel="1080p"]) .panel-scenes .scene-pager {
- min-height: 24px;
- margin-top: 6px;
+:host([data-wall-panel="1080p"]) .panel-scenes .scene-page-dots {
+ top: 18px;
+ right: 22px;
 }
 
 /* zn fork: keep interactive room/environment and scene sizing aligned with official cards. */

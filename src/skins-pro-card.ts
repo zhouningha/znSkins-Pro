@@ -1514,7 +1514,11 @@ export class MinecraftDashboardCard extends LitElement {
   private handleOutsideInteraction(event: Event): void {
     if (!this._mediaPlaylistOpen) return;
     const path = event.composedPath();
-    if (path.some((target) => target instanceof HTMLElement && target.classList.contains('media-playlist-menu'))) return;
+    const isControlClick = path.some((target) =>
+      target instanceof HTMLElement
+      && (target.classList.contains('media-playlist-select') || target.classList.contains('media-playlist-option'))
+    );
+    if (isControlClick) return;
     this._mediaPlaylistOpen = false;
   }
 

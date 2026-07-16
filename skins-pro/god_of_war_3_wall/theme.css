@@ -1906,8 +1906,8 @@ button {
 
 .media-playlist-menu {
  position: absolute;
- top: -4px;
- right: -2px;
+ top: -12px;
+ right: -10px;
  z-index: 30;
 }
 
@@ -3301,8 +3301,8 @@ button {
 }
 
 :host([data-wall-panel="1080p"]) .panel-media .media-playlist-menu {
- top: -10px;
- right: -6px;
+ top: -18px;
+ right: -14px;
 }
 
 :host([data-wall-panel="1080p"]) .panel-media .media-row:not(.media-volrow) {

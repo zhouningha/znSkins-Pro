@@ -4,6 +4,7 @@ set -euo pipefail
 
 HA_HOST="${HA_HOST:-root@192.168.1.17}"
 REMOTE_WWW="${REMOTE_WWW:-/homeassistant/www/community/skins-pro}"
+DEPLOY_SKIN="${DEPLOY_SKIN:-god_of_war_3_wall}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 if [[ "${1:-}" == "--build" || ! -f "${REPO_ROOT}/dist/skins-pro.js" ]]; then
@@ -21,6 +22,13 @@ ssh "${HA_HOST}" "cp /tmp/skins-pro.js.${stamp} '${REMOTE_WWW}/skins-pro.js'"
 if [[ -f "${REPO_ROOT}/dist/version.json" ]]; then
   ssh "${HA_HOST}" "cat > /tmp/skins-pro-version.${stamp}.json" < "${REPO_ROOT}/dist/version.json"
   ssh "${HA_HOST}" "cp /tmp/skins-pro-version.${stamp}.json '${REMOTE_WWW}/version.json'"
+fi
+
+if [[ -f "${REPO_ROOT}/dist/${DEPLOY_SKIN}/theme.css" ]]; then
+  echo "==> Upload ${DEPLOY_SKIN}/theme.css"
+  ssh "${HA_HOST}" "mkdir -p '${REMOTE_WWW}/${DEPLOY_SKIN}' && cp '${REMOTE_WWW}/${DEPLOY_SKIN}/theme.css' '${REMOTE_WWW}/${DEPLOY_SKIN}/theme.css.before-js-deploy-${stamp}' 2>/dev/null || true"
+  ssh "${HA_HOST}" "cat > /tmp/${DEPLOY_SKIN}.theme.${stamp}.css" < "${REPO_ROOT}/dist/${DEPLOY_SKIN}/theme.css"
+  ssh "${HA_HOST}" "cp /tmp/${DEPLOY_SKIN}.theme.${stamp}.css '${REMOTE_WWW}/${DEPLOY_SKIN}/theme.css'"
 fi
 
 echo "==> Bump Lovelace resource cache tag"

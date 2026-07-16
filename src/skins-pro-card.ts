@@ -152,7 +152,7 @@ export class MinecraftDashboardCard extends LitElement {
   private _themeFallbackTimer = 0;
   private static readonly AUTO_FULLSCREEN_MAX = 40;
   private readonly _handleWindowResize = () => this.applyLayoutHeight();
-  private readonly _handleDocumentPointerDown = (event: PointerEvent) => this.handleDocumentPointerDown(event);
+  private readonly _handleOutsideInteraction = (event: Event) => this.handleOutsideInteraction(event);
   private readonly _handleDocumentKeyDown = (event: KeyboardEvent) => this.handleDocumentKeyDown(event);
 
   public get hass(): HomeAssistant | undefined {
@@ -178,8 +178,10 @@ export class MinecraftDashboardCard extends LitElement {
       // ignore
     }
     window.addEventListener('resize', this._handleWindowResize);
-    document.addEventListener('pointerdown', this._handleDocumentPointerDown, { capture: true });
-    document.addEventListener('keydown', this._handleDocumentKeyDown);
+    window.addEventListener('pointerdown', this._handleOutsideInteraction, { capture: true });
+    window.addEventListener('touchstart', this._handleOutsideInteraction, { capture: true, passive: true });
+    window.addEventListener('click', this._handleOutsideInteraction, { capture: true });
+    window.addEventListener('keydown', this._handleDocumentKeyDown);
     void refreshAssetVersionFromServer().then((changed) => {
       if (changed) this.requestUpdate();
     });
@@ -193,8 +195,10 @@ export class MinecraftDashboardCard extends LitElement {
   public disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('resize', this._handleWindowResize);
-    document.removeEventListener('pointerdown', this._handleDocumentPointerDown, { capture: true });
-    document.removeEventListener('keydown', this._handleDocumentKeyDown);
+    window.removeEventListener('pointerdown', this._handleOutsideInteraction, { capture: true });
+    window.removeEventListener('touchstart', this._handleOutsideInteraction, { capture: true });
+    window.removeEventListener('click', this._handleOutsideInteraction, { capture: true });
+    window.removeEventListener('keydown', this._handleDocumentKeyDown);
     window.clearTimeout(this._devicesHiddenHaSyncTimer);
     window.clearTimeout(this._themeRevealTimer);
     window.clearTimeout(this._themeFallbackTimer);
@@ -1507,7 +1511,7 @@ export class MinecraftDashboardCard extends LitElement {
     `;
   }
 
-  private handleDocumentPointerDown(event: PointerEvent): void {
+  private handleOutsideInteraction(event: Event): void {
     if (!this._mediaPlaylistOpen) return;
     const path = event.composedPath();
     if (path.some((target) => target instanceof HTMLElement && target.classList.contains('media-playlist-menu'))) return;

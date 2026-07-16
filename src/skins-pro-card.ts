@@ -1489,7 +1489,13 @@ export class MinecraftDashboardCard extends LitElement {
           <ha-icon icon="mdi:chevron-down"></ha-icon>
         </button>
         ${this._mediaPlaylistOpen ? html`
-          <div class="media-playlist-options" role="listbox">
+          <div
+            class="media-playlist-options"
+            role="listbox"
+            @pointerdown=${(e: Event) => this.closeMediaPlaylistFromBackdrop(e)}
+            @touchstart=${(e: Event) => this.closeMediaPlaylistFromBackdrop(e)}
+            @click=${(e: Event) => this.closeMediaPlaylistFromBackdrop(e)}
+          >
             ${playlistOptions.map((option) => html`
               <button
                 class="media-playlist-option ${option === selectedPlaylist ? 'active' : ''}"
@@ -1519,6 +1525,12 @@ export class MinecraftDashboardCard extends LitElement {
       && (target.classList.contains('media-playlist-select') || target.classList.contains('media-playlist-option'))
     );
     if (isControlClick) return;
+    this._mediaPlaylistOpen = false;
+  }
+
+  private closeMediaPlaylistFromBackdrop(event: Event): void {
+    if (event.target !== event.currentTarget) return;
+    event.stopPropagation();
     this._mediaPlaylistOpen = false;
   }
 

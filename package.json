@@ -9,6 +9,7 @@
     "watch": "rollup -c -w",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "type-check": "tsc --noEmit",
+    "deploy:ha": "bash scripts/deploy-ha-js.sh --build",
     "release": "npm run clean && npm run build"
   },
   "keywords": [

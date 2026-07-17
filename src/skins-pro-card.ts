@@ -599,6 +599,18 @@ export class MinecraftDashboardCard extends LitElement {
       </style>`;
     }
     return html`<style>
+      .security-page-body {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: var(--sp-space-md, 16px) !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+      }
+      .security-page-body > .security-cameras + .security-devices {
+        margin-top: var(--sp-space-md, 16px) !important;
+      }
       .security-cameras {
         display: grid !important;
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)) !important;

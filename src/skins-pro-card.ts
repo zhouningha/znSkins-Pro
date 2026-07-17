@@ -599,18 +599,6 @@ export class MinecraftDashboardCard extends LitElement {
       </style>`;
     }
     return html`<style>
-      .security-page-body {
-        display: flex !important;
-        flex-direction: column !important;
-        gap: var(--sp-space-md, 16px) !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        min-width: 0 !important;
-        box-sizing: border-box !important;
-      }
-      .security-page-body > .security-cameras + .security-devices {
-        margin-top: var(--sp-space-md, 16px) !important;
-      }
       .security-cameras {
         display: grid !important;
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)) !important;
@@ -708,63 +696,6 @@ export class MinecraftDashboardCard extends LitElement {
         height: 52px !important;
         flex: 0 0 52px !important;
         object-fit: cover !important;
-      }
-      .page-body.single-column.energy-detail-page {
-        display: grid !important;
-        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-        gap: var(--sp-space-lg, 20px) !important;
-        align-items: start !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        min-width: 0 !important;
-        box-sizing: border-box !important;
-      }
-      .energy-detail-page .page-energy-card,
-      .energy-detail-page .compact-energy-card,
-      .energy-detail-page .energy-total-card,
-      .energy-detail-page .maintenance-card {
-        width: 100% !important;
-        max-width: 100% !important;
-        min-width: 0 !important;
-        box-sizing: border-box !important;
-        overflow: hidden !important;
-      }
-      .energy-detail-page .section-title,
-      .energy-detail-page .section-title h2,
-      .energy-detail-page .env-row,
-      .energy-detail-page .energy-total-head,
-      .energy-detail-page .energy-month-row {
-        min-width: 0 !important;
-        max-width: 100% !important;
-      }
-      .energy-detail-page .section-title h2,
-      .energy-detail-page .muted,
-      .energy-detail-page .env-value,
-      .energy-detail-page .energy-total-value,
-      .energy-detail-page .energy-month-value,
-      .energy-detail-page .energy-total-delta {
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: nowrap !important;
-      }
-      .energy-detail-page .energy-total-chart,
-      .energy-detail-page .energy-mini-chart,
-      .energy-detail-page svg {
-        display: block !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        min-width: 0 !important;
-        box-sizing: border-box !important;
-      }
-      @media (max-width: 1180px) {
-        .page-body.single-column.energy-detail-page {
-          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        }
-      }
-      @media (max-width: 720px) {
-        .page-body.single-column.energy-detail-page {
-          grid-template-columns: minmax(0, 1fr) !important;
-        }
       }
       :host([data-kiosk-fullscreen="true"]) .stage-grid,
       :host([data-kiosk-fullscreen="true"]) .side {

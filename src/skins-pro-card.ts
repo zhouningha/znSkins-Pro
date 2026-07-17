@@ -599,6 +599,65 @@ export class MinecraftDashboardCard extends LitElement {
       </style>`;
     }
     return html`<style>
+      .security-cameras {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)) !important;
+        gap: var(--sp-space-md, 16px) !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+      }
+      .security-devices {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)) !important;
+        gap: var(--sp-space-sm, 12px) !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+      }
+      .security-cameras .camera-card {
+        position: relative !important;
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        aspect-ratio: 16 / 9 !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+      }
+      .security-cameras .camera-preview {
+        position: relative !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+      }
+      .security-cameras .camera-preview ha-camera-stream,
+      .security-cameras .camera-preview ha-camera-stream video,
+      .security-cameras .camera-preview ha-camera-stream img,
+      .security-cameras .camera-preview img {
+        position: absolute !important;
+        inset: 0 !important;
+        display: block !important;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+      }
+      .security-cameras .camera-label {
+        position: absolute !important;
+        left: 10px !important;
+        bottom: 10px !important;
+        z-index: 2 !important;
+        max-width: calc(100% - 20px) !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+        pointer-events: none !important;
+      }
       :host([data-kiosk-fullscreen="true"]) .stage-grid,
       :host([data-kiosk-fullscreen="true"]) .side {
         min-width: 0;

@@ -116,6 +116,7 @@ const zh: Record<TranslationKey, string> = {
   editorDownloading: '正在下载...',
   editorDownloadFailed: '下载失败：{message}',
   editorDownloadFailedHint: '未找到集成，请安装 skins-pro-hass 并重启 HA。',
+  editorSkinStoreDependency: '需安装集成方可下载皮肤',
 };
 
 export default zh;

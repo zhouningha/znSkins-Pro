@@ -5,6 +5,7 @@ import { deepClone, fire, type DashboardConfigRecord } from './config';
 
 export const CDN_STORE = 'https://cdn.jsdelivr.net/gh/ha-china/Skins-Pro@store';
 export const STATS_API = 'https://hachina.dpdns.org';
+export const SKIN_DEP_URL = 'https://github.com/ha-china/skins-pro-hass';
 
 function getVoterId(): string {
   let id = localStorage.getItem('skins_pro_voter');
@@ -91,6 +92,7 @@ export function renderSkinStore(
     <div class="nav-overlay" data-store-overlay style="display:flex">
       <div class="nav-dialog" style="max-width:1200px;width:95vw">
         <h3>${t(language, 'editorSkinStore')}</h3>
+        <p class="muted" style="text-align:center;margin-top:-6px"><a href="${SKIN_DEP_URL}" target="_blank" rel="noopener noreferrer">${t(language, 'editorSkinStoreDependency')}</a></p>
         ${content}
         <div class="nav-dialog-actions">
           <button class="nav-cancel" data-store-close>${t(language, 'editorSkinStoreClose')}</button>
@@ -179,7 +181,7 @@ export async function downloadSkin(
     fetch(`${STATS_API}/api/download/${skinId}`, { method: 'POST' }).catch(() => {});
     return { success: true };
   } catch (err: any) {
-    const raw = err?.message || t(language, 'editorDownloadFailedHint');
+    const raw = err?.message || t(language, 'editorSkinStoreDependency');
     return { success: false, errorMessage: t(language, 'editorDownloadFailed', { message: raw }) };
   }
 }

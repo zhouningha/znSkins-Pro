@@ -116,6 +116,7 @@ const en: Record<TranslationKey, string> = {
   editorDownloading: 'Downloading...',
   editorDownloadFailed: 'Download failed: {message}',
   editorDownloadFailedHint: 'Integration not found. Install skins-pro-hass and restart Home Assistant.',
+  editorSkinStoreDependency: 'Install the integration to download skins',
 };
 
 export default en;

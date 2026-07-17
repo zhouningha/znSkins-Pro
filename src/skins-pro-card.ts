@@ -610,7 +610,9 @@ export class MinecraftDashboardCard extends LitElement {
       }
       .security-devices {
         display: grid !important;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)) !important;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 220px)) !important;
+        justify-content: start !important;
+        align-items: stretch !important;
         gap: var(--sp-space-sm, 12px) !important;
         width: 100% !important;
         max-width: 100% !important;
@@ -657,6 +659,43 @@ export class MinecraftDashboardCard extends LitElement {
         text-overflow: ellipsis !important;
         white-space: nowrap !important;
         pointer-events: none !important;
+      }
+      .security-devices .device {
+        display: grid !important;
+        grid-template-rows: auto 1fr auto !important;
+        width: 100% !important;
+        max-width: 220px !important;
+        min-width: 0 !important;
+        min-height: 168px !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+      }
+      .security-devices .device-top,
+      .security-devices .control-row {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: var(--sp-space-xs, 8px) !important;
+        min-width: 0 !important;
+      }
+      .security-devices .device-copy {
+        min-width: 0 !important;
+        align-self: end !important;
+      }
+      .security-devices .device-name,
+      .security-devices .muted,
+      .security-devices .state-word {
+        max-width: 100% !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+      }
+      .security-devices .item-img,
+      .security-devices .item-icon {
+        width: 52px !important;
+        height: 52px !important;
+        flex: 0 0 52px !important;
+        object-fit: cover !important;
       }
       :host([data-kiosk-fullscreen="true"]) .stage-grid,
       :host([data-kiosk-fullscreen="true"]) .side {

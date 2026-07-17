@@ -2731,11 +2731,30 @@ export class MinecraftDashboardCard extends LitElement {
     `;
   }
 
+  private resolveAvailableCameraEntity(entityId: string): string {
+    const states = this._hass?.states;
+    const stateObj = states?.[entityId];
+    if (stateObj && stateObj.state !== 'unavailable') return entityId;
+
+    const fallbackMap: Record<string, string[]> = {
+      'camera.jian_kong_zi_ma_liu': ['camera.jian_kong_zi_ma_liu_2', 'camera.tp_ipc_mainstream'],
+      'camera.men_jin_zi_ma_liu': ['camera.men_jin_zi_ma_liu_2', 'camera.r20k_profile_name', 'camera.akuvox_door_camera'],
+      'camera.ke_ting_jian_kong_zi_ma_liu': ['camera.ke_ting_jian_kong_zi_ma_liu_2', 'camera.yw_mainstream'],
+    };
+
+    const candidates = [
+      ...(fallbackMap[entityId] || []),
+      `${entityId}_2`,
+    ];
+    return candidates.find(id => states?.[id] && states[id]!.state !== 'unavailable') || entityId;
+  }
+
   private renderCameraPreview(
     entityId: string,
     language: Language,
   ): TemplateResult {
-    const stateObj = this._hass?.states?.[entityId];
+    const resolvedEntityId = this.resolveAvailableCameraEntity(entityId);
+    const stateObj = this._hass?.states?.[resolvedEntityId];
     if (!stateObj || stateObj.state === 'unavailable') {
       return html`<div class="camera-loading">${language === 'zh-CN' ? '画面不可用' : 'Unavailable'}</div>`;
     }

@@ -40,6 +40,23 @@ jobs:
           done
           echo "blocked=$BLOCKED" >> "$GITHUB_OUTPUT"
 
+      - name: Validate strings.json has version field
+        id: validate_version
+        run: |
+          for f in ${{ steps.files.outputs.files }}; do
+            if [[ "$f" =~ ^skins-pro/([^/]+)/strings\.json$ ]]; then
+              SKIN="${BASH_REMATCH[1]}"
+              if [ -f "$f" ]; then
+                VERSION=$(jq -r '.version // empty' "$f")
+                if [ -z "$VERSION" ]; then
+                  echo "Missing 'version' field in $f"
+                  exit 1
+                fi
+                echo "OK: $f has version=$VERSION"
+              fi
+            fi
+          done
+
       - name: Fail if architecture files changed
         if: steps.check.outputs.blocked == 'true'
         uses: actions/github-script@v7

@@ -99,7 +99,7 @@ A skin is a folder under `skins-pro/<skin-name>/` containing images, CSS, and st
 skins-pro/
   your-skin-name/
     theme.css               # Styles (required)
-    strings.json            # Strings + icon_map + author (required)
+    strings.json            # Strings + icon_map + author + version (required)
     avatar.jpg              # Avatar, recommended ≥ 300×300
     background.jpg          # Background, recommended width ≥ 2560px
     decoration.jpg          # Side decoration, recommended height ≥ 400px
@@ -140,10 +140,11 @@ Supports PNG / JPG / BMP / WebP input. Icons, avatars, and decorations output as
 
 All styles are customized via CSS variables on `:host`. Each skin has its own `theme.css`. See `src/skins/modern/theme.css` for the full variable list.
 
-### strings.json + icon_map + author
+### strings.json + icon_map + author + version
 
 ```json
 {
+  "version": "1.0.0",
   "author": "your-github-username",
   "title_zh": "欢迎回来！",
   "title_en": "Welcome back!",
@@ -157,6 +158,7 @@ All styles are customized via CSS variables on `:host`. Each skin has its own `t
 }
 ```
 
+- `version` — Skin version string (e.g. `"1.0.0"`). Displayed in the store.
 - `author` — Your GitHub username (without `@`). Displayed in the store and linked to your profile.
 - `icon_map` — Maps entity domains to icon image filenames. Unmapped domains fall back automatically.
 

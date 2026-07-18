@@ -1,0 +1,25 @@
+name: Validate
+
+on:
+  push:
+    paths-ignore:
+      - '.github/workflows/**'
+      - 'skins-pro/**'
+      - 'screenshots/**'
+  pull_request:
+    paths-ignore:
+      - '.github/workflows/**'
+      - 'skins-pro/**'
+      - 'screenshots/**'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  validate-hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: HACS validation
+        uses: hacs/action@main
+        with:
+          category: plugin

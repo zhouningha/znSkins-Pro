@@ -1,0 +1,225 @@
+name: Label PR
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+    paths-ignore:
+      - '.github/workflows/**'
+
+permissions:
+  pull-requests: write
+
+jobs:
+  validate-pr-template:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const body = (pr.body || '').replace(/\r\n/g, '\n');
+            const errors = [];
+
+            const hasTypeSection = body.includes('### 类型 / Type');
+            const hasSkinNameSection = body.includes('### 皮肤名称 / Skin Name');
+            const hasChecklistSection = body.includes('### 皮肤提交检查 / Skin Submission Checklist');
+            const hasDescriptionSection = body.includes('### 描述 / Description');
+            const hasAdditionalInfoSection = body.includes('### 附加信息 / Additional Info');
+
+            if (!hasTypeSection || !hasSkinNameSection || !hasChecklistSection || !hasDescriptionSection || !hasAdditionalInfoSection) {
+              errors.push('PR description must keep the full template structure.');
+            }
+
+            const isContributeSkin = body.includes('- [x] 贡献主题 / Contribute a Skin') || body.includes('- [X] 贡献主题 / Contribute a Skin');
+            const isArchitecture = body.includes('- [x] 优化架构 / Architecture Optimization') || body.includes('- [X] 优化架构 / Architecture Optimization');
+
+            if (!isContributeSkin && !isArchitecture) {
+              errors.push('Select at least one PR type in `### 类型 / Type`.');
+            }
+
+            const descriptionMatch = body.match(/### 描述 \/ Description\n+([\s\S]*?)\n### 附加信息 \/ Additional Info/);
+            const description = descriptionMatch?.[1]
+              ?.split('\n')
+              .map((line) => line.trim())
+              .filter((line) => line && !line.startsWith('<!--'))
+              .join('\n') || '';
+
+            if (!description) {
+              errors.push('Fill in `### 描述 / Description`.');
+            }
+
+            if (isContributeSkin) {
+              const skinNameMatch = body.match(/### 皮肤名称 \/ Skin Name\n+([\s\S]*?)\n### 皮肤提交检查 \/ Skin Submission Checklist/);
+              const skinName = skinNameMatch?.[1]
+                ?.split('\n')
+                .map((line) => line.trim())
+                .filter((line) => line && !line.startsWith('<!--'))
+                .join(' ') || '';
+
+              if (!skinName) {
+                errors.push('Fill in `### 皮肤名称 / Skin Name` for skin contribution PRs.');
+              }
+            }
+
+            if (errors.length > 0) {
+              core.setFailed(errors.join('\n'));
+            }
+
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            const bodyUpper = body.toUpperCase();
+            const labels = [];
+            if (bodyUpper.includes('CONTRIBUTE A SKIN') || body.includes('- [x]') && body.includes('Contribute a Skin')) labels.push('contribute-skin');
+            if (bodyUpper.includes('ARCHITECTURE OPTIMIZATION') || body.includes('- [x]') && body.includes('Architecture Optimization')) labels.push('architecture');
+            if (labels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                labels,
+              });
+            }
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const bodyUpper2 = (pr.body || '').toUpperCase();
+            const isArchitecture = bodyUpper2.includes('ARCHITECTURE OPTIMIZATION') || (bodyUpper2.includes('- [X]') && bodyUpper2.includes('Architecture Optimization')) || (bodyUpper2.includes('- [x]') && bodyUpper2.includes('Architecture Optimization'));
+            if (!isArchitecture) { console.log('Not architecture PR, skipping.'); return; }
+            const changed = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number, per_page: 100,
+            });
+            const skinImpactFiles = changed
+              .filter((f) => f.status !== 'removed')
+              .map((f) => f.filename)
+              .filter((f) => {
+                if (f.startsWith('src/editor/') || f.startsWith('src/ha/') || f.startsWith('src/i18n/') || f.startsWith('src/types/')) return false;
+                if (f.startsWith('src/')) return true;
+                if (f.startsWith('dist/')) return false;
+                return false;
+              });
+            if (skinImpactFiles.length === 0) { console.log('No skin-impacting files changed.'); return; }
+            const marker = '<!-- architecture-skin-impact -->';
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, per_page: 100,
+            });
+            const existing = comments.find((c) => c.user?.type === 'Bot' && c.body?.includes(marker));
+            const body = [
+              marker,
+              '### ⚠️ Architecture Impact Warning',
+              '',
+              'This PR modifies files that may affect skin rendering:',
+              '',
+              ...skinImpactFiles.map((f) => `- \`${f}\``),
+              '',
+              'Please verify that existing skins (especially ones you did not create) still render correctly.',
+            ].join('\n');
+            if (existing) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, body });
+            }
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- pr-screenshot-preview -->';
+            const pr = context.payload.pull_request;
+            const body = pr.body || '';
+            const bodyUpper = body.toUpperCase();
+            const isContributeSkin = bodyUpper.includes('CONTRIBUTE A SKIN') || (body.includes('- [x]') && body.includes('Contribute a Skin'));
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+
+            const screenshotFiles = files
+              .filter((file) => file.status !== 'removed')
+              .map((file) => file.filename)
+              .filter((filename) => /^screenshots\/[^/]+\.(png|jpg|jpeg|gif|webp|bmp|svg|tiff|tif|ico|avif|heic|heif)$/i.test(filename))
+              .sort((a, b) => a.localeCompare(b));
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              per_page: 100,
+            });
+
+            const existingComment = comments.find((comment) =>
+              comment.user?.type === 'Bot' && comment.body?.includes(marker)
+            );
+
+            if (!isContributeSkin || screenshotFiles.length === 0) {
+              if (existingComment) {
+                await github.rest.issues.deleteComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existingComment.id,
+                });
+              }
+              return;
+            }
+
+            const imageBaseUrl = `https://raw.githubusercontent.com/${pr.head.repo.full_name}/${pr.head.sha}`;
+            const previewRows = [];
+
+            for (const filename of screenshotFiles) {
+              const skinName = filename.replace(/^screenshots\//, '').replace(/\.[^./]+$/, '');
+              const encodedPath = filename.split('/').map(encodeURIComponent).join('/');
+              let author = 'Unknown';
+
+              try {
+                const response = await github.rest.repos.getContent({
+                  owner: pr.head.repo.owner.login,
+                  repo: pr.head.repo.name,
+                  path: `skins-pro/${skinName}/strings.json`,
+                  ref: pr.head.sha,
+                });
+
+                if (!Array.isArray(response.data) && response.data.type === 'file' && response.data.content) {
+                  const content = Buffer.from(response.data.content, 'base64').toString('utf8');
+                  const parsed = JSON.parse(content);
+                  if (typeof parsed.author === 'string' && parsed.author.trim()) {
+                    author = parsed.author.trim();
+                  }
+                }
+              } catch (error) {
+                core.info(`Unable to load author for ${skinName}: ${error.message}`);
+              }
+
+              previewRows.push(`| ${skinName} | ${author.replace(/\|/g, '\\|')} | ![${skinName}](${imageBaseUrl}/${encodedPath}) |`);
+            }
+
+            const previewBody = [
+              marker,
+              '### Screenshot Preview',
+              '',
+              '| Skin | Author | Preview |',
+              '| --- | --- | --- |',
+              ...previewRows,
+            ].join('\n');
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: previewBody,
+              });
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: previewBody,
+            });

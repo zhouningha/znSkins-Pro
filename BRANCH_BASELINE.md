@@ -109,7 +109,7 @@ git show origin/backup/old-master-before-rebuild-20260719:path/to/file
 | 项 | 值 |
 |----|-----|
 | 执行日 | 2026-07-19 |
-| 新基准 tip | `23f65d3`（rebuild → `master`，含基准说明） |
+| 新基准 tip | `58d63e1`（当前 `master` tip，含基准说明） |
 | 旧 master 备份 | `backup/old-master-before-rebuild-20260719` @ `b1c5115` |
 | 操作人意图 | 废除乱历史；以后更新/安装只认新 `master` |
 | 已删除旧试验分支 | `codex/build-before-official-sync-20260716` |

@@ -80,7 +80,7 @@ export function renderEditorTemplate(data: EditorTemplateData): string {
 
       <div class="sp-row">
         <div class="sp-card">${entityPicker(loc('editorWeather'), 'weather.entity', c.weather?.entity || hs.weather_entity || '', ['weather'])}</div>
-        <div class="sp-card">${entityPicker(loc('editorInfo'), 'info.entity', c.info?.entity || '', ['input_text', 'sensor'])}</div>
+        <div class="sp-card">${entityPicker(loc('editorInfo'), 'info.entity', c.info?.entity || '', ['input_text', 'sensor', 'binary_sensor', 'lock'])}</div>
       </div>
 
       <div class="sp-row" style="grid-template-columns:1fr 1fr 1fr">
@@ -112,7 +112,7 @@ export function renderEditorTemplate(data: EditorTemplateData): string {
       <div class="sp-row">
         <div class="sp-card">
           <h3>${loc('editorHomeScenes')}</h3>
-          ${listPicker(loc('scenes'), 'home_selection.scenes', hs.scenes || [], ['scene'], hl.scenes || 6)}
+          ${listPicker(loc('scenes'), 'home_selection.scenes', hs.scenes || [], ['scene', 'script'], hl.scenes || 6)}
         </div>
         <div class="sp-card">
           <h3>${loc('editorHomeEnv')}</h3>

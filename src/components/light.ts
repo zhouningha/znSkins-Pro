@@ -1,7 +1,7 @@
 import { html } from 'lit';
 import type { TemplateResult } from 'lit';
 
-import type { DashboardConfig, HomeAssistant, RenderedDevice } from '../types';
+import type { DashboardConfig, EntityRegistryEntry, HomeAssistant, RenderedDevice } from '../types';
 import type { Language } from '../i18n';
 import { assetKeyForDomain, deviceStateLabel, formatRelativeTime, selectedSkin } from '../utils';
 import { renderImage } from '../render/context';
@@ -9,8 +9,84 @@ import { renderImage } from '../render/context';
 const BRIGHTNESS_MODES = new Set(['brightness', 'color_temp', 'hs', 'rgb', 'rgbw', 'rgbww', 'xy']);
 const COLOR_TEMP_MODES = new Set(['color_temp']);
 const COLOR_RGB_MODES = new Set(['hs', 'rgb', 'rgbw', 'rgbww', 'xy']);
-const DEFAULT_MIN_MIREDS = 153;
-const DEFAULT_MAX_MIREDS = 500;
+const DEFAULT_MIN_KELVIN = 2000;
+const DEFAULT_MAX_KELVIN = 6500;
+
+function miredsToKelvin(mireds: number): number {
+  return Math.round(1_000_000 / Math.max(1, mireds));
+}
+
+function mergeLightCapabilityAttrs(
+  stateAttrs: Record<string, unknown>,
+  registryEntry?: EntityRegistryEntry,
+): Record<string, unknown> {
+  const caps = (registryEntry?.capabilities || {}) as Record<string, unknown>;
+  // State attrs win when present; registry capabilities fill gaps (Xiaomi etc.).
+  const merged: Record<string, unknown> = { ...caps, ...stateAttrs };
+  const stateModes = stateAttrs.supported_color_modes;
+  const capModes = caps.supported_color_modes;
+  if (
+    (!Array.isArray(stateModes) || stateModes.length === 0)
+    && Array.isArray(capModes)
+    && capModes.length > 0
+  ) {
+    merged.supported_color_modes = capModes;
+  }
+  for (const key of [
+    'min_color_temp_kelvin',
+    'max_color_temp_kelvin',
+    'min_mireds',
+    'max_mireds',
+  ] as const) {
+    if (typeof stateAttrs[key] !== 'number' && typeof caps[key] === 'number') {
+      merged[key] = caps[key];
+    }
+  }
+  return merged;
+}
+
+function resolveColorTempControl(attributes: Record<string, unknown>): {
+  supports: boolean;
+  minKelvin: number;
+  maxKelvin: number;
+  currentKelvin: number;
+} {
+  const colorModes = (attributes.supported_color_modes as string[] | undefined) || [];
+  const hasMode = colorModes.some((mode) => COLOR_TEMP_MODES.has(mode));
+  const hasKelvinRange =
+    typeof attributes.min_color_temp_kelvin === 'number'
+    || typeof attributes.max_color_temp_kelvin === 'number';
+  const hasMiredRange =
+    typeof attributes.min_mireds === 'number'
+    || typeof attributes.max_mireds === 'number';
+  const hasCurrent =
+    typeof attributes.color_temp_kelvin === 'number'
+    || typeof attributes.color_temp === 'number';
+  const supports = hasMode || hasKelvinRange || hasMiredRange || hasCurrent;
+
+  // mireds are inverse of kelvin: min_mireds ~= max kelvin
+  const minKelvin = typeof attributes.min_color_temp_kelvin === 'number'
+    ? attributes.min_color_temp_kelvin
+    : (typeof attributes.max_mireds === 'number'
+      ? miredsToKelvin(attributes.max_mireds)
+      : DEFAULT_MIN_KELVIN);
+  const maxKelvin = typeof attributes.max_color_temp_kelvin === 'number'
+    ? attributes.max_color_temp_kelvin
+    : (typeof attributes.min_mireds === 'number'
+      ? miredsToKelvin(attributes.min_mireds)
+      : DEFAULT_MAX_KELVIN);
+  const safeMin = Math.min(minKelvin, maxKelvin);
+  const safeMax = Math.max(minKelvin, maxKelvin);
+
+  let currentKelvin = typeof attributes.color_temp_kelvin === 'number'
+    ? attributes.color_temp_kelvin
+    : (typeof attributes.color_temp === 'number'
+      ? miredsToKelvin(attributes.color_temp)
+      : Math.round((safeMin + safeMax) / 2));
+  currentKelvin = Math.min(safeMax, Math.max(safeMin, currentKelvin));
+
+  return { supports, minKelvin: safeMin, maxKelvin: safeMax, currentKelvin };
+}
 
 function rgbToHex(rgb: [number, number, number]): string {
   const toHex = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
@@ -47,6 +123,7 @@ export function renderLightCard(
   device: RenderedDevice,
   language: Language,
   onHandleAction: (entityId: string, action: string) => void,
+  entityRegistry?: EntityRegistryEntry[],
 ): TemplateResult {
   const skin = selectedSkin(config);
   const assetKey = assetKeyForDomain(skin, 'light');
@@ -59,22 +136,24 @@ export function renderLightCard(
     </button>`;
   }
 
-  const a = stateObj.attributes || {};
+  const registryEntry = entityRegistry?.find((entry) => entry.entity_id === device.entityId);
+  const a = mergeLightCapabilityAttrs(
+    (stateObj.attributes || {}) as Record<string, unknown>,
+    registryEntry,
+  );
   const isOn = stateObj.state === 'on';
   const brightness = a.brightness as number | undefined;
   const briPct = brightness !== undefined ? Math.round(brightness / 2.55) : undefined;
   const colorModes = (a.supported_color_modes as string[]) || [];
-  const hasBrightness = colorModes.some(m => BRIGHTNESS_MODES.has(m));
-  const hasColorTemp = colorModes.some(m => COLOR_TEMP_MODES.has(m));
+  const hasBrightness = colorModes.some(m => BRIGHTNESS_MODES.has(m)) || brightness !== undefined;
+  const colorTempControl = resolveColorTempControl(a);
+  const hasColorTemp = colorTempControl.supports;
   const hasRgbColor = colorModes.some(m => COLOR_RGB_MODES.has(m));
-  const colorTemp = a.color_temp as number | undefined;
   const rgbColor = a.rgb_color as [number, number, number] | undefined;
   const hsColor = a.hs_color as [number, number] | undefined;
   const currentHex = rgbColor
     ? rgbToHex(rgbColor)
     : (hsColor ? rgbToHex(hsToRgb(hsColor[0], hsColor[1])) : '#ffffff');
-  const minM = (a.min_mireds as number) ?? DEFAULT_MIN_MIREDS;
-  const maxM = (a.max_mireds as number) ?? DEFAULT_MAX_MIREDS;
 
   const statusClass = isOn ? `device-on-${device.color}` : (stateObj.state === 'unavailable' ? 'device-unavailable' : 'device-off');
   const stateLabel = deviceStateLabel(stateObj.state, language, hass, 'light');
@@ -86,9 +165,11 @@ export function renderLightCard(
     void hass.callService('light', service, { entity_id: device.entityId, ...data });
   };
 
+  const stopCardClick = (e: Event) => e.stopPropagation();
+
   return html`
     <button class="device ${statusClass}" @click=${() => onHandleAction(device.entityId, 'toggle')}>
-      <div class="device-top" @click=${(e: Event) => { e.stopPropagation(); onHandleAction(device.entityId, 'more-info'); }}>
+      <div class="device-top">
         ${renderImage(config, assetKey, device.name, 'item-img')}
         <div class="tag-stack">
           <div class="status">${stateLabel}</div>
@@ -98,19 +179,31 @@ export function renderLightCard(
         <p class="device-name">${device.name}</p>
         <p class="muted">${lastTime}</p>
       </div>
-      <div class="control-row" @click=${(e: Event) => e.stopPropagation()}>
+      <div class="control-row" @click=${stopCardClick} @pointerdown=${stopCardClick}>
         ${hasBrightness && isOn && briPct !== undefined ? html`
-        <ha-control-slider .value=${briPct} min="0" max="100" style="--control-slider-thickness:28px;--control-slider-border-radius:var(--sp-radius-pill);flex:1;min-width:0" @value-changed=${(e: CustomEvent) => { e.stopPropagation(); doService('turn_on', { brightness: Math.round((e.detail.value ?? 0) * 2.55) }); }} @click=${(e: Event) => e.stopPropagation()}></ha-control-slider>
+        <ha-control-slider .value=${briPct} min="0" max="100" style="--control-slider-thickness:28px;--control-slider-border-radius:var(--sp-radius-pill);flex:1;min-width:0" @value-changed=${(e: CustomEvent) => { e.stopPropagation(); doService('turn_on', { brightness: Math.round((e.detail.value ?? 0) * 2.55) }); }} @click=${stopCardClick} @pointerdown=${stopCardClick}></ha-control-slider>
         ` : ''}
-        ${hasColorTemp && isOn && colorTemp !== undefined ? html`
-        <ha-control-slider .value=${colorTemp} min=${minM} max=${maxM} style="--control-slider-thickness:28px;--control-slider-border-radius:var(--sp-radius-pill);flex:1;min-width:0;--control-slider-color:var(--sp-accent)" @value-changed=${(e: CustomEvent) => { e.stopPropagation(); doService('turn_on', { color_temp: Math.round((e.detail.value ?? minM) as number) }); }} @click=${(e: Event) => e.stopPropagation()}></ha-control-slider>
+        ${hasColorTemp && isOn ? html`
+        <ha-control-slider
+          .value=${colorTempControl.currentKelvin}
+          min=${colorTempControl.minKelvin}
+          max=${colorTempControl.maxKelvin}
+          style="--control-slider-thickness:28px;--control-slider-border-radius:var(--sp-radius-pill);flex:1;min-width:0;--control-slider-color:var(--sp-accent, var(--sp-accent-green, var(--primary-color, #7BC67E)))"
+          @value-changed=${(e: CustomEvent) => {
+            e.stopPropagation();
+            const kelvin = Math.round((e.detail.value ?? colorTempControl.currentKelvin) as number);
+            doService('turn_on', { color_temp_kelvin: kelvin });
+          }}
+          @click=${stopCardClick}
+          @pointerdown=${stopCardClick}
+        ></ha-control-slider>
         ` : ''}
         ${hasRgbColor && isOn ? html`
-        <label class="light-color-swatch" style="width:28px;height:28px;border-radius:50%;background:${currentHex};border:2px solid rgba(255,255,255,.6);flex-shrink:0;cursor:pointer;overflow:hidden;box-shadow:var(--sp-shadow-device);display:block" title=${currentHex} @click=${(e: Event) => e.stopPropagation()}>
-          <input type="color" .value=${currentHex} style="opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0" @input=${(e: Event) => { e.stopPropagation(); const v = (e.target as HTMLInputElement).value; doService('turn_on', { rgb_color: hexToRgb(v) }); }} @click=${(e: Event) => e.stopPropagation()}>
+        <label class="light-color-swatch" style="width:28px;height:28px;border-radius:50%;background:${currentHex};border:2px solid rgba(255,255,255,.6);flex-shrink:0;cursor:pointer;overflow:hidden;box-shadow:var(--sp-shadow-device);display:block" title=${currentHex} @click=${stopCardClick} @pointerdown=${stopCardClick}>
+          <input type="color" .value=${currentHex} style="opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0" @input=${(e: Event) => { e.stopPropagation(); const v = (e.target as HTMLInputElement).value; doService('turn_on', { rgb_color: hexToRgb(v) }); }} @click=${stopCardClick}>
         </label>
         ` : ''}
-        <ha-control-switch .checked=${isOn} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0;margin-left:auto" @change=${(e: Event) => { e.stopPropagation(); doService('toggle', {}); }} @click=${(e: Event) => e.stopPropagation()} .label=${device.name}></ha-control-switch>
+        <ha-control-switch .checked=${isOn} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0;margin-left:auto" @change=${(e: Event) => { e.stopPropagation(); doService('toggle', {}); }} @click=${stopCardClick} @pointerdown=${stopCardClick} .label=${device.name}></ha-control-switch>
       </div>
     </button>
   `;

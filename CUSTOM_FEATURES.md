@@ -15,6 +15,7 @@
 ## 当前必须保留的定制功能
 
 - 能源页读取 HA 原生能源配置的「个体设备」(`device_consumption`)：每个设备一张卡，显示今日用电+昨日对比+30天柱状图，图标按名称智能匹配；用户在 HA 能源设置里增删设备即自动生效，无需卡片编辑器 UI
+- 首页「今日用电」大数字与「较昨日」必须用 recorder 按天 `change` 统计（当天 0 点起算），不能直接读 `total_increasing` 累计实体的当前 state；柱状图同步使用该实体的日增量序列
 - God of War 主题：`god_of_war_3_wall`
 - God of War 官方素材裁切版：`source-kratos-wallpaper.jpg` 保留用户指定 1920x1080 原图（MD5 `204ca3b343688906f5ca57de48c827cd`），`avatar.png` 使用从该原图裁出的正方形官方头像源图（MD5 `98269216d3a9d5729f3572509d5b317e`），背景/房间/图标来自官方素材裁切，禁止回退到程序化模拟图
 - God of War 主舞台背景 `background.jpg` 固定使用 `source-gow-4k-bg.png` 生成的战神熔岩神殿远景（MD5 `af45e72ec15a2a074121a731631dd405`），不要回退到山景奥林匹斯远景/巨人脸特写，横幅里会压住文字
@@ -57,6 +58,7 @@
 - `scripts/build-skins.cjs` 可能从发行包基线重新生成 `dist/god_of_war_3_wall/theme.css`；每次构建后必须确认横滑规则进入最终部署文件，不能只确认源码存在。保护标记：`grid-auto-flow: column`、`grid-template-rows: minmax(0, 1fr)`、`scroll-snap-type: x mandatory`
 - 保留物理按键相关逻辑
 - 保留安全性补充，但不影响现有平板使用
+- 灯光色温条：只要灯支持色温且开启就显示色温滑条；优先读写 `color_temp_kelvin`，兼容旧 mireds；当前值缺失时用范围中值占位。能力来源必须合并「实时 state 属性 + entity registry `capabilities`」（小米灯等常把 `supported_color_modes`/kelvin 范围只写在注册表里）。此逻辑在公共灯卡片中，对所有官方皮肤与 God of War 生效
 
 ## 官方升级冲突处理原则
 
@@ -89,3 +91,7 @@
 - 2026-07-12：God of War 1080p 墙控首页场景改为一行两卡横向分页。My-Home 当前顺序为离场、KTV、芝度观影、Apple TV；首屏显示前两项，向左滑动查看后两项。高度继续读取 `--sp-home-room-card-height`，禁止写死行高；规则仅限 `data-wall-panel="1080p"`。
 - 2026-07-12：墙控布局按皮肤隔离。只有 `god_of_war_3_wall` 可设置专属 host 属性和尺寸变量；其他官方皮肤切入时必须清理残留状态并走自身响应式布局。Kiosk 0.2.36 使用 Android 身份标记：God of War 条件化使用 1920×1080 viewport，官方皮肤恢复原 viewport。
 - 2026-07-13：安卓 Kiosk 设备页兼容旧 WebView 的瓦片内存上限：同时支持 `data-android-kiosk` 与旧版 `data-kiosk-fullscreen` 宿主标记，仅在设备页降低 `.device` 合成成本并延迟离屏 `.device-group` 绘制；新版可再按 16 张分页，避免 Chromium 报 `tile memory limits exceeded` 并把设备卡闪成空白背景块。Mac 普通页面和其他页面不受影响。
+- 2026-07-18：安防页自动列表排除摄像头子码流（`zi_ma_liu` / `substream` / `minorstream` / 友好名含「子码流」），并尊重 entity registry 的 `hidden_by` / `disabled_by`；不禁用实体、不影响 HomeKit 与其它仪表盘引用。
+- 2026-07-18：平板全屏 / kiosk 时设备页顶部 `filter-bar`（筛选与批量开关等编辑控件）不渲染；`isKioskActive()` + `ctx.kioskFullscreen`，切换全屏后 `requestUpdate()` 立即生效。
+- 2026-07-18：安防页「编辑隐藏」按钮：非全屏时显示；打开后点击卡片切换隐藏/恢复，写入 `security_page.hidden` + localStorage + Lovelace strategy 同步；10s 无操作自动退出；全屏 / kiosk 不显示该按钮。
+- 2026-07-18：安防页门禁整理：排除锁屏类 `lock`、摄像头人体传感器噪声；门磁/门铃/门禁相关 binary_sensor 才显示；R20K/Akuvox relay lock 不用开关样式，显示开门状态文案；摄像头与其它实体分开限流。

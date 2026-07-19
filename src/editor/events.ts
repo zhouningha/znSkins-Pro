@@ -4,6 +4,7 @@ import { t } from '../utils';
 import {
   addListItem,
   applySkin,
+  moveListItem,
   setField,
   setListItem,
   type DashboardConfigRecord,
@@ -43,6 +44,15 @@ export function bindEditorEvents(host: EditorHost): void {
 function bindEntityPickers(host: EditorHost): void {
   host.root.querySelectorAll(ENTITY_PICKER_TAG).forEach((el: any) => {
     if (host.state.hass) el.hass = host.state.hass;
+    // ha-entity-picker reads JS properties; HTML attributes alone are unreliable.
+    const domainsAttr = el.getAttribute('include-domains');
+    if (domainsAttr) {
+      try { el.includeDomains = JSON.parse(domainsAttr); } catch { /* ignore */ }
+    }
+    const classesAttr = el.getAttribute('include-device-classes');
+    if (classesAttr) {
+      try { el.includeDeviceClasses = JSON.parse(classesAttr); } catch { /* ignore */ }
+    }
     el.addEventListener('value-changed', (ev: CustomEvent) => {
       const path = el.dataset.path || el.dataset.listPath;
       if (!path) return;
@@ -100,6 +110,18 @@ function bindListButtons(host: EditorHost): void {
   host.root.querySelectorAll<HTMLElement>('[data-del-path]').forEach((btn) => {
     btn.addEventListener('click', () => {
       host.state.config = setListItem(host.el, host.state.config, btn.getAttribute('data-del-path') || '', Number(btn.getAttribute('data-del-index')), '');
+      host.onChange({ config: host.state.config });
+      host.reload();
+    });
+  });
+  host.root.querySelectorAll<HTMLElement>('[data-move-path]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if ((btn as HTMLButtonElement).disabled) return;
+      const path = btn.getAttribute('data-move-path') || '';
+      const index = Number(btn.getAttribute('data-move-index'));
+      const delta = Number(btn.getAttribute('data-move-delta'));
+      if (!path || Number.isNaN(index) || Number.isNaN(delta)) return;
+      host.state.config = moveListItem(host.el, host.state.config, path, index, delta);
       host.onChange({ config: host.state.config });
       host.reload();
     });

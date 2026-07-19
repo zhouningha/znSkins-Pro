@@ -24,6 +24,7 @@ export function renderEnvironment(
 ): TemplateResult[] {
   const selectedMetrics = config.home_selection?.environment || [];
   const configuredMetrics = config.environment || [];
+  // Order follows home_selection.environment (editor ↑↓ controls this list).
   const metrics = (selectedMetrics.length > 0
     ? selectedMetrics.map((entityId) => {
       const configured = configuredMetrics.find((metric) => metric.entity === entityId);

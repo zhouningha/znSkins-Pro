@@ -211,7 +211,7 @@ export function areaScenes(
 
     for (const entry of entityRegistry) {
       if (entry.hidden_by || entry.disabled_by) continue;
-      if (!entry.entity_id.startsWith('scene.')) continue;
+      if (!isRunnableSceneEntity(entry.entity_id)) continue;
       if (!(entry.area_id === areaId || (entry.device_id && areaDeviceIds.has(entry.device_id)))) continue;
       if (found.has(entry.entity_id)) continue;
       found.add(entry.entity_id);
@@ -229,7 +229,7 @@ export function areaScenes(
 
     for (const state of Object.values(hass.states)) {
       if (!state) continue;
-      if (!state.entity_id.startsWith('scene.')) continue;
+      if (!isRunnableSceneEntity(state.entity_id)) continue;
       if (found.has(state.entity_id)) continue;
 
       const sceneName = String(state.attributes?.friendly_name || state.entity_id.split('.')[1] || '');
@@ -245,6 +245,10 @@ export function areaScenes(
   }
 
   return result;
+}
+
+function isRunnableSceneEntity(entityId?: string): boolean {
+  return Boolean(entityId?.startsWith('scene.') || entityId?.startsWith('script.'));
 }
 
 export function areaNameForEntity(

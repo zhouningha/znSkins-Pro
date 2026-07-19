@@ -1,9 +1,9 @@
 import { html } from 'lit';
 import type { TemplateResult } from 'lit';
 
-import type { DashboardConfig, HomeAssistant, RenderedDevice } from '../types';
+import type { DashboardConfig, EntityRegistryEntry, HomeAssistant, RenderedDevice } from '../types';
 import type { Language } from '../i18n';
-import { assetKeyForDomain, deviceStateLabel, formatRelativeTime, selectedSkin } from '../utils';
+import { assetKeyForDomain, deviceStateLabel, formatRelativeTime, formatSceneOrScriptRelativeTime, selectedSkin } from '../utils';
 import { renderImage } from '../render/context';
 import { renderClimateCard } from './climate';
 import { renderLightCard } from './light';
@@ -30,10 +30,8 @@ export function deviceLastChanged(
       ? formatRelativeTime(new Date(stateObj.attributes.last_triggered as string), language)
       : undefined;
   }
-  if (domain === 'scene') {
-    return stateObj?.state && stateObj.state !== 'unavailable' && stateObj.state !== 'unknown'
-      ? formatRelativeTime(new Date(stateObj.state), language)
-      : undefined;
+  if (domain === 'scene' || domain === 'script') {
+    return stateObj ? (formatSceneOrScriptRelativeTime(stateObj, language) || undefined) : undefined;
   }
   if (stateObj) {
     return formatRelativeTime(new Date(stateObj.last_changed), language);
@@ -48,6 +46,7 @@ export function renderDeviceCard(
   language: Language,
   onHandleAction: (entityId: string, action: string) => void,
   showDomain = false,
+  entityRegistry?: EntityRegistryEntry[],
 ): TemplateResult {
   const isClimate = device.detail === 'climate';
   if (isClimate) {
@@ -56,7 +55,7 @@ export function renderDeviceCard(
 
   const isLight = device.detail === 'light';
   if (isLight) {
-    return renderLightCard(config, hass, device, language, onHandleAction);
+    return renderLightCard(config, hass, device, language, onHandleAction, entityRegistry);
   }
 
   if (device.detail === 'fan') {

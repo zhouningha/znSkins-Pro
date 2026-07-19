@@ -13,7 +13,8 @@ export function renderNav(
   language: Language,
   onNavigate: (target: string) => void,
 ): TemplateResult {
-  return html`${(nav || []).filter(item => item.enabled).map((item, index) => {
+  // Missing `enabled` means on; only explicit false hides the item.
+  return html`${(nav || []).filter(item => item.enabled !== false).map((item, index) => {
     const label = localizedText(item.label, item.label_zh, item.label_en, language, STRINGS[language][(item.key as TranslationKey) || 'home'] || item.key || '');
     const target = item.target || item.key || 'home';
     const isActive = target === view || (index === 0 && view === 'home' && target === 'home');

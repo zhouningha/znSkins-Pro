@@ -8,13 +8,18 @@ export function renderLiveCameraPreview(
   entity: HassEntity,
   className = 'camera-preview camera-live',
 ): TemplateResult {
+  void (window as unknown as { loadCardHelpers?: () => Promise<unknown> }).loadCardHelpers?.();
   return html`
     <div class=${className}>
-      <ha-camera-stream
+      <hui-image
         class="camera-stream"
         .hass=${hass}
         .stateObj=${entity}
-      ></ha-camera-stream>
+        .cameraImage=${entity.entity_id}
+        .cameraView=${'live'}
+        .show_state=${false}
+        .show_name=${false}
+      ></hui-image>
     </div>
   `;
 }

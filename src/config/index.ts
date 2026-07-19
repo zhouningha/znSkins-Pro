@@ -39,6 +39,11 @@ export function mergeConfig(config: DashboardConfig): DashboardConfig {
       ...DEFAULT_CONFIG.camera,
       ...config.camera,
     },
+    security_page: {
+      ...DEFAULT_CONFIG.security_page,
+      ...config.security_page,
+      hidden: [...new Set((config.security_page?.hidden || DEFAULT_CONFIG.security_page?.hidden || []).filter(Boolean))],
+    },
     home_limits: {
       ...DEFAULT_CONFIG.home_limits,
       ...config.home_limits,
@@ -133,7 +138,8 @@ export function buildAutoConfig(hass: HomeAssistant): DashboardConfig {
     },
     energy: {
       ...DEFAULT_CONFIG.energy,
-      entity: energyEntity || DEFAULT_CONFIG.energy?.entity,
+      // Only auto-fill when a real entity exists; never keep a placeholder default.
+      entity: energyEntity || '',
     },
     media_player: {
       entity: mediaEntity || DEFAULT_CONFIG.media_player?.entity,

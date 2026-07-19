@@ -1,5 +1,9 @@
 const STYLE_ID = 'skins-pro-kiosk';
 
+export function isKioskActive(): boolean {
+  return typeof document !== 'undefined' && document.body.classList.contains('skins-pro-kiosk');
+}
+
 function removeStyle(root: Document | ShadowRoot | HTMLElement | null | undefined): void {
   if (!root) return;
   for (const child of Array.from(root.children)) {
@@ -18,13 +22,12 @@ function injectStyle(root: Document | ShadowRoot | HTMLElement | null | undefine
   root.appendChild(style);
 }
 
-export function toggleKiosk(): boolean {
-  const isKiosk = document.body.classList.toggle('skins-pro-kiosk');
-
+function applyKioskStyles(isKiosk: boolean): boolean {
+  let applied = false;
   try {
     const ha = document.querySelector('home-assistant')?.shadowRoot
       ?.querySelector('home-assistant-main')?.shadowRoot;
-    if (!ha) return isKiosk;
+    if (!ha) return false;
 
     const drawer = ha.querySelector('ha-drawer') as HTMLElement | null;
     const lovelace = (ha.querySelector('ha-panel-lovelace') || ha.querySelector('ha-panel-sections')) as HTMLElement | null;
@@ -37,6 +40,7 @@ export function toggleKiosk(): boolean {
            --mdc-drawer-width: 0px !important;
          }`
       );
+      applied = true;
       if (drawer) {
         injectStyle(drawer,
           `:host {
@@ -81,14 +85,24 @@ export function toggleKiosk(): boolean {
       removeStyle(drawer?.shadowRoot);
       removeStyle(drawer);
       removeStyle(huiShadow);
-      // Remove the parent style last. Older cleanup code searched descendants,
-      // so removing the parent first could delete the drawer style and leave
-      // --mdc-drawer-width: 0px stuck on home-assistant-main.
       removeStyle(ha);
+      applied = true;
     }
   } catch {
-    // Kiosk manipulation failed silently; dashboard remains functional
+    applied = false;
   }
+  return applied;
+}
+
+export function ensureKiosk(): boolean {
+  document.body.classList.add('skins-pro-kiosk');
+  return applyKioskStyles(true);
+}
+
+export function toggleKiosk(): boolean {
+  const isKiosk = document.body.classList.toggle('skins-pro-kiosk');
+
+  applyKioskStyles(isKiosk);
 
   return isKiosk;
 }

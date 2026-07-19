@@ -58,7 +58,10 @@ export function renderHomeEnergyCard(
   compareValue: string,
   energyBars: TemplateResult,
 ): TemplateResult | typeof nothing {
-  if (!ctx.config.energy?.entity) return nothing;
+  const energyEntity = String(ctx.config.energy?.entity || '').trim();
+  if (!energyEntity) return nothing;
+  // Hide placeholder card when the configured entity is missing / has no reading.
+  if (energyValue === '--' && !ctx.hass?.states?.[energyEntity]) return nothing;
   const isPortrait = window.matchMedia('(orientation: portrait)').matches;
   if (isPortrait && energyValue === '--') return nothing;
 
@@ -67,7 +70,7 @@ export function renderHomeEnergyCard(
       <div class="section-title"><h2>${ctx.translate('todayEnergy')}</h2></div>
       <div class="energy-value">${energyValue}<small> ${energyUnit}</small></div>
       <div class="bars" style="height:clamp(32px,7vw,72px);margin-top:clamp(4px,1.2vw,12px);">${energyBars}</div>
-      <div class="energy-footer"><span class="muted">${localizedText(ctx.config.energy?.compare_text, ctx.config.energy?.compare_text_zh, ctx.config.energy?.compare_text_en, ctx.language, ctx.translate('compareYesterday'))}</span><span class="down">${compareValue || '--'}</span></div>
+      <div class="energy-footer"><span class="muted">${localizedText(ctx.config.energy?.compare_text, ctx.config.energy?.compare_text_zh, ctx.config.energy?.compare_text_en, ctx.language, ctx.translate('compareYesterday'))}</span><span class="down">${compareValue ? `${compareValue} ${energyUnit}` : '--'}</span></div>
     </section>
   `;
 }

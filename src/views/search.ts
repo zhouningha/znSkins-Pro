@@ -183,7 +183,7 @@ export function renderSearchOverlay(
             </div>
           ` : html`
             <div style="display:grid;grid-template-columns:${isLandscape ? 'repeat(2,1fr)' : '1fr'};gap:12px;">
-              ${displayDevices.map((device) => renderDeviceCard(ctx.config, ctx.hass, device, ctx.language, onDeviceAction))}
+              ${displayDevices.map((device) => renderDeviceCard(ctx.config, ctx.hass, device, ctx.language, onDeviceAction, false, ctx.entityRegistry))}
             </div>
           `}
         </div>

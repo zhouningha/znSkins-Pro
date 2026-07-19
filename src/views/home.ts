@@ -10,6 +10,7 @@ import { renderMaintenanceCard } from '../components/maintenance';
 import { renderWeather } from '../components/weather';
 import { renderEnvironment } from '../components/environment';
 import { renderBars } from '../components/energy-bars';
+import { renderLiveCameraPreview } from '../components/camera-stream';
 import { renderHomeEnergyCard } from './energy';
 import { renderAreaRooms } from './rooms';
 import { getRoomsForRender, areaFallbackInfo } from '../selectors/rooms';
@@ -17,7 +18,7 @@ import { getRealDevicesForRender } from '../selectors/devices';
 import { renderDeviceCard } from '../components/device-card';
 import {
   dateText,
-  formatRelativeTime,
+  formatSceneOrScriptRelativeTime,
   localizedText,
   selectedSkin,
   skinString,
@@ -48,21 +49,29 @@ export function renderHomeView(
   const alarmIcon = alarmIconMap[alarmState] || 'mdi:shield-lock';
 
   const cameraCard = hasCamera ? (() => {
+    const entityPicture = String(cameraState?.attributes?.entity_picture || '');
     const accessToken = String(cameraState?.attributes?.access_token || '');
-    const snapshotUrl = accessToken ? `/api/camera_proxy/${cameraEntityId}?token=${encodeURIComponent(accessToken)}&ts=${Date.now()}` : '';
+    const snapshotUrl = entityPicture
+      || (accessToken
+        ? `/api/camera_proxy/${cameraEntityId}?token=${encodeURIComponent(accessToken)}`
+        : `/api/camera_proxy/${cameraEntityId}`);
+    const openSnapshot = () => {
+      window.open(`${snapshotUrl}${snapshotUrl.includes('?') ? '&' : '?'}ts=${Date.now()}`, '_blank', 'noopener');
+    };
+    // Keep theme max-height (do not set max-height:none) so the side column stays usable.
     return html`
-      <section class="glass-card panel-camera" @click=${() => ctx.onHandleAction(cameraEntityId, 'more-info')}>
+      <section class="glass-card panel-camera" @click=${openSnapshot}>
         <div class="section-title"><h2>${cameraState?.attributes?.friendly_name || cameraEntityId}</h2></div>
-        <div class="camera-preview" style="aspect-ratio:auto;min-height:0;max-height:none;background:transparent;">
-          <img alt="" src=${snapshotUrl} style="width:100%;height:auto;display:block;object-fit:contain;">
-        </div>
+        ${renderLiveCameraPreview(ctx.hass, cameraState)}
       </section>
     `;
   })() : nothing;
 
   const energyBars = renderBars(ctx.energyHistory || []);
+  // Cap column width: minmax(...,1fr) stretches a single card across the whole
+  // devices row and leaves a huge empty middle (seen on official skins too).
   const homeDevicesStyle = window.matchMedia('(orientation: landscape)').matches
-    ? 'display:grid;grid-auto-flow:column;grid-auto-columns:minmax(140px,1fr);grid-template-columns:none;overflow-x:auto;overflow-y:hidden;padding:var(--sp-space-xs);'
+    ? 'display:grid;grid-auto-flow:column;grid-auto-columns:minmax(140px,200px);grid-template-columns:none;justify-content:start;overflow-x:auto;overflow-y:hidden;padding:var(--sp-space-xs);'
     : 'padding:var(--sp-space-xs);';
 
   return html`
@@ -82,13 +91,17 @@ export function renderHomeView(
         <div class="weather-with-meta">
           ${renderWeather(ctx.config, ctx.hass, weatherIconName, ctx.weatherForecast, ctx.onMoreInfo)}
           ${hasCamera ? html`
-          <div class="welcome-meta">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <span class="time-main">${timeText(ctx.hass, ctx.language)}</span>
-              <span class="time-sub" style="font-size:var(--sp-font-sm)">${dateText(ctx.hass, ctx.language)}</span>
-            </div>
-            <div class="env-list env-list-inline" style="gap:clamp(2px,0.6vw,6px) clamp(6px,1vw,12px);">${renderEnvironment(ctx.config, ctx.hass, ctx.areas, ctx.entityRegistry, ctx.deviceRegistry, ctx.floors, ctx.language)}</div>
-          </div>` : ''}
+          <div class="welcome-meta" style="flex:1;min-width:0;max-width:min(320px,42%);">
+            <section class="time-card" style="width:100%;box-sizing:border-box;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;min-width:0;">
+                <span class="time-main">${timeText(ctx.hass, ctx.language)}</span>
+                <span class="time-sub" style="font-size:var(--sp-font-sm);white-space:nowrap;">${dateText(ctx.hass, ctx.language)}</span>
+              </div>
+            </section>
+            <section class="glass-card panel-environment" style="width:100%;box-sizing:border-box;margin-top:var(--sp-space-xs,6px);">
+              <div class="env-list env-list-inline" style="gap:clamp(2px,0.6vw,6px) clamp(6px,1vw,12px);margin-top:0;">${renderEnvironment(ctx.config, ctx.hass, ctx.areas, ctx.entityRegistry, ctx.deviceRegistry, ctx.floors, ctx.language)}</div>
+            </section>
+          </div>` : nothing}
         </div>
       </div>
       <section class="bottom-stack">
@@ -110,7 +123,7 @@ export function renderHomeView(
           </div>
           <div class="time-icon" @click=${alarmEntityId ? () => ctx.onHandleAction(alarmEntityId, 'more-info') : undefined} style=${alarmEntityId ? 'cursor:pointer' : ''}><ha-icon icon=${alarmIcon}></ha-icon></div>
         </section>
-        <section class="glass-card panel-environment">
+        <section class="glass-card panel-environment home-environment-card">
           <div class="section-title"><h2>${ctx.translate('environment')}</h2></div>
           <div class="env-list" style="gap:clamp(4px,1.2vw,12px);margin-top:clamp(4px,1.2vw,12px);">${renderEnvironment(ctx.config, ctx.hass, ctx.areas, ctx.entityRegistry, ctx.deviceRegistry, ctx.floors, ctx.language)}</div>
         </section>`}
@@ -176,7 +189,7 @@ function renderShortcutDevices(ctx: RenderContext): TemplateResult[] {
     realDevices = allRealDevices.slice(0, limit);
   }
 
-  return realDevices.map((device) => renderDeviceCard(ctx.config, ctx.hass, device, ctx.language, ctx.onHandleAction));
+  return realDevices.map((device) => renderDeviceCard(ctx.config, ctx.hass, device, ctx.language, ctx.onHandleAction, false, ctx.entityRegistry));
 }
 
 function renderHomeRooms(ctx: RenderContext): TemplateResult | typeof nothing {
@@ -217,9 +230,13 @@ function renderRealScenes(
   limit = 12,
   selectedScenes: string[] = [],
 ): TemplateResult | typeof nothing {
+  // Empty selection means show none — do not auto-fill every scene/script.
+  const selected = selectedScenes.filter(Boolean);
+  if (selected.length === 0) return nothing;
+
   const scenes = Object.values(ctx.hass.states)
-    .filter((entity): entity is HassEntity => Boolean(entity?.entity_id?.startsWith('scene.')))
-    .filter((entity) => selectedScenes.length === 0 || selectedScenes.includes(entity.entity_id))
+    .filter((entity): entity is HassEntity => Boolean(isRunnableSceneEntity(entity?.entity_id)))
+    .filter((entity) => selected.includes(entity.entity_id))
     .slice(0, limit);
 
   if (scenes.length === 0) return nothing;
@@ -227,9 +244,7 @@ function renderRealScenes(
   return html`${scenes.map((scene, index) => {
     const tones: Array<'morning' | 'night' | 'movie' | 'game'> = ['morning', 'night', 'movie', 'game'];
     const name = String(scene.attributes?.friendly_name || scene.entity_id);
-    const lastActivated = scene.state && scene.state !== 'unavailable' && scene.state !== 'unknown'
-      ? formatRelativeTime(new Date(scene.state), ctx.language)
-      : undefined;
+    const lastActivated = formatSceneOrScriptRelativeTime(scene, ctx.language) || undefined;
     return html`
       <button class="scene ${tones[index % tones.length]}" @click=${() => ctx.onRunScene(scene.entity_id)}>
         <strong>${name}</strong>
@@ -237,4 +252,8 @@ function renderRealScenes(
       </button>
     `;
   })}`;
+}
+
+function isRunnableSceneEntity(entityId?: string): boolean {
+  return Boolean(entityId?.startsWith('scene.') || entityId?.startsWith('script.'));
 }

@@ -55,10 +55,25 @@ class SkinsProStrategy {
           ...userConfig,
           type: `custom:${CARD_TYPE}`,
           weather: { ...autoConfig.weather, ...sc('weather') },
-          energy: { ...autoConfig.energy, ...sc('energy') },
+          // If strategy saved energy (even `{}`), respect empty entity — do not keep auto default.
+          energy: {
+            ...autoConfig.energy,
+            ...sc('energy'),
+            ...('energy' in savedConfig ? { entity: String(sc('energy').entity || '') } : {}),
+          },
           info: { ...autoConfig.info, ...sc('info') },
           resource_pack: { ...autoConfig.resource_pack, ...sc('resource_pack') },
           home_selection: { ...autoConfig.home_selection, ...sc('home_selection') },
+          security_page: {
+            ...autoConfig.security_page,
+            ...sc('security_page'),
+            hidden: [
+              ...new Set([
+                ...((autoConfig.security_page?.hidden || []) as string[]),
+                ...((sc('security_page').hidden || []) as string[]),
+              ].filter(Boolean)),
+            ],
+          },
         };
       } catch (err) {
         console.error('[SkinsPro] generate error', err);

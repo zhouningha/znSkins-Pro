@@ -70,6 +70,22 @@ export function addListItem(el: HTMLElement, current: DashboardConfigRecord, pat
   return next;
 }
 
+/** Move a list item up (delta=-1) or down (delta=+1). */
+export function moveListItem(el: HTMLElement, current: DashboardConfigRecord, path: string, index: number, delta: number): DashboardConfigRecord {
+  const next = deepClone(current);
+  const drill = drillPath(next, path);
+  if (!drill) return current;
+  const arr: string[] = [...(drill.parent[drill.last] || [])];
+  const target = index + delta;
+  if (index < 0 || index >= arr.length || target < 0 || target >= arr.length) return current;
+  const tmp = arr[index]!;
+  arr[index] = arr[target]!;
+  arr[target] = tmp;
+  drill.parent[drill.last] = arr;
+  fire(el, next);
+  return next;
+}
+
 export function applySkin(el: HTMLElement, current: DashboardConfigRecord, skin: string): DashboardConfigRecord {
   const next = deepClone(current);
   next.resource_pack = next.resource_pack || {};

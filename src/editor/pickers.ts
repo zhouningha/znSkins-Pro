@@ -29,10 +29,13 @@ export function entityPicker(label: string, path: string, value: string, domains
 
 export function listPicker(label: string, path: string, values: string[], domains?: string[], max?: number): string {
   const filter = domains?.length ? ` include-domains='${JSON.stringify(domains)}'` : '';
+  // Empty config → no rows (only +). After +, keep '' rows so the entity picker appears.
   const arr = Array.isArray(values) ? values : [];
-  const rows = (arr.length > 0 ? arr : ['']).map((val, i) => `
+  const rows = arr.map((val, i) => `
     <div class="selector-row">
       <${ENTITY_PICKER_TAG} data-list-path="${path}" data-list-index="${i}"${filter} value="${escapeAttr(val || '')}"></${ENTITY_PICKER_TAG}>
+      <button type="button" class="sp-move" data-move-path="${path}" data-move-index="${i}" data-move-delta="-1" ${i === 0 ? 'disabled' : ''} title="上移">↑</button>
+      <button type="button" class="sp-move" data-move-path="${path}" data-move-index="${i}" data-move-delta="1" ${i >= arr.length - 1 ? 'disabled' : ''} title="下移">↓</button>
       <button class="sp-del" data-del-path="${path}" data-del-index="${i}">✕</button>
     </div>
   `).join('');

@@ -168,6 +168,52 @@ export function stateValue(hass: HomeAssistant | undefined, entityId?: string, l
   return formatRawState(hass.states[entityId]?.state || '', language || 'en');
 }
 
+/** Short label for home info line — avoid HA names like「门禁开门」/「Open Relay A». */
+function infoLockLabel(friendlyName: string, zh: boolean): string {
+  const name = friendlyName.trim();
+  if (/门禁/.test(name)) return zh ? '门禁' : 'Door';
+  if (/门锁|lock\s*[ab]?/i.test(name)) return zh ? '门锁' : 'Lock';
+  const cleaned = name
+    .replace(/开门$/u, '')
+    .replace(/\s*Open\s*Relay.*$/i, '')
+    .replace(/\s*Relay\s*[ab]?\s*$/i, '')
+    .trim();
+  return cleaned || (zh ? '门锁' : 'Lock');
+}
+
+/** Home welcome「信息展示」line — door contacts / locks show clear Chinese status. */
+export function infoDisplayValue(
+  hass: HomeAssistant | undefined,
+  entityId: string | undefined,
+  language: Language,
+): string {
+  if (!entityId || !hass) return '';
+  const stateObj = hass.states[entityId];
+  if (!stateObj) return '';
+  const name = String(stateObj.attributes?.friendly_name || entityId);
+  const domain = entityId.split('.')[0] || '';
+  const deviceClass = String(stateObj.attributes?.device_class || '').toLowerCase();
+  const zh = language === 'zh-CN';
+  if (domain === 'binary_sensor' && ['door', 'garage_door', 'window', 'opening'].includes(deviceClass)) {
+    // Door contact: on = open, off = closed (not electronic lock).
+    const open = stateObj.state === 'on';
+    const label = zh ? (open ? '门开着' : '门关着') : (open ? 'Open' : 'Closed');
+    return `${name} · ${label}`;
+  }
+  if (domain === 'lock') {
+    const lockName = infoLockLabel(name, zh);
+    if (stateObj.state === 'unavailable' || stateObj.state === 'unknown') {
+      return `${lockName} · ${zh ? '离线' : 'Offline'}`;
+    }
+    // locked / unlocked — covers Akuvox Lock A and R20K 门禁 relay.
+    const locked = stateObj.state === 'locked';
+    const label = zh ? (locked ? '已上锁' : '未上锁') : (locked ? 'Locked' : 'Unlocked');
+    return `${lockName} · ${label}`;
+  }
+  const raw = stateValue(hass, entityId, language);
+  return raw || name;
+}
+
 export function timeText(hass: HomeAssistant | undefined, language: Language): string {
   const locale = hass?.locale?.language || language;
   const fmt24 = hass?.locale?.time_format !== '12h';
@@ -187,9 +233,10 @@ export function dateText(hass: HomeAssistant | undefined, language: Language): s
 }
 
 export function formatRelativeTime(isoDate: Date, language: Language): string {
-  const now = new Date();
-  const diff = now.getTime() - isoDate.getTime();
-  const seconds = Math.floor(diff / 1000);
+  const then = isoDate?.getTime?.();
+  if (!Number.isFinite(then)) return '';
+  const seconds = Math.floor((Date.now() - then) / 1000);
+  if (!Number.isFinite(seconds)) return '';
   const rtf = new Intl.RelativeTimeFormat(language, { numeric: 'auto' });
   if (seconds < 0) return rtf.format(0, 'seconds');
   if (seconds < 60) return rtf.format(-seconds, 'seconds');
@@ -203,6 +250,29 @@ export function formatRelativeTime(isoDate: Date, language: Language): string {
   if (months < 12) return rtf.format(-months, 'months');
   const years = Math.floor(days / 365);
   return rtf.format(-years, 'years');
+}
+
+/** Scene state is an ISO timestamp; script state is on/off — never pass script state to Date. */
+export function formatSceneOrScriptRelativeTime(
+  entity: { entity_id: string; state?: string; last_changed?: string; attributes?: Record<string, unknown> },
+  language: Language,
+): string {
+  const id = entity.entity_id || '';
+  if (id.startsWith('script.')) {
+    const triggered = entity.attributes?.last_triggered;
+    if (triggered) {
+      const formatted = formatRelativeTime(new Date(String(triggered)), language);
+      if (formatted) return formatted;
+    }
+    if (entity.last_changed) {
+      return formatRelativeTime(new Date(entity.last_changed), language);
+    }
+    return '';
+  }
+  if (entity.state && entity.state !== 'unavailable' && entity.state !== 'unknown') {
+    return formatRelativeTime(new Date(entity.state), language);
+  }
+  return '';
 }
 
 export function weatherIcon(state: string): string {

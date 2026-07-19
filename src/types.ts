@@ -51,6 +51,8 @@ export interface EntityRegistryEntry {
   device_id?: string | null;
   hidden_by?: string | null;
   disabled_by?: string | null;
+  capabilities?: Record<string, unknown> | null;
+  supported_features?: number | null;
 }
 
 export interface DeviceRegistryEntry {
@@ -151,6 +153,11 @@ export interface CameraConfig {
   entity?: string;
 }
 
+export interface SecurityPageConfig {
+  /** Entity IDs hidden from the security page (click-toggle in edit-hidden mode). */
+  hidden?: string[];
+}
+
 export interface HomeLimitsConfig {
   devices?: number;
   rooms?: number;
@@ -188,6 +195,7 @@ export interface DashboardConfig {
   weather?: WeatherConfig;
   info?: InfoConfig;
   fullscreen?: boolean;
+  fullscreen_users?: string[];
   use_area_pictures?: boolean;
   environment?: EnvironmentMetricConfig[];
   devices?: DeviceConfig[];
@@ -197,6 +205,7 @@ export interface DashboardConfig {
   energy?: EnergyConfig;
   media_player?: MediaPlayerConfig;
   camera?: CameraConfig;
+  security_page?: SecurityPageConfig;
   home_limits?: HomeLimitsConfig;
   home_selection?: HomeSelectionConfig;
 }
@@ -258,6 +267,9 @@ export type TranslationKey =
   | 'mediaPlayer'
   | 'showAll'
   | 'hideUnassigned'
+  | 'editHidden'
+  | 'hideSecurityHint'
+  | 'entityHidden'
   | 'groupLights'
   | 'groupSwitches'
   | 'groupClimate'

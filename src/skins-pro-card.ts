@@ -26,6 +26,7 @@ import {
   setDarkAssetSkin,
   skinSupportsDark,
   stateValue,
+  infoDisplayValue,
   weatherIcon,
   t,
   moreInfo,
@@ -38,7 +39,7 @@ import {
 } from './utils';
 
 import { mergeConfig } from './config';
-import { fetchEnergyHistory, fetchEnergySources, loadWeatherForecast, loadAreas, loadDeviceRegistry, loadEntityRegistry, loadFloors, toggleKiosk } from './ha';
+import { fetchEnergyHistory, fetchEnergySources, loadWeatherForecast, loadAreas, loadDeviceRegistry, loadEntityRegistry, loadFloors, ensureKiosk, isKioskActive, toggleKiosk } from './ha';
 
 import type { RenderContext } from './render/context';
 import { applyFullscreenHeight, applyKioskExitHeight, applyLayoutHeight, applyThemeVariables } from './render/layout';
@@ -52,6 +53,82 @@ import { renderAutomationsView } from './views/automations';
 import { renderEnergyView } from './views/energy';
 import { renderSecurityView } from './views/security';
 import { renderSearchOverlay } from './views/search';
+
+const KIOSK_HOME_SIDE_STYLE = html`
+  <style>
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .stage-grid {
+      grid-template-columns: minmax(0, 1fr) clamp(240px, 23vw, 310px);
+      grid-template-rows: auto minmax(0, 1fr) auto;
+    }
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .side {
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: minmax(118px, 1.05fr) minmax(112px, 0.95fr) minmax(96px, 0.8fr) minmax(150px, 1.9fr);
+      grid-auto-rows: 0;
+      gap: var(--sp-space-sm);
+      align-content: stretch;
+    }
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-camera,
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-energy,
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-media,
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-scenes {
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+      align-self: stretch;
+    }
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .maintenance-card {
+      display: none;
+    }
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-camera {
+      display: flex;
+      flex-direction: column;
+    }
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-camera .camera-preview {
+      flex: 1;
+      min-height: 0;
+      max-height: none;
+      aspect-ratio: auto;
+    }
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-energy .energy-value {
+      font-size: var(--sp-font-lg);
+      margin-top: 0;
+    }
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-energy .bars {
+      flex: 1;
+      min-height: 38px;
+      height: auto;
+      margin-top: var(--sp-space-xs);
+    }
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-media .section-title,
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-scenes .section-title {
+      margin-bottom: var(--sp-space-2xs);
+    }
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-media .media-content {
+      flex: 1;
+      justify-content: center;
+      min-height: 0;
+      margin-top: 0;
+    }
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-media .media-cover,
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-media .media-cover-null {
+      width: 40px;
+      height: 40px;
+    }
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-media .media-playbtn ha-icon {
+      --mdc-icon-size: 30px;
+    }
+    :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-scenes .scene-grid {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      gap: var(--sp-space-xs);
+      margin-top: var(--sp-space-xs);
+    }
+  </style>
+`;
 
 export class SkinsProCard extends LitElement {
   private _config?: DashboardConfig;
@@ -95,7 +172,14 @@ export class SkinsProCard extends LitElement {
   @state() private _searchQuery = '';
   @state() private _searchFilter = 'all';
 
+  @state() private _securityHideEditMode = false;
+  private _securityHideIdleTimer?: number;
+  private _securityHiddenHaSyncTimer?: number;
+  private _securityHiddenHaSyncing = false;
+  private static readonly SECURITY_EDIT_IDLE_MS = 10000;
+
   private _autoFullscreenDone = false;
+  private _autoFullscreenAttempts = 0;
   private _loadedSkinMetadata?: string;
   private readonly _handleWindowResize = () => this._applyLayout();
 
@@ -120,6 +204,8 @@ export class SkinsProCard extends LitElement {
   public disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('resize', this._handleWindowResize);
+    window.clearTimeout(this._securityHideIdleTimer);
+    window.clearTimeout(this._securityHiddenHaSyncTimer);
     void this.unsubscribeWeatherForecast();
   }
 
@@ -127,7 +213,7 @@ export class SkinsProCard extends LitElement {
     if (!config || config.type !== 'custom:skins-pro-card') {
       throw new Error('Card type must be custom:skins-pro-card');
     }
-    this._config = mergeConfig(config);
+    this._config = this.mergeSecurityHiddenFromSources(config);
     this._energyHistory = undefined;
     this._energyYesterday = undefined;
     this._energyHistoryDone = false;
@@ -136,6 +222,7 @@ export class SkinsProCard extends LitElement {
     this._weatherForecast = undefined;
     this._weatherForecastEntity = undefined;
     this._autoFullscreenDone = false;
+    this._autoFullscreenAttempts = 0;
     this._loadedSkinMetadata = undefined;
     void this.unsubscribeWeatherForecast();
     this.requestUpdate();
@@ -264,6 +351,38 @@ export class SkinsProCard extends LitElement {
     }
   }
 
+  /** Today / yesterday from daily statistics change (midnight-based), never raw cumulative totals. */
+  private getConfiguredEnergyDisplay(): {
+    today: string;
+    yesterday: string;
+    history: number[] | undefined;
+  } {
+    const entityId = this._config?.energy?.entity;
+    if (!entityId) {
+      return { today: '--', yesterday: '', history: undefined };
+    }
+
+    const fromPrefs = this._energySources.find((source) => source.entityId === entityId);
+    if (fromPrefs) {
+      return {
+        today: fromPrefs.today && fromPrefs.today !== '--' ? fromPrefs.today : '--',
+        yesterday: fromPrefs.yesterday || '',
+        history: fromPrefs.history,
+      };
+    }
+
+    if (this._energyHistory?.length) {
+      const latest = this._energyHistory[this._energyHistory.length - 1]!;
+      return {
+        today: formatNumber(String(latest), 1),
+        yesterday: this._energyYesterday || '',
+        history: this._energyHistory,
+      };
+    }
+
+    return { today: '--', yesterday: '', history: undefined };
+  }
+
   // ─── Weather forecast ───────────────────────────────────
 
   private async loadWeatherForecast(): Promise<void> {
@@ -310,7 +429,11 @@ export class SkinsProCard extends LitElement {
 
   // ─── Render context ─────────────────────────────────────
 
-  private _buildContext(language: Language, translate: (key: TranslationKey) => string): RenderContext {
+  private _buildContext(
+    language: Language,
+    translate: (key: TranslationKey) => string,
+    energyHistoryOverride?: number[],
+  ): RenderContext {
     const hass = this._hass!;
     const resolvedTheme = this._resolveTheme();
     setDarkAssetSkin(resolvedTheme === 'dark' ? selectedSkin(this._config) : null);
@@ -329,8 +452,11 @@ export class SkinsProCard extends LitElement {
       filterType: this._filterType,
       hideUnassigned: this._hideUnassigned,
       selectedFloor: this._selectedFloor,
+      kioskFullscreen: isKioskActive(),
+      securityHideEditMode: this._securityHideEditMode && !isKioskActive(),
+      securityHidden: this.getSecurityHiddenIds(),
       weatherForecast: this._weatherForecast,
-      energyHistory: this._energyHistory,
+      energyHistory: energyHistoryOverride ?? this._energyHistory,
       energyYesterday: this._energyYesterday,
       energySources: this._energySources,
       onNavigate: (target) => this.navigateTo(target),
@@ -350,8 +476,133 @@ export class SkinsProCard extends LitElement {
       setFilterType: (t) => { this._filterType = t; },
       setHideUnassigned: (h) => { this._hideUnassigned = h; },
       setSelectedFloor: (f) => { this._selectedFloor = f; },
+      setSecurityHideEditMode: (on) => this.setSecurityHideEditMode(on),
+      onToggleSecurityHidden: (entityId) => this.toggleSecurityHidden(entityId),
       resolvedTheme: this._resolveTheme(),
     };
+  }
+
+  private getSecurityHiddenIds(): string[] {
+    return [...new Set((this._config?.security_page?.hidden || []).filter(Boolean))];
+  }
+
+  private syncSecurityHiddenStorage(hidden: string[]): void {
+    try {
+      const userId = this._hass?.user?.id || 'default';
+      window.localStorage.setItem(`skins-pro.security.hidden.${userId}`, JSON.stringify(hidden));
+      window.localStorage.setItem('skins-pro.security.hidden', JSON.stringify(hidden));
+    } catch {
+      // ignore storage failures
+    }
+  }
+
+  private mergeSecurityHiddenFromSources(config: DashboardConfig): DashboardConfig {
+    const merged = mergeConfig(config);
+    const haHidden = [...new Set((merged.security_page?.hidden || []).filter(Boolean))];
+    let localHidden: string[] = [];
+    try {
+      const userId = this._hass?.user?.id || 'default';
+      const raw = window.localStorage.getItem(`skins-pro.security.hidden.${userId}`)
+        || window.localStorage.getItem('skins-pro.security.hidden');
+      if (raw) {
+        const parsed = JSON.parse(raw) as unknown;
+        if (Array.isArray(parsed)) localHidden = parsed.filter((id): id is string => typeof id === 'string' && Boolean(id));
+      }
+    } catch {
+      // ignore
+    }
+    const hidden = [...new Set([...haHidden, ...localHidden])];
+    merged.security_page = { ...merged.security_page, hidden };
+    if (hidden.length > 0) this.syncSecurityHiddenStorage(hidden);
+    return merged;
+  }
+
+  private persistSecurityHidden(hidden: string[]): void {
+    const normalized = [...new Set(hidden.filter(Boolean))];
+    this._config = mergeConfig({
+      ...this._config!,
+      security_page: { ...this._config?.security_page, hidden: normalized },
+    });
+    this.syncSecurityHiddenStorage(normalized);
+    this.scheduleSecurityHiddenHaSync(normalized);
+    this.requestUpdate();
+  }
+
+  private scheduleSecurityHiddenHaSync(hidden: string[]): void {
+    window.clearTimeout(this._securityHiddenHaSyncTimer);
+    this._securityHiddenHaSyncTimer = window.setTimeout(() => {
+      void this.flushSecurityHiddenHaSync(hidden);
+    }, 2000);
+  }
+
+  private getLovelaceUrlPath(): string {
+    const parts = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/');
+    if (parts[0] === 'lovelace' && parts[1]) return parts[1];
+    const reserved = new Set(['config', 'developer-tools', 'history', 'logbook', 'media-browser', 'profile', 'hacs']);
+    return parts[0] && !reserved.has(parts[0]) ? parts[0] : 'lovelace';
+  }
+
+  private async flushSecurityHiddenHaSync(hidden: string[]): Promise<void> {
+    if (this._securityHiddenHaSyncing) {
+      this.scheduleSecurityHiddenHaSync(hidden);
+      return;
+    }
+    const connection = this._hass?.connection;
+    if (!connection?.sendMessagePromise) return;
+    const normalized = [...new Set(hidden.filter(Boolean))];
+    const urlPath = this.getLovelaceUrlPath();
+    this._securityHiddenHaSyncing = true;
+    try {
+      const current = await connection.sendMessagePromise<{ strategy?: Record<string, unknown> } & Record<string, unknown>>({
+        type: 'lovelace/config',
+        url_path: urlPath,
+      });
+      const strategy = (current.strategy || current || {}) as Record<string, unknown>;
+      const prevPage = typeof strategy.security_page === 'object' && strategy.security_page
+        ? (strategy.security_page as Record<string, unknown>)
+        : {};
+      await connection.sendMessagePromise({
+        type: 'lovelace/config/save',
+        url_path: urlPath,
+        config: {
+          strategy: {
+            ...strategy,
+            security_page: {
+              ...prevPage,
+              hidden: normalized,
+            },
+          },
+        },
+      });
+    } catch (error) {
+      console.warn('[Skins Pro] sync security_page.hidden to HA failed', error);
+    } finally {
+      this._securityHiddenHaSyncing = false;
+    }
+  }
+
+  private bumpSecurityEditIdle(): void {
+    window.clearTimeout(this._securityHideIdleTimer);
+    if (!this._securityHideEditMode) return;
+    this._securityHideIdleTimer = window.setTimeout(() => {
+      this._securityHideEditMode = false;
+      this.requestUpdate();
+    }, SkinsProCard.SECURITY_EDIT_IDLE_MS);
+  }
+
+  private setSecurityHideEditMode(on: boolean): void {
+    this._securityHideEditMode = on;
+    if (on) this.bumpSecurityEditIdle();
+    else window.clearTimeout(this._securityHideIdleTimer);
+    this.requestUpdate();
+  }
+
+  private toggleSecurityHidden(entityId: string): void {
+    const next = new Set(this.getSecurityHiddenIds());
+    if (next.has(entityId)) next.delete(entityId);
+    else next.add(entityId);
+    this.persistSecurityHidden([...next]);
+    this.bumpSecurityEditIdle();
   }
 
   // ─── Main render ────────────────────────────────────────
@@ -364,6 +615,7 @@ export class SkinsProCard extends LitElement {
     if (!this._hass) {
       return html`
       <link rel="stylesheet" href="${assetHref(this._config, 'theme_css')}">
+        ${KIOSK_HOME_SIDE_STYLE}
         <ha-card><div class="loading-state">Loading...</div></ha-card>
       `;
     }
@@ -372,14 +624,15 @@ export class SkinsProCard extends LitElement {
       this._config.language === 'auto' ? this._hass.language : this._config.language,
     );
     const translate = getTranslate(language);
-    const ctx = this._buildContext(language, translate);
+    const energyDisplay = this.getConfiguredEnergyDisplay();
+    const ctx = this._buildContext(language, translate, energyDisplay.history);
 
     const weatherIconName = weatherIcon(stateValue(this._hass, this._config.weather?.entity, language));
-    const quote = stateValue(this._hass, this._config.info?.entity, language) || translate('loadingQuote');
+    const quote = infoDisplayValue(this._hass, this._config.info?.entity, language) || translate('loadingQuote');
     const energyEntityId = this._config.energy?.entity || '';
-    const energyValue = this._config.energy?.entity ? formatNumber(stateValue(this._hass, this._config.energy.entity, language), 1) : '--';
+    const energyValue = energyDisplay.today;
     const energyUnit = (this._hass?.states[energyEntityId]?.attributes?.unit_of_measurement as string | undefined) || this._config.energy?.unit || 'kWh';
-    const compareValue = this._energyYesterday || '';
+    const compareValue = energyDisplay.yesterday;
     const registriesLoading = this.renderRegistryLoading(language);
 
     let stage: TemplateResult;
@@ -395,6 +648,7 @@ export class SkinsProCard extends LitElement {
 
     return html`
       <link rel="stylesheet" href="${assetHref(this._config, 'theme_css')}">
+      ${KIOSK_HOME_SIDE_STYLE}
       <ha-card>
         ${registriesLoading}
         <div class="mc-app" data-view=${this._view}>
@@ -428,11 +682,27 @@ export class SkinsProCard extends LitElement {
     applyThemeVariables(this._host(), this._config);
     this._applyLayout();
     this._applyThemeAttribute();
-    if (this._config?.fullscreen && !this._autoFullscreenDone) {
-      this._autoFullscreenDone = true;
+    if (this._shouldAutoFullscreen() && !this._autoFullscreenDone) {
       applyFullscreenHeight(this._host());
-      toggleKiosk();
+      const applied = ensureKiosk();
+      this._autoFullscreenDone = applied || this._autoFullscreenAttempts >= 12;
+      if (!this._autoFullscreenDone) {
+        this._autoFullscreenAttempts += 1;
+        window.setTimeout(() => this.requestUpdate(), 250);
+      } else {
+        this.requestUpdate();
+      }
     }
+  }
+
+  private _shouldAutoFullscreen(): boolean {
+    if (this._config?.fullscreen) return true;
+    const users = this._config?.fullscreen_users || [];
+    if (!users.length) return false;
+    const current = [this._hass?.user?.id, this._hass?.user?.name]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => value.toLowerCase());
+    return users.some((user) => current.includes(String(user).toLowerCase()));
   }
 
   private _resolveTheme(): 'light' | 'dark' {
@@ -451,6 +721,7 @@ export class SkinsProCard extends LitElement {
 
   private _applyThemeAttribute(): void {
     this.setAttribute('data-sp-theme', this._resolveTheme());
+    this.toggleAttribute('data-sp-kiosk', this._shouldAutoFullscreen() || isKioskActive());
   }
 
   private handleAction(entityId: string, action: string): void {
@@ -479,6 +750,7 @@ export class SkinsProCard extends LitElement {
       if (host) applyFullscreenHeight(host);
       toggleKiosk();
     }
+    this.requestUpdate();
   }
 
   private async batchControl(state: 'on' | 'off', translate: (key: TranslationKey) => string): Promise<void> {

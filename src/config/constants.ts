@@ -88,6 +88,7 @@ export const DEFAULT_CONFIG: DashboardConfig = {
     entity: 'input_text.daily_quote',
   },
   fullscreen: false,
+  fullscreen_users: [],
   use_area_pictures: false,
   downloaded_skins: [],
   devices: DEFAULT_DEVICES,
@@ -96,7 +97,7 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   environment: DEFAULT_ENVIRONMENT,
   nav: DEFAULT_NAV,
   energy: {
-    entity: 'sensor.energy_cost_today',
+    entity: '',
     unit: 'kWh',
   },
   media_player: {
@@ -104,6 +105,9 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   },
   camera: {
     entity: '',
+  },
+  security_page: {
+    hidden: [],
   },
   home_limits: {
     devices: 5,

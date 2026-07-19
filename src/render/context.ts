@@ -33,6 +33,10 @@ export interface RenderContext {
   filterType: string;
   hideUnassigned: boolean;
   selectedFloor: string;
+  /** True when tablet/browser kiosk fullscreen is active — hide edit/filter chrome. */
+  kioskFullscreen: boolean;
+  securityHideEditMode: boolean;
+  securityHidden: string[];
   weatherForecast?: WeatherForecastDay[];
   energyHistory?: number[];
   energyYesterday?: string;
@@ -57,6 +61,8 @@ export interface RenderContext {
   setFilterType: (t: string) => void;
   setHideUnassigned: (h: boolean) => void;
   setSelectedFloor: (f: string) => void;
+  setSecurityHideEditMode: (on: boolean) => void;
+  onToggleSecurityHidden: (entityId: string) => void;
 
   resolvedTheme: 'light' | 'dark';
 }

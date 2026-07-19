@@ -22,7 +22,7 @@ export function renderDevicesView(ctx: RenderContext): TemplateResult {
   return renderPageShell(
     ctx.translate('devices'),
     ctx.translate('quickControl'),
-    html`
+    ctx.kioskFullscreen ? html`` : html`
       <div class="filter-bar">
         <button class="chip${ctx.deviceGrouping === 'area' ? ' active' : ''}" @click=${() => ctx.setDeviceGrouping('area')}>${ctx.translate('byArea')}</button>
         <button class="chip${ctx.deviceGrouping === 'domain' ? ' active' : ''}" @click=${() => ctx.setDeviceGrouping('domain')}>${ctx.translate('byType')}</button>
@@ -73,7 +73,7 @@ function renderRealDeviceGroups(ctx: RenderContext, devices: ReturnType<typeof g
       <section class="device-group">
         <div class="section-title"><h2>${groupLabel}</h2><p class="muted">${String(items.length)}</p></div>
         <div class="devices devices-page-grid">
-          ${items.map((device) => renderDeviceCard(ctx.config, ctx.hass, device, ctx.language, ctx.onHandleAction, true))}
+          ${items.map((device) => renderDeviceCard(ctx.config, ctx.hass, device, ctx.language, ctx.onHandleAction, true, ctx.entityRegistry))}
         </div>
       </section>
     `;

@@ -1,7 +1,9 @@
 import type { HomeAssistant } from '../types';
 
 export async function runScene(hass: HomeAssistant | undefined, entityId: string): Promise<void> {
-  await hass?.callService('scene', 'turn_on', { entity_id: entityId });
+  const domain = entityId.split('.')[0] || 'scene';
+  const serviceDomain = domain === 'script' ? 'script' : 'scene';
+  await hass?.callService(serviceDomain, 'turn_on', { entity_id: entityId });
 }
 
 export async function toggleEntity(hass: HomeAssistant | undefined, entityId: string): Promise<void> {

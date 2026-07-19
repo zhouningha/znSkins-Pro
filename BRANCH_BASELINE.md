@@ -109,6 +109,8 @@ git show origin/backup/old-master-before-rebuild-20260719:path/to/file
 | 项 | 值 |
 |----|-----|
 | 执行日 | 2026-07-19 |
-| 新基准 tip | `codex/rebuild-on-official-20260718` → 推入 `master` |
-| 旧 master 备份 | `backup/old-master-before-rebuild-20260719` |
+| 新基准 tip | `a73023b`（rebuild → `master`） |
+| 旧 master 备份 | `backup/old-master-before-rebuild-20260719` @ `b1c5115` |
 | 操作人意图 | 废除乱历史；以后更新/安装只认新 `master` |
+| 已删除旧试验分支 | `codex/build-before-official-sync-20260716` |
+| 仍保留 | `feature/god-of-war-3-wall`, `store`, `codex/rebuild-on-official-20260718`（与 master 对齐） |

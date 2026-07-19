@@ -2,6 +2,8 @@
 
 这个仓库以后以 `zhouningha/znSkins-Pro` 作为最终交付版本。官方 Skins Pro 只作为功能来源，不能直接覆盖本仓库定制体验。
 
+**分支基准（必读）：** 见 `BRANCH_BASELINE.md`。自 2026-07-19 起，`master` 已由 `codex/rebuild-on-official-20260718` 覆盖；旧 `master` 废除，仅保留 `backup/old-master-before-rebuild-20260719`。禁止把备份或乱历史再 merge 回 `master`。
+
 ## 核心规则
 
 1. 官方新增功能可以合并。
@@ -11,6 +13,7 @@
 5. HA 生产环境只安装 fork 版本，不直接安装官方版本。
 6. 每次部署必须同步更新 Lovelace resources 里的 `skins-pro.js` URL query（`hacstag/build`），否则 HA/平板会继续加载旧 JS；`scripts/deploy-ha-god-war.sh` 必须保留 `lovelace_resources` cache bump 和 `znSkins-Pro` mirror sync。
 7. 每次修复、构建、部署或同步官方完成后，必须把最新结果同步到 GitHub fork：检查 `git rev-list --left-right --count master...origin/master`，不是 `0 0` 就执行 `git push origin master`，不能只停在本地或 HA。
+8. 日常开发与发版只认当前 `master`（rebuild 基准）；不要让安装方选择旧实验分支。
 
 ## 当前必须保留的定制功能
 

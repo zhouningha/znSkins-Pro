@@ -8,6 +8,9 @@ import { renderPageShell } from '../components/page-shell';
 import { renderDeviceCard } from '../components/device-card';
 import { t } from '../utils';
 
+/** Android Kiosk WebView tile budget — page long device lists (Mac: no paging). */
+const ANDROID_KIOSK_DEVICE_PAGE_SIZE = 16;
+
 export function renderDevicesView(ctx: RenderContext): TemplateResult {
   const allDevices = getRealDevicesForRender(ctx.hass, ctx.deviceRegistry, ctx.entityRegistry, ctx.areas);
   const rooms = getDeviceRooms(allDevices);
@@ -18,6 +21,35 @@ export function renderDevicesView(ctx: RenderContext): TemplateResult {
     filterType: ctx.filterType,
     hideUnassigned: ctx.hideUnassigned,
   });
+
+  const pageSize = ctx.androidKiosk ? ANDROID_KIOSK_DEVICE_PAGE_SIZE : 0;
+  const totalPages = pageSize > 0 ? Math.max(1, Math.ceil(filteredDevices.length / pageSize)) : 1;
+  const pageIndex = Math.min(Math.max(0, ctx.devicePageIndex), totalPages - 1);
+  const pagedDevices = pageSize > 0
+    ? filteredDevices.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize)
+    : filteredDevices;
+
+  const pager = ctx.androidKiosk && filteredDevices.length > ANDROID_KIOSK_DEVICE_PAGE_SIZE
+    ? html`
+      <div class="android-device-pager">
+        <span>${pageIndex + 1} / ${totalPages}</span>
+        <button
+          type="button"
+          class="android-device-page-button"
+          ?disabled=${pageIndex <= 0}
+          @click=${() => ctx.setDevicePageIndex(pageIndex - 1)}
+          aria-label="prev"
+        ><ha-icon icon="mdi:chevron-left"></ha-icon></button>
+        <button
+          type="button"
+          class="android-device-page-button"
+          ?disabled=${pageIndex >= totalPages - 1}
+          @click=${() => ctx.setDevicePageIndex(pageIndex + 1)}
+          aria-label="next"
+        ><ha-icon icon="mdi:chevron-right"></ha-icon></button>
+      </div>
+    `
+    : nothing;
 
   return renderPageShell(
     ctx.translate('devices'),
@@ -44,7 +76,8 @@ export function renderDevicesView(ctx: RenderContext): TemplateResult {
     `,
     html`
       <div class="page-scroll themed-scrollbar">
-        ${renderRealDeviceGroups(ctx, filteredDevices)}
+        ${pager}
+        ${renderRealDeviceGroups(ctx, pagedDevices)}
       </div>
     `
   );

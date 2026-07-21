@@ -67,12 +67,9 @@ class SkinsProStrategy {
           security_page: {
             ...autoConfig.security_page,
             ...sc('security_page'),
-            hidden: [
-              ...new Set([
-                ...((autoConfig.security_page?.hidden || []) as string[]),
-                ...((sc('security_page').hidden || []) as string[]),
-              ].filter(Boolean)),
-            ],
+            // Saved strategy list is authoritative — never union with defaults/auto
+            // or unhide can never stick after lovelace reload.
+            hidden: [...new Set((((sc('security_page').hidden as string[]) || [])).filter(Boolean))],
           },
         };
       } catch (err) {

@@ -113,7 +113,7 @@ export const DEFAULT_CONFIG: DashboardConfig = {
     devices: 5,
     rooms: 4,
     scenes: 6,
-    environment: 5,
+    environment: 12,
   },
   home_selection: {
     devices: [],

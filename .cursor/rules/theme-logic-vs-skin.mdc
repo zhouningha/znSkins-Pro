@@ -1,0 +1,25 @@
+---
+description: Animal Crossing logic for all skins; visuals follow active theme
+alwaysApply: true
+---
+
+# 逻辑跟动物森友会，外观跟当前主题
+
+## 原则
+
+- **逻辑 / 结构 / 交互 / 位置**：以动物森友会（`animal-crossing`）已验证行为为**唯一基准**，所有主题共用同一套 JS 与 DOM。换肤**不改**功能与布局。
+- **视觉**：只换主题元素——当前 `resource_pack.skin` 的 `theme.css` 里的 CSS 变量（色板、材质、圆角、背景图、图标）。
+- **禁止**：为某个主题在 JS 里分叉另一套交互；禁止「每个主题一对一改逻辑」。
+
+- **实现（fork）**
+  1. `src/styles/shared-chrome.ts` 在皮肤 `theme.css` **之后**注入，并用 `!important` **锁定**歌单/摄像头/安防的尺寸·位置·圆角·铺满（森友会基准）。换肤不得另搞一套大了小了、直角、不铺满、位置挪动。
+  2. 皮肤只改 `:host` 视觉 token（色、材质、背景图、图标）；可覆盖颜色，不应覆盖 LAYOUT LOCK。
+  3. 开门弹层：倒计时/进度/自动关逻辑固定；从 card host 复制 `--sp-*` 上色，禁止按皮肤名分叉整份对话框。
+  4. 战神等皮肤禁止给 `.camera-card` 单独 `aspect-ratio` / `border-radius:0`；圆角跟 `--sp-radius-lg`（缺则补 `--sp-radius-glass` / `--sp-radius-camera` 别名）。
+
+## 歌单 / 开关 / 窗帘
+
+- DOM：`.media-playlist` + `.media-playlist-nav` + `.media-playlist-label`
+- 逻辑：`input_select.living_room_music_source` + `music_assistant.play_media`
+- 设备开关：`renderThemedSwitch`（`.switch`），禁止 `ha-control-switch`
+- 窗帘/阀门：`.device-pos-track` 点按 + 乐观进度，禁止 `ha-control-slider`

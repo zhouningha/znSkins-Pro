@@ -37,10 +37,19 @@ import {
   loadSkinMetadata,
   BUNDLED_SKINS,
 } from './utils';
+import {
+  normalizeHiddenIds,
+  readSecurityHiddenLocal,
+  resolveSecurityHiddenIds,
+  saveSecurityHiddenToHa,
+  toggleHiddenId,
+  writeSecurityHiddenLocal,
+} from './utils/security-hidden';
 
 import { mergeConfig } from './config';
-import { fetchEnergyHistory, fetchEnergySources, loadWeatherForecast, loadAreas, loadDeviceRegistry, loadEntityRegistry, loadFloors, ensureKiosk, isKioskActive, toggleKiosk } from './ha';
+import { fetchEnergyHistory, fetchEnergySources, enrichEnergySourcesWithMeters, loadWeatherForecast, loadAreas, loadDeviceRegistry, loadEntityRegistry, loadFloors, ensureKiosk, isAndroidKiosk, isKioskActive, toggleKiosk } from './ha';
 
+import { openLockDialog } from './components/lock-dialog';
 import type { RenderContext } from './render/context';
 import { applyFullscreenHeight, applyKioskExitHeight, applyLayoutHeight, applyThemeVariables } from './render/layout';
 import { getRealDevicesForRender } from './selectors/devices';
@@ -52,7 +61,10 @@ import { renderScenesView } from './views/scenes';
 import { renderAutomationsView } from './views/automations';
 import { renderEnergyView } from './views/energy';
 import { renderSecurityView } from './views/security';
-import { renderSearchOverlay } from './views/search';
+import { SHARED_CHROME_CSS } from './styles/shared-chrome';
+
+/** Fork LAYOUT LOCK (playlist/camera…) — AFTER skin theme.css so skins cannot invent alternate size/radius. */
+const SHARED_CHROME_STYLE = html`<style id="sp-shared-chrome">${SHARED_CHROME_CSS}</style>`;
 
 const KIOSK_HOME_SIDE_STYLE = html`
   <style>
@@ -145,6 +157,8 @@ export class SkinsProCard extends LitElement {
   @state() private _deviceRegistry?: DeviceRegistryEntry[];
   @state() private _floors?: FloorRegistryEntry[];
   @state() private _selectedFloor = '';
+  @state() private _selectedEnvFloor = '';
+  @state() private _devicePageIndex = 0;
 
   private _areasLoaded = false;
   private _areasLoading = false;
@@ -161,6 +175,9 @@ export class SkinsProCard extends LitElement {
   private _energyHistoryLoading = false;
 
   @state() private _energySources: EnergySourceData[] = [];
+  @state() private _energyMonthToDate?: string;
+  @state() private _energyWeekToDate?: string;
+  @state() private _energyTodayTotal?: string;
   private _energyPrefsDone = false;
   private _energyPrefsLoading = false;
 
@@ -168,15 +185,11 @@ export class SkinsProCard extends LitElement {
   private _weatherForecastEntity?: string;
   private _weatherForecastUnsub?: () => Promise<void>;
 
-  @state() private _searchOpen = false;
-  @state() private _searchQuery = '';
-  @state() private _searchFilter = 'all';
-
+  /** Security hide: edit mode + draft list (see utils/security-hidden.ts). */
   @state() private _securityHideEditMode = false;
-  private _securityHideIdleTimer?: number;
-  private _securityHiddenHaSyncTimer?: number;
-  private _securityHiddenHaSyncing = false;
-  private static readonly SECURITY_EDIT_IDLE_MS = 10000;
+  @state() private _securityHideSaving = false;
+  /** Draft while editing; also caches last known list after Done. */
+  private _securityHiddenDraft: string[] | null = null;
 
   private _autoFullscreenDone = false;
   private _autoFullscreenAttempts = 0;
@@ -204,8 +217,6 @@ export class SkinsProCard extends LitElement {
   public disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('resize', this._handleWindowResize);
-    window.clearTimeout(this._securityHideIdleTimer);
-    window.clearTimeout(this._securityHiddenHaSyncTimer);
     void this.unsubscribeWeatherForecast();
   }
 
@@ -216,6 +227,9 @@ export class SkinsProCard extends LitElement {
     this._config = this.mergeSecurityHiddenFromSources(config);
     this._energyHistory = undefined;
     this._energyYesterday = undefined;
+    this._energyMonthToDate = undefined;
+    this._energyWeekToDate = undefined;
+    this._energyTodayTotal = undefined;
     this._energyHistoryDone = false;
     this._energySources = [];
     this._energyPrefsDone = false;
@@ -271,52 +285,73 @@ export class SkinsProCard extends LitElement {
 
   // ─── Registry loading ───────────────────────────────────
 
+  private _areasPromise?: Promise<void>;
+  private _entityRegistryPromise?: Promise<void>;
+  private _deviceRegistryPromise?: Promise<void>;
+  private _floorsPromise?: Promise<void>;
+
   private async loadAreas(): Promise<void> {
-    if (!this._hass || this._areasLoaded || this._areasLoading) return;
+    if (!this._hass || this._areasLoaded) return;
+    if (this._areasPromise) return this._areasPromise;
     this._areasLoading = true;
-    try {
-      this._areas = await loadAreas(this._hass);
-      this._areasLoaded = true;
-    } catch {
-    } finally {
-      this._areasLoading = false;
-    }
+    this._areasPromise = (async () => {
+      try {
+        this._areas = await loadAreas(this._hass!);
+        this._areasLoaded = true;
+      } catch {
+      } finally {
+        this._areasLoading = false;
+      }
+    })();
+    return this._areasPromise;
   }
 
   private async loadEntityRegistry(): Promise<void> {
-    if (!this._hass || this._entityRegistryLoaded || this._entityRegistryLoading) return;
+    if (!this._hass || this._entityRegistryLoaded) return;
+    if (this._entityRegistryPromise) return this._entityRegistryPromise;
     this._entityRegistryLoading = true;
-    try {
-      this._entityRegistry = await loadEntityRegistry(this._hass);
-      this._entityRegistryLoaded = true;
-    } catch {
-    } finally {
-      this._entityRegistryLoading = false;
-    }
+    this._entityRegistryPromise = (async () => {
+      try {
+        this._entityRegistry = await loadEntityRegistry(this._hass!);
+        this._entityRegistryLoaded = true;
+      } catch {
+      } finally {
+        this._entityRegistryLoading = false;
+      }
+    })();
+    return this._entityRegistryPromise;
   }
 
   private async loadDeviceRegistry(): Promise<void> {
-    if (!this._hass || this._deviceRegistryLoaded || this._deviceRegistryLoading) return;
+    if (!this._hass || this._deviceRegistryLoaded) return;
+    if (this._deviceRegistryPromise) return this._deviceRegistryPromise;
     this._deviceRegistryLoading = true;
-    try {
-      this._deviceRegistry = await loadDeviceRegistry(this._hass);
-      this._deviceRegistryLoaded = true;
-    } catch {
-    } finally {
-      this._deviceRegistryLoading = false;
-    }
+    this._deviceRegistryPromise = (async () => {
+      try {
+        this._deviceRegistry = await loadDeviceRegistry(this._hass!);
+        this._deviceRegistryLoaded = true;
+      } catch {
+      } finally {
+        this._deviceRegistryLoading = false;
+      }
+    })();
+    return this._deviceRegistryPromise;
   }
 
   private async loadFloorsRegistry(): Promise<void> {
-    if (!this._hass || this._floorsLoaded || this._floorsLoading) return;
+    if (!this._hass || this._floorsLoaded) return;
+    if (this._floorsPromise) return this._floorsPromise;
     this._floorsLoading = true;
-    try {
-      this._floors = await loadFloors(this._hass);
-      this._floorsLoaded = true;
-    } catch {
-    } finally {
-      this._floorsLoading = false;
-    }
+    this._floorsPromise = (async () => {
+      try {
+        this._floors = await loadFloors(this._hass!);
+        this._floorsLoaded = true;
+      } catch {
+      } finally {
+        this._floorsLoading = false;
+      }
+    })();
+    return this._floorsPromise;
   }
 
   // ─── Energy ─────────────────────────────────────────────
@@ -325,10 +360,24 @@ export class SkinsProCard extends LitElement {
     if (!this._hass || this._energyPrefsDone || this._energyPrefsLoading) return;
     this._energyPrefsLoading = true;
     try {
-      const result = await fetchEnergySources(this._hass, this._config!);
+      await Promise.all([
+        this.loadAreas(),
+        this.loadEntityRegistry(),
+        this.loadDeviceRegistry(),
+        this.loadFloorsRegistry(),
+      ]);
+      const result = await fetchEnergySources(this._hass, this._config!, {
+        areas: this._areas,
+        floors: this._floors,
+        entityRegistry: this._entityRegistry,
+        deviceRegistry: this._deviceRegistry,
+      });
       this._energySources = result.sources;
       this._energyHistory = result.history;
       this._energyYesterday = result.yesterday;
+      this._energyMonthToDate = result.monthToDate;
+      this._energyWeekToDate = result.weekToDate;
+      this._energyTodayTotal = result.todayTotal;
       this._energyPrefsDone = result.sources.length > 0;
     } catch {
     } finally {
@@ -452,13 +501,20 @@ export class SkinsProCard extends LitElement {
       filterType: this._filterType,
       hideUnassigned: this._hideUnassigned,
       selectedFloor: this._selectedFloor,
+      selectedEnvFloor: this._selectedEnvFloor,
       kioskFullscreen: isKioskActive(),
-      securityHideEditMode: this._securityHideEditMode && !isKioskActive(),
+      androidKiosk: isAndroidKiosk(),
+      devicePageIndex: this._devicePageIndex,
+      securityHideEditMode: this._securityHideEditMode,
+      securityHideSaving: this._securityHideSaving,
       securityHidden: this.getSecurityHiddenIds(),
       weatherForecast: this._weatherForecast,
       energyHistory: energyHistoryOverride ?? this._energyHistory,
       energyYesterday: this._energyYesterday,
-      energySources: this._energySources,
+      energySources: enrichEnergySourcesWithMeters(hass, this._energySources),
+      energyMonthToDate: this._energyMonthToDate,
+      energyWeekToDate: this._energyWeekToDate,
+      energyTodayTotal: this._energyTodayTotal,
       onNavigate: (target) => this.navigateTo(target),
       onNavigatePath: (path) => navigatePath(path),
       onRunScene: (entityId) => { void runScene(this._hass, entityId); },
@@ -468,141 +524,121 @@ export class SkinsProCard extends LitElement {
       onToggleKiosk: () => this.toggleKioskFullscreen(),
       onMoreInfo: (entityId) => moreInfo(this, entityId),
       onTurnOffAreaType: (entityIds) => turnOffAreaTypeAction(this._hass, entityIds),
-      searchOpen: this._searchOpen,
-      onOpenSearch: () => { this._searchOpen = true; },
-      onCloseSearch: () => { this._searchOpen = false; this._searchQuery = ''; this._searchFilter = 'all'; },
-      setDeviceGrouping: (g) => { this._deviceGrouping = g; },
-      setFilterRoom: (r) => { this._filterRoom = r; },
-      setFilterType: (t) => { this._filterType = t; },
-      setHideUnassigned: (h) => { this._hideUnassigned = h; },
+      setDeviceGrouping: (g) => { this._deviceGrouping = g; this._devicePageIndex = 0; },
+      setFilterRoom: (r) => { this._filterRoom = r; this._devicePageIndex = 0; },
+      setFilterType: (t) => { this._filterType = t; this._devicePageIndex = 0; },
+      setHideUnassigned: (h) => { this._hideUnassigned = h; this._devicePageIndex = 0; },
       setSelectedFloor: (f) => { this._selectedFloor = f; },
+      setSelectedEnvFloor: (f) => { this._selectedEnvFloor = f; },
+      setDevicePageIndex: (page) => { this._devicePageIndex = Math.max(0, page); },
       setSecurityHideEditMode: (on) => this.setSecurityHideEditMode(on),
       onToggleSecurityHidden: (entityId) => this.toggleSecurityHidden(entityId),
       resolvedTheme: this._resolveTheme(),
     };
   }
 
-  private getSecurityHiddenIds(): string[] {
-    return [...new Set((this._config?.security_page?.hidden || []).filter(Boolean))];
+  private userIdForStorage(): string {
+    return this._hass?.user?.id || 'default';
   }
 
-  private syncSecurityHiddenStorage(hidden: string[]): void {
-    try {
-      const userId = this._hass?.user?.id || 'default';
-      window.localStorage.setItem(`skins-pro.security.hidden.${userId}`, JSON.stringify(hidden));
-      window.localStorage.setItem('skins-pro.security.hidden', JSON.stringify(hidden));
-    } catch {
-      // ignore storage failures
+  private collectSecurityCameraMeta(): Array<{ entityId: string; name?: string }> {
+    const byId = new Map<string, { entityId: string; name?: string }>();
+    for (const entry of this._entityRegistry || []) {
+      if (!entry.entity_id.startsWith('camera.')) continue;
+      byId.set(entry.entity_id, {
+        entityId: entry.entity_id,
+        name: entry.name || entry.original_name || undefined,
+      });
     }
+    for (const entity of Object.values(this._hass?.states || {})) {
+      if (!entity?.entity_id?.startsWith('camera.')) continue;
+      const prev = byId.get(entity.entity_id);
+      byId.set(entity.entity_id, {
+        entityId: entity.entity_id,
+        name: String(entity.attributes?.friendly_name || prev?.name || ''),
+      });
+    }
+    return [...byId.values()];
+  }
+
+  private getSecurityHiddenIds(): string[] {
+    return resolveSecurityHiddenIds({
+      draft: this._securityHiddenDraft,
+      configHidden: this._config?.security_page?.hidden,
+      userId: this.userIdForStorage(),
+      cameras: this.collectSecurityCameraMeta(),
+    });
   }
 
   private mergeSecurityHiddenFromSources(config: DashboardConfig): DashboardConfig {
     const merged = mergeConfig(config);
-    const haHidden = [...new Set((merged.security_page?.hidden || []).filter(Boolean))];
-    let localHidden: string[] = [];
-    try {
-      const userId = this._hass?.user?.id || 'default';
-      const raw = window.localStorage.getItem(`skins-pro.security.hidden.${userId}`)
-        || window.localStorage.getItem('skins-pro.security.hidden');
-      if (raw) {
-        const parsed = JSON.parse(raw) as unknown;
-        if (Array.isArray(parsed)) localHidden = parsed.filter((id): id is string => typeof id === 'string' && Boolean(id));
-      }
-    } catch {
-      // ignore
-    }
-    const hidden = [...new Set([...haHidden, ...localHidden])];
+    const hidden = resolveSecurityHiddenIds({
+      draft: this._securityHiddenDraft,
+      configHidden: merged.security_page?.hidden,
+      userId: this.userIdForStorage(),
+      cameras: this.collectSecurityCameraMeta(),
+    });
     merged.security_page = { ...merged.security_page, hidden };
-    if (hidden.length > 0) this.syncSecurityHiddenStorage(hidden);
+    if (this._securityHiddenDraft === null && readSecurityHiddenLocal(this.userIdForStorage()) === null) {
+      writeSecurityHiddenLocal(hidden, this.userIdForStorage());
+    }
     return merged;
   }
 
-  private persistSecurityHidden(hidden: string[]): void {
-    const normalized = [...new Set(hidden.filter(Boolean))];
+  /** Edit-mode tap only — updates draft + localStorage, never HA. */
+  private toggleSecurityHidden(entityId: string): void {
+    if (!this._securityHideEditMode || this._securityHideSaving) return;
+    const next = toggleHiddenId(this.getSecurityHiddenIds(), entityId);
+    this._securityHiddenDraft = next;
+    writeSecurityHiddenLocal(next, this.userIdForStorage());
     this._config = mergeConfig({
       ...this._config!,
-      security_page: { ...this._config?.security_page, hidden: normalized },
+      security_page: { ...this._config?.security_page, hidden: next },
     });
-    this.syncSecurityHiddenStorage(normalized);
-    this.scheduleSecurityHiddenHaSync(normalized);
     this.requestUpdate();
   }
 
-  private scheduleSecurityHiddenHaSync(hidden: string[]): void {
-    window.clearTimeout(this._securityHiddenHaSyncTimer);
-    this._securityHiddenHaSyncTimer = window.setTimeout(() => {
-      void this.flushSecurityHiddenHaSync(hidden);
-    }, 2000);
-  }
-
-  private getLovelaceUrlPath(): string {
-    const parts = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/');
-    if (parts[0] === 'lovelace' && parts[1]) return parts[1];
-    const reserved = new Set(['config', 'developer-tools', 'history', 'logbook', 'media-browser', 'profile', 'hacs']);
-    return parts[0] && !reserved.has(parts[0]) ? parts[0] : 'lovelace';
-  }
-
-  private async flushSecurityHiddenHaSync(hidden: string[]): Promise<void> {
-    if (this._securityHiddenHaSyncing) {
-      this.scheduleSecurityHiddenHaSync(hidden);
+  /**
+   * Enter edit: copy current list into draft.
+   * Exit (Done): save draft to HA strategy, then leave edit mode.
+   */
+  private setSecurityHideEditMode(on: boolean): void {
+    if (on) {
+      this._securityHiddenDraft = this.getSecurityHiddenIds();
+      this._securityHideEditMode = true;
+      this._securityHideSaving = false;
+      this.requestUpdate();
       return;
     }
-    const connection = this._hass?.connection;
-    if (!connection?.sendMessagePromise) return;
-    const normalized = [...new Set(hidden.filter(Boolean))];
-    const urlPath = this.getLovelaceUrlPath();
-    this._securityHiddenHaSyncing = true;
-    try {
-      const current = await connection.sendMessagePromise<{ strategy?: Record<string, unknown> } & Record<string, unknown>>({
-        type: 'lovelace/config',
-        url_path: urlPath,
-      });
-      const strategy = (current.strategy || current || {}) as Record<string, unknown>;
-      const prevPage = typeof strategy.security_page === 'object' && strategy.security_page
-        ? (strategy.security_page as Record<string, unknown>)
-        : {};
-      await connection.sendMessagePromise({
-        type: 'lovelace/config/save',
-        url_path: urlPath,
-        config: {
-          strategy: {
-            ...strategy,
-            security_page: {
-              ...prevPage,
-              hidden: normalized,
-            },
-          },
-        },
-      });
-    } catch (error) {
-      console.warn('[Skins Pro] sync security_page.hidden to HA failed', error);
-    } finally {
-      this._securityHiddenHaSyncing = false;
-    }
-  }
-
-  private bumpSecurityEditIdle(): void {
-    window.clearTimeout(this._securityHideIdleTimer);
     if (!this._securityHideEditMode) return;
-    this._securityHideIdleTimer = window.setTimeout(() => {
+    if (this._securityHideSaving) return;
+
+    const hidden = normalizeHiddenIds(this._securityHiddenDraft ?? this.getSecurityHiddenIds());
+    this._securityHiddenDraft = hidden;
+    writeSecurityHiddenLocal(hidden, this.userIdForStorage());
+    this._config = mergeConfig({
+      ...this._config!,
+      security_page: { ...this._config?.security_page, hidden },
+    });
+
+    const connection = this._hass?.connection;
+    if (!connection?.sendMessagePromise) {
       this._securityHideEditMode = false;
       this.requestUpdate();
-    }, SkinsProCard.SECURITY_EDIT_IDLE_MS);
-  }
+      return;
+    }
 
-  private setSecurityHideEditMode(on: boolean): void {
-    this._securityHideEditMode = on;
-    if (on) this.bumpSecurityEditIdle();
-    else window.clearTimeout(this._securityHideIdleTimer);
+    this._securityHideSaving = true;
     this.requestUpdate();
-  }
-
-  private toggleSecurityHidden(entityId: string): void {
-    const next = new Set(this.getSecurityHiddenIds());
-    if (next.has(entityId)) next.delete(entityId);
-    else next.add(entityId);
-    this.persistSecurityHidden([...next]);
-    this.bumpSecurityEditIdle();
+    void saveSecurityHiddenToHa(connection, hidden)
+      .then((ok) => {
+        if (!ok) console.warn('[Skins Pro] security hide saved locally; HA strategy sync failed');
+      })
+      .finally(() => {
+        this._securityHideSaving = false;
+        this._securityHideEditMode = false;
+        this.requestUpdate();
+      });
   }
 
   // ─── Main render ────────────────────────────────────────
@@ -614,7 +650,8 @@ export class SkinsProCard extends LitElement {
 
     if (!this._hass) {
       return html`
-      <link rel="stylesheet" href="${assetHref(this._config, 'theme_css')}">
+        <link rel="stylesheet" href="${assetHref(this._config, 'theme_css')}">
+        ${SHARED_CHROME_STYLE}
         ${KIOSK_HOME_SIDE_STYLE}
         <ha-card><div class="loading-state">Loading...</div></ha-card>
       `;
@@ -648,6 +685,7 @@ export class SkinsProCard extends LitElement {
 
     return html`
       <link rel="stylesheet" href="${assetHref(this._config, 'theme_css')}">
+      ${SHARED_CHROME_STYLE}
       ${KIOSK_HOME_SIDE_STYLE}
       <ha-card>
         ${registriesLoading}
@@ -656,15 +694,6 @@ export class SkinsProCard extends LitElement {
           <main class="stage">${stage}</main>
           ${renderMobileNav(ctx)}
         </div>
-        ${this._searchOpen
-          ? renderSearchOverlay(
-              ctx,
-              this._searchQuery,
-              this._searchFilter,
-              (q) => { this._searchQuery = q; },
-              (f) => { this._searchFilter = f; },
-            )
-          : nothing}
       </ha-card>
     `;
   }
@@ -721,7 +750,12 @@ export class SkinsProCard extends LitElement {
 
   private _applyThemeAttribute(): void {
     this.setAttribute('data-sp-theme', this._resolveTheme());
-    this.toggleAttribute('data-sp-kiosk', this._shouldAutoFullscreen() || isKioskActive());
+    const kiosk = this._shouldAutoFullscreen() || isKioskActive();
+    this.toggleAttribute('data-sp-kiosk', kiosk);
+    // Legacy GoW selector + Android Kiosk APK identity (tile-memory CSS / paging).
+    this.toggleAttribute('data-kiosk-fullscreen', kiosk);
+    if (isAndroidKiosk()) this.setAttribute('data-android-kiosk', 'true');
+    else this.removeAttribute('data-android-kiosk');
   }
 
   private handleAction(entityId: string, action: string): void {
@@ -729,6 +763,12 @@ export class SkinsProCard extends LitElement {
       void toggleEntity(this._hass, entityId);
     } else if (action === 'play-pause') {
       void this._hass?.callService('media_player', 'media_play_pause', { entity_id: entityId });
+    } else if (action === 'lock-dialog') {
+      if (!this._hass) return;
+      const language = normalizeLanguage(
+        this._config?.language === 'auto' ? this._hass.language : this._config?.language,
+      );
+      openLockDialog(this, this._hass, entityId, language, selectedSkin(this._config));
     } else {
       moreInfo(this, entityId);
     }
@@ -742,6 +782,8 @@ export class SkinsProCard extends LitElement {
   }
 
   private toggleKioskFullscreen(): void {
+    // Edit-hidden UI is hidden in kiosk; clear so hidden items don't get stuck.
+    if (this._securityHideEditMode) this.setSecurityHideEditMode(false);
     const host = this._host();
     if (document.body.classList.contains('skins-pro-kiosk')) {
       toggleKiosk();

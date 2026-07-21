@@ -49,20 +49,11 @@ export function renderHomeView(
   const alarmIcon = alarmIconMap[alarmState] || 'mdi:shield-lock';
 
   const cameraCard = hasCamera ? (() => {
-    const entityPicture = String(cameraState?.attributes?.entity_picture || '');
-    const accessToken = String(cameraState?.attributes?.access_token || '');
-    const snapshotUrl = entityPicture
-      || (accessToken
-        ? `/api/camera_proxy/${cameraEntityId}?token=${encodeURIComponent(accessToken)}`
-        : `/api/camera_proxy/${cameraEntityId}`);
-    const openSnapshot = () => {
-      window.open(`${snapshotUrl}${snapshotUrl.includes('?') ? '&' : '?'}ts=${Date.now()}`, '_blank', 'noopener');
-    };
-    // Keep theme max-height (do not set max-height:none) so the side column stays usable.
+    // Display-only: do not open snapshot / more-info on click.
     return html`
-      <section class="glass-card panel-camera" @click=${openSnapshot}>
+      <section class="glass-card panel-camera panel-camera-static">
         <div class="section-title"><h2>${cameraState?.attributes?.friendly_name || cameraEntityId}</h2></div>
-        ${renderLiveCameraPreview(ctx.hass, cameraState)}
+        ${renderLiveCameraPreview(ctx.hass, cameraState, 'camera-preview camera-live', 'live', { aspectRatio: null })}
       </section>
     `;
   })() : nothing;
@@ -76,13 +67,6 @@ export function renderHomeView(
 
   return html`
     <div class="stage-grid">
-      <div
-        style="position:absolute;top:var(--sp-space-sm,8px);${window.matchMedia('(orientation: portrait)').matches ? 'right:var(--sp-space-sm,8px);width:auto;max-width:60%;' : 'left:37.5%;transform:translateX(-50%);width:37.5%;'}z-index:10;display:flex;align-items:center;gap:10px;padding:10px 20px;border-radius:var(--sp-radius-pill,999px);background:var(--sp-glass-bg,rgba(255,255,255,0.12));border:1px solid var(--sp-glass-border,rgba(255,255,255,0.15));cursor:pointer;color:var(--sp-text-secondary,rgba(255,255,255,0.5));font-size:15px;"
-        @click=${() => ctx.onOpenSearch()}
-      >
-        <ha-icon icon="mdi:magnify" style="--mdc-icon-size:20px;flex-shrink:0;"></ha-icon>
-        <span>${ctx.translate('searchPlaceholder')}</span>
-      </div>
       <div class="welcome-group">
         <section class="welcome" data-section="home">
           <h1>${ctx.config.title || localizedText(undefined, ctx.config.title_zh || skinString(selectedSkin(ctx.config), 'title_zh'), ctx.config.title_en || skinString(selectedSkin(ctx.config), 'title_en'), ctx.language)}</h1>
@@ -90,18 +74,21 @@ export function renderHomeView(
         </section>
         <div class="weather-with-meta">
           ${renderWeather(ctx.config, ctx.hass, weatherIconName, ctx.weatherForecast, ctx.onMoreInfo)}
-          ${hasCamera ? html`
           <div class="welcome-meta" style="flex:1;min-width:0;max-width:min(320px,42%);">
             <section class="time-card" style="width:100%;box-sizing:border-box;">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;min-width:0;">
                 <span class="time-main">${timeText(ctx.hass, ctx.language)}</span>
                 <span class="time-sub" style="font-size:var(--sp-font-sm);white-space:nowrap;">${dateText(ctx.hass, ctx.language)}</span>
+                ${alarmEntityId ? html`
+                <div class="time-icon" @click=${() => ctx.onHandleAction(alarmEntityId, 'more-info')} style="cursor:pointer;flex-shrink:0;">
+                  <ha-icon icon=${alarmIcon}></ha-icon>
+                </div>` : nothing}
               </div>
             </section>
             <section class="glass-card panel-environment" style="width:100%;box-sizing:border-box;margin-top:var(--sp-space-xs,6px);">
-              <div class="env-list env-list-inline" style="gap:clamp(2px,0.6vw,6px) clamp(6px,1vw,12px);margin-top:0;">${renderEnvironment(ctx.config, ctx.hass, ctx.areas, ctx.entityRegistry, ctx.deviceRegistry, ctx.floors, ctx.language)}</div>
+              <div class="env-list env-list-inline" style="gap:clamp(2px,0.6vw,6px) clamp(6px,1vw,12px);margin-top:0;">${renderEnvironment(ctx)}</div>
             </section>
-          </div>` : nothing}
+          </div>
         </div>
       </div>
       <section class="bottom-stack">
@@ -115,18 +102,7 @@ export function renderHomeView(
         </section>
       </section>
       <aside class="side">
-        ${hasCamera ? cameraCard : html`
-        <section class="time-card">
-          <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
-            <div class="time-main">${timeText(ctx.hass, ctx.language)}</div>
-            <div class="time-sub" style="font-size:var(--sp-font-sm)">${dateText(ctx.hass, ctx.language)}</div>
-          </div>
-          <div class="time-icon" @click=${alarmEntityId ? () => ctx.onHandleAction(alarmEntityId, 'more-info') : undefined} style=${alarmEntityId ? 'cursor:pointer' : ''}><ha-icon icon=${alarmIcon}></ha-icon></div>
-        </section>
-        <section class="glass-card panel-environment home-environment-card">
-          <div class="section-title"><h2>${ctx.translate('environment')}</h2></div>
-          <div class="env-list" style="gap:clamp(4px,1.2vw,12px);margin-top:clamp(4px,1.2vw,12px);">${renderEnvironment(ctx.config, ctx.hass, ctx.areas, ctx.entityRegistry, ctx.deviceRegistry, ctx.floors, ctx.language)}</div>
-        </section>`}
+        ${cameraCard}
         ${renderHomeEnergyCard(ctx, energyValue, energyUnit, compareValue, energyBars)}
         ${renderMediaPlayer(ctx.hass, ctx.config.media_player?.entity, ctx.translate)}
         ${renderMaintenanceCard(ctx.hass, ctx.translate)}

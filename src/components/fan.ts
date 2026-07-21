@@ -5,6 +5,7 @@ import type { DashboardConfig, HomeAssistant, RenderedDevice, TranslationKey } f
 import type { Language } from '../i18n';
 import { assetKeyForDomain, deviceStateLabel, formatRelativeTime, selectedSkin, t } from '../utils';
 import { renderImage } from '../render/context';
+import { renderThemedSwitch } from './themed-switch';
 
 export function renderFanCard(
   config: DashboardConfig | undefined,
@@ -65,7 +66,7 @@ export function renderFanCard(
         <div class="media-volbtn" role="button" style="width:32px;height:32px;padding:0;flex-shrink:0" title=${t(language, 'fanOscillate')} @click=${(e: Event) => { e.stopPropagation(); doService('oscillate', { oscillating: !oscillating }); }}><ha-icon icon=${oscillating ? 'mdi:rotate-3d-variant' : 'mdi:rotate-360'} style="--mdc-icon-size:14px"></ha-icon></div>` : ''}
         ${isOn && currentDirection !== undefined ? html`
         <div class="media-volbtn" role="button" style="width:32px;height:32px;padding:0;flex-shrink:0" title=${t(language, 'fanDirection')} @click=${(e: Event) => { e.stopPropagation(); doService('set_direction', { direction: currentDirection === 'forward' ? 'reverse' : 'forward' }); }}><ha-icon icon=${currentDirection === 'reverse' ? 'mdi:reload' : 'mdi:swap-vertical'} style="--mdc-icon-size:14px"></ha-icon></div>` : ''}
-        <ha-control-switch .checked=${isOn} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0;margin-left:auto" @change=${(e: Event) => { e.stopPropagation(); doService(isOn ? 'turn_off' : 'turn_on', {}); }} @click=${(e: Event) => e.stopPropagation()} .label=${device.name}></ha-control-switch>
+        ${renderThemedSwitch(isOn, () => doService(isOn ? 'turn_off' : 'turn_on', {}), device.name)}
       </div>
     </button>
   `;

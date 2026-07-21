@@ -47,6 +47,8 @@ export interface FloorRegistryEntry {
 
 export interface EntityRegistryEntry {
   entity_id: string;
+  name?: string | null;
+  original_name?: string | null;
   area_id?: string | null;
   device_id?: string | null;
   hidden_by?: string | null;
@@ -153,9 +155,43 @@ export interface CameraConfig {
   entity?: string;
 }
 
+export interface SecurityGo2rtcStream {
+  /**
+   * Stable id for hide/order (go2rtc stream name or camera entity_id).
+   * For `ha-camera`, prefer the entity_id.
+   */
+  stream: string;
+  /** Overlay label. */
+  label?: string;
+  /**
+   * How the security page plays this stream:
+   * - `go2rtc-mjpeg` — direct `http://host:1984/api/stream.mjpeg?src=` (reliable in skins-pro)
+   * - `ha-camera` — HA camera entity via hui-image live
+   * - `webrtc-camera` — AlexxIT card + go2rtc stream name
+   * - `advanced-camera-card` — go2rtc via Frigate card
+   */
+  provider?: 'go2rtc-mjpeg' | 'ha-camera' | 'webrtc-camera' | 'advanced-camera-card';
+  /** HA camera entity_id when provider is `ha-camera`. */
+  entity?: string;
+  /** go2rtc HTTP base, e.g. http://192.168.1.17:1984 (defaults to hostname:1984). */
+  go2rtc_url?: string;
+  /** advanced-camera-card go2rtc modes (monitoring living-room uses webrtc only). */
+  modes?: string[];
+}
+
+/** Alias: security cam source descriptor. */
+export type SecurityMonitorSource = SecurityGo2rtcStream & {
+  provider: 'go2rtc-mjpeg' | 'ha-camera' | 'webrtc-camera' | 'advanced-camera-card';
+};
+
 export interface SecurityPageConfig {
-  /** Entity IDs hidden from the security page (click-toggle in edit-hidden mode). */
+  /** Entity IDs / go2rtc stream keys hidden from the security page (edit-hidden mode). */
   hidden?: string[];
+  /**
+   * Live previews matching dashboard-n/monitoring card configs exactly.
+   * When omitted, defaults to the three working monitoring streams.
+   */
+  streams?: SecurityGo2rtcStream[];
 }
 
 export interface HomeLimitsConfig {
@@ -237,6 +273,9 @@ export type TranslationKey =
   | 'roomSnapshots'
   | 'modes'
   | 'todayEnergy'
+  | 'totalEnergy'
+  | 'monthToDate'
+  | 'weekToDate'
   | 'maintenance'
   | 'compareYesterday'
   | 'loadingQuote'
@@ -268,8 +307,11 @@ export type TranslationKey =
   | 'showAll'
   | 'hideUnassigned'
   | 'editHidden'
+  | 'editHiddenDone'
+  | 'editHiddenSaving'
   | 'hideSecurityHint'
   | 'entityHidden'
+  | 'tapToHide'
   | 'groupLights'
   | 'groupSwitches'
   | 'groupClimate'
@@ -397,6 +439,9 @@ export type TranslationKey =
   | 'editorDownloadFailed'
   | 'editorUploadFailed'
   | 'alarmEnterCode'
+  | 'lockUnlock'
+  | 'lockUnlocking'
+  | 'lockAutoClose'
   | 'searchPlaceholder'
   | 'searchRecent'
   | 'searchNoResults'
@@ -405,12 +450,26 @@ export type TranslationKey =
 
 export interface EnergySourceData {
   key: TranslationKey;
+  /** Custom display label (HA individual devices); falls back to translate(key). */
+  label?: string;
+  /** Floor name from area/floor registry (e.g. 二层). */
+  floorName?: string;
+  /** Area/room name (e.g. 多媒体机柜 / 小薛). */
+  areaName?: string;
+  /** Combined「楼层 · 房间」for card subtitle. */
+  locationLabel?: string;
+  /** True when from HA Energy device_consumption (not grid/solar/…). */
+  isDevice?: boolean;
   entityId: string;
   icon: string;
   unit: string;
   history: number[];
   yesterday?: string;
   today: string;
+  /** Current calendar week consumption (Mon–today). */
+  weekToDate?: string;
+  /** Current calendar month consumption. */
+  monthToDate?: string;
 }
 
 export interface WeatherForecastDay {
@@ -436,10 +495,21 @@ export interface EnergySourceEntry {
   stat_soc?: string;
 }
 
-export interface EnergyPrefsResponse {
-  energy_sources?: EnergySourceEntry[];
+export interface EnergyDeviceConsumptionEntry {
+  stat_consumption?: string;
 }
 
-export type StatisticEntry = { change?: number | null; sum?: number | null; state?: number | null };
+export interface EnergyPrefsResponse {
+  energy_sources?: EnergySourceEntry[];
+  /** HA Energy → Individual devices */
+  device_consumption?: EnergyDeviceConsumptionEntry[];
+}
+
+export type StatisticEntry = {
+  start?: string;
+  change?: number | null;
+  sum?: number | null;
+  state?: number | null;
+};
 
 export type StatisticsResponse = Record<string, StatisticEntry[]>;

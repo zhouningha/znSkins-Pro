@@ -33,14 +33,24 @@ export interface RenderContext {
   filterType: string;
   hideUnassigned: boolean;
   selectedFloor: string;
+  /** Home environment floor chip (independent of rooms-page floor filter). */
+  selectedEnvFloor: string;
   /** True when tablet/browser kiosk fullscreen is active — hide edit/filter chrome. */
   kioskFullscreen: boolean;
+  /** True on SkinsPro Android Kiosk APK — enable devices tile-memory mitigations. */
+  androidKiosk: boolean;
+  /** Android Kiosk devices page index (16 cards per page). */
+  devicePageIndex: number;
   securityHideEditMode: boolean;
+  securityHideSaving: boolean;
   securityHidden: string[];
   weatherForecast?: WeatherForecastDay[];
   energyHistory?: number[];
   energyYesterday?: string;
   energySources: EnergySourceData[];
+  energyMonthToDate?: string;
+  energyWeekToDate?: string;
+  energyTodayTotal?: string;
 
   onNavigate: (target: string) => void;
   onNavigatePath: (path: string) => void;
@@ -52,15 +62,13 @@ export interface RenderContext {
   onMoreInfo: (entityId: string) => void;
   onTurnOffAreaType: (entityIds: string[]) => void;
 
-  searchOpen: boolean;
-  onOpenSearch: () => void;
-  onCloseSearch: () => void;
-
   setDeviceGrouping: (g: 'area' | 'domain') => void;
   setFilterRoom: (r: string) => void;
   setFilterType: (t: string) => void;
   setHideUnassigned: (h: boolean) => void;
   setSelectedFloor: (f: string) => void;
+  setSelectedEnvFloor: (f: string) => void;
+  setDevicePageIndex: (page: number) => void;
   setSecurityHideEditMode: (on: boolean) => void;
   onToggleSecurityHidden: (entityId: string) => void;
 

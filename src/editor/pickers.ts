@@ -27,13 +27,35 @@ export function entityPicker(label: string, path: string, value: string, domains
   `;
 }
 
-export function listPicker(label: string, path: string, values: string[], domains?: string[], max?: number): string {
+/** Prefer climate / air-quality sensors in the home environment list. */
+export const ENVIRONMENT_DEVICE_CLASSES = [
+  'temperature',
+  'humidity',
+  'carbon_dioxide',
+  'pm25',
+  'pm10',
+  'aqi',
+  'volatile_organic_compounds',
+  'nitrogen_dioxide',
+  'carbon_monoxide',
+  'pressure',
+];
+
+export function listPicker(
+  label: string,
+  path: string,
+  values: string[],
+  domains?: string[],
+  max?: number,
+  deviceClasses?: string[],
+): string {
   const filter = domains?.length ? ` include-domains='${JSON.stringify(domains)}'` : '';
+  const dcFilter = deviceClasses?.length ? ` include-device-classes='${JSON.stringify(deviceClasses)}'` : '';
   // Empty config → no rows (only +). After +, keep '' rows so the entity picker appears.
   const arr = Array.isArray(values) ? values : [];
   const rows = arr.map((val, i) => `
     <div class="selector-row">
-      <${ENTITY_PICKER_TAG} data-list-path="${path}" data-list-index="${i}"${filter} value="${escapeAttr(val || '')}"></${ENTITY_PICKER_TAG}>
+      <${ENTITY_PICKER_TAG} data-list-path="${path}" data-list-index="${i}"${filter}${dcFilter} value="${escapeAttr(val || '')}"></${ENTITY_PICKER_TAG}>
       <button type="button" class="sp-move" data-move-path="${path}" data-move-index="${i}" data-move-delta="-1" ${i === 0 ? 'disabled' : ''} title="上移">↑</button>
       <button type="button" class="sp-move" data-move-path="${path}" data-move-index="${i}" data-move-delta="1" ${i >= arr.length - 1 ? 'disabled' : ''} title="下移">↓</button>
       <button class="sp-del" data-del-path="${path}" data-del-index="${i}">✕</button>

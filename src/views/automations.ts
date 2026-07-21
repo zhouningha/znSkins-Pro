@@ -6,6 +6,7 @@ import type { RenderContext } from '../render/context';
 import { renderPageShell } from '../components/page-shell';
 import { renderImage } from '../render/context';
 import { assetKeyForDomain, deviceStateLabel, formatRelativeTime, selectedSkin, t } from '../utils';
+import { renderThemedSwitch } from '../components/themed-switch';
 
 export function renderAutomationsView(ctx: RenderContext): TemplateResult {
   const automations = renderRealAutomations(ctx);
@@ -45,7 +46,7 @@ function renderRealAutomations(ctx: RenderContext): TemplateResult | typeof noth
           <div class="tag-stack"><div class="status">${stateLabel}</div></div>
         </div>
         <div class="device-copy"><p class="device-name">${name}</p><p class="muted">${lastTriggered}</p></div>
-        <div class="control-row"><span class="state-word">${t(ctx.language, active ? 'enabled' : 'disabled')}</span><ha-control-switch .checked=${active} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0" @click=${(e: Event) => e.stopPropagation()} @change=${(e: Event) => { e.stopPropagation(); ctx.onHandleAction(automation.entity_id, 'toggle'); }} .label=${name}></ha-control-switch></div>
+        <div class="control-row"><span class="state-word">${t(ctx.language, active ? 'enabled' : 'disabled')}</span>${renderThemedSwitch(active, () => ctx.onHandleAction(automation.entity_id, 'toggle'), name)}</div>
       </button>
     `;
   })}`;

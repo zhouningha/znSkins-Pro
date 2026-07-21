@@ -5,6 +5,7 @@ import type { DashboardConfig, HomeAssistant, RenderedDevice, TranslationKey } f
 import type { Language } from '../i18n';
 import { assetKeyForDomain, formatRelativeTime, selectedSkin, t } from '../utils';
 import { renderImage } from '../render/context';
+import { renderThemedSwitch } from './themed-switch';
 
 const VACUUM_STATE_LABELS: Record<string, TranslationKey> = {
   cleaning: 'vacuumCleaning',
@@ -86,7 +87,7 @@ export function renderVacuumCard(
         ${isActive ? pauseBtn : startBtn}
         ${(isActive || isPaused) ? dockBtn : ''}
         ${locateBtn}
-        <ha-control-switch .checked=${isActive} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0;margin-left:auto" @change=${(e: Event) => { e.stopPropagation(); doService(isActive ? 'pause' : 'start'); }} @click=${(e: Event) => e.stopPropagation()} .label=${device.name}></ha-control-switch>
+        ${renderThemedSwitch(isActive, () => doService(isActive ? 'pause' : 'start'), device.name)}
       </div>
     </button>
   `;

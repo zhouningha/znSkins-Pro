@@ -4,6 +4,11 @@ export function isKioskActive(): boolean {
   return typeof document !== 'undefined' && document.body.classList.contains('skins-pro-kiosk');
 }
 
+/** SkinsPro Kiosk APK injects `window.__skinsProKioskAndroid`. */
+export function isAndroidKiosk(): boolean {
+  return typeof window !== 'undefined' && Boolean((window as Window & { __skinsProKioskAndroid?: boolean }).__skinsProKioskAndroid);
+}
+
 function removeStyle(root: Document | ShadowRoot | HTMLElement | null | undefined): void {
   if (!root) return;
   for (const child of Array.from(root.children)) {

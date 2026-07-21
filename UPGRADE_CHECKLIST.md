@@ -14,7 +14,7 @@
 ## 必测功能
 
 - God of War 主题正常加载
-- 能源页显示 HA 能源配置里的电网 + 个体设备（`device_consumption`），每设备一张今日+30天柱状图卡
+- 能源页显示 HA 能源配置里的电网 + 个体设备（`device_consumption`），每设备一张今日+30天柱状图卡；设备卡显示楼层·房间并按楼层分组；顶部汇总卡含今日总用电/昨日对比/本月累计
 - God of War 主题素材按官方主题标准：确认 `source-kratos-wallpaper.jpg` MD5 为 `204ca3b343688906f5ca57de48c827cd`，确认 `avatar.png` MD5 为 `98269216d3a9d5729f3572509d5b317e`
 - God of War 主舞台背景保持战神熔岩神殿远景：确认 `skins-pro/god_of_war_3_wall/source-gow-4k-bg.png` 存在，且 `skins-pro/god_of_war_3_wall/background.jpg` MD5 为 `af45e72ec15a2a074121a731631dd405`，不能回退为山景奥林匹斯远景或巨人脸/手臂特写图
 - God of War 房间图池至少 10 张作为素材池/备选；默认房间卡必须是透明卡片透出主题大图，不渲染独立房间 `<img>`；不得恢复用户排除的绿色大厅图 `source-room-gow3-daedalus-environment.jpg`
@@ -27,6 +27,9 @@
 - 点击开关仍能控制设备
 - 点击切换房间可用
 - 当前房间名正常显示
+- 首页有无 `camera.entity`：时间/环境始终在天气旁；无监控时右侧不塞时间/环境（能源/媒体/场景不整体上移）；结构改在共享 `home.ts`，各主题行为一致
+- 首页环境列表按编辑器选择顺序平铺，不插楼层标题；编辑器环境传感器带温湿度/CO2/PM 等 device_class 过滤
+- 首页环境列表：跨多房间时点击 chip 切换（按 area；同层不同房间不会混）；单房间无切换条；编辑器环境传感器带 device_class 过滤，可选上限默认 12
 - 首页不会退化成“二层 / 其他”静态分组
 - 环境传感器按 HA 区域归属显示：实体区域优先，设备区域兜底，无区域才进“其他”
 - 新增环境传感器不需要写死设备名，只要 HA 区域设置正确，就应自动显示到对应房间
@@ -36,8 +39,11 @@
 - 灯光、开关、空调、锁、摄像头和 `media_player.*` 等所有设备隐藏后刷新仍保持隐藏；从已隐藏列表恢复后刷新仍保持显示
 - 支持色温的灯在开启时应显示色温滑条（可用 `color_temp_kelvin`）；不能只在 `color_temp` 当前值存在时才显示；切换官方皮肤后同样生效
 - 全屏 / kiosk 模式下设备页整个顶部控制栏都不可见，包括房间/类型/未分配筛选、隐藏管理和全部开启/关闭；退出全屏后必须恢复
-- 安防页不显示子码流摄像头（entity_id/友好名含 `zi_ma_liu` / `substream` / `minorstream` /「子码流」），也不显示 HA 实体注册表里已隐藏或已禁用的实体；主码流与 HomeKit 未隐藏实体仍可见
-- 安防页非全屏时有「编辑隐藏」按钮；打开后点击摄像头/安防卡可隐藏或恢复，刷新后保持；全屏 / kiosk 下不显示该按钮；10s 无操作自动退出编辑隐藏
+- 安防页摄像头固定三路 go2rtc WebRTC：`akuvox_sub`（门禁）、`tp_ipc_main`、`yw_sub`；不能罗列全部 camera.*；勿用会超时的 `akuvox_akuvox_door`；`yw_main` 仅 monitoring
+- **Akuvox 单路坑：** 安防门禁只开 `akuvox_sub`，禁止同页再开 `camera.r20k_*` / ONVIF live；部署后检查 `/config/go2rtc.yaml` 无 `onvif_*` 指向 `.45`；黑屏先查 `api/streams` 是否双 producer，再踢流 / 必要时 `https://192.168.1.45/api/system/reboot`
+- Lovelace 资源应指向 `/local/community/znSkins-Pro/skins-pro-fork-*.js`（勿被 HACS 的 `skins-pro.js?hacstag=` 覆盖）
+- 安防页仅「编辑隐藏」控制显示/隐藏
+- 安防页非全屏时有「编辑隐藏」按钮；打开后点击摄像头/安防卡切换隐藏/恢复（仅草稿），点「完成」才写入 `security_page.hidden`；刷新后保持；无自动退出；全屏 / kiosk 下不显示该按钮
 - 首页场景选择器能同时选择 `scene.*` 和 `script.*`；脚本按配置顺序显示，点击后调用 `script.turn_on`
 - 首页配置脚本后不能出现 `Intl.RelativeTimeFormat` 非有限数值错误或白屏；脚本时间来自 `last_changed`
 - 平板 kiosk 进入流程正常

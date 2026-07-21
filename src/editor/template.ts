@@ -1,6 +1,6 @@
 import type { AreaRegistryEntry, TranslationKey } from '../types';
 import type { Language } from '../i18n';
-import { entityPicker, listPicker, areaPicker, CONTROLLABLE_DOMAINS } from './pickers';
+import { entityPicker, listPicker, areaPicker, CONTROLLABLE_DOMAINS, ENVIRONMENT_DEVICE_CLASSES } from './pickers';
 
 const HOME_DEVICE_DOMAINS = CONTROLLABLE_DOMAINS.filter((d) => !['automation', 'group', 'input_boolean', 'siren', 'lock'].includes(d));
 import { buildSkinOptions, type DashboardConfigRecord } from './config';
@@ -116,7 +116,7 @@ export function renderEditorTemplate(data: EditorTemplateData): string {
         </div>
         <div class="sp-card">
           <h3>${loc('editorHomeEnv')}</h3>
-          ${listPicker(loc('environment'), 'home_selection.environment', hs.environment || [], ['sensor'], hl.environment || 5)}
+          ${listPicker(loc('environment'), 'home_selection.environment', hs.environment || [], ['sensor'], hl.environment || 12, ENVIRONMENT_DEVICE_CLASSES)}
         </div>
       </div>
 

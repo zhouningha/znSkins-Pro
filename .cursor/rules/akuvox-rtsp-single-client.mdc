@@ -1,0 +1,41 @@
+---
+description: Akuvox door RTSP single-client hard rule — prevent black 门禁预览
+alwaysApply: true
+---
+
+# Akuvox 门禁 RTSP：只允许一路
+
+## 硬约束
+
+- 设备：Akuvox R20K @ `192.168.1.45:554`（子码流 `/live/ch00_1`）
+- **同一路 RTSP 同时只能有一个 producer。** 双开会表现为安防「门禁监控」黑屏 + `loading` / `00:00`，go2rtc `frame.jpeg?src=akuvox_sub` i/o timeout。
+
+## 安防页正确做法
+
+- 门禁：**只**用 go2rtc `akuvox_sub`（`SpGo2rtcLivePreview` / WebRTC iframe）
+- 监控：`tp_ipc_main`；客厅：`yw_sub`
+- **禁止**为「兜底」再开：
+  - HA `camera.r20k_profile_name` / `camera.r20k_profile_name_2` live
+  - go2rtc `onvif_*Profile*`（HA 自动注入）
+  - 第二个显式 stream 指向同一 `rtsp://…45…/live/ch00_1`
+
+## HA 会偷偷写回
+
+- Home Assistant go2rtc 集成会把 ONVIF 别名写进 `/config/go2rtc.yaml`（如 `onvif_0C1105412C74%23Profile_Token_2`）。
+- 部署或排障后若 yaml 出现 `onvif_*` 且 URL 含 `.45` / `ch00_1`：**立刻删掉**，只留 `akuvox_sub`。
+- 运行时：`DELETE http://127.0.0.1:1984/api/streams?src=<onvif名>`，必要时 `POST /api/restart`。
+
+## 黑屏排障顺序（证据优先）
+
+1. `curl -s http://127.0.0.1:1984/api/streams` — 是否两个 producer 连 `.45:554`
+2. 踢多余流 + 清 yaml onvif + restart go2rtc
+3. `curl -m 8 -o /tmp/d.jpg http://127.0.0.1:1984/api/frame.jpeg?src=akuvox_sub` — 应有 JPEG
+4. 仍无帧：门口机 reboot  
+   `curl -sk --digest -u 'admin:…' https://192.168.1.45/api/system/reboot`  
+   确认 `UpTime` 变小后再测帧
+
+## 不要做的事
+
+- 不要同时用 go2rtc + HA camera entity「双保险」
+- 不要把安防门禁改回 `webrtc-camera` + `akuvox_akuvox_door`（主码流易超时）而不先验证
+- 不要改 monitoring 看板数据来「修」安防；两边可共用 stream 名，但不要加倍拉流

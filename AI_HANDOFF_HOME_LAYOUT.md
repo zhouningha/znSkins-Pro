@@ -23,10 +23,11 @@
 
 ### 2.1 首页摄像头布局（`src/views/home.ts`）
 
-- **有摄像头时：** 侧栏顶部放摄像头；时间 + 环境挪到天气旁 `welcome-meta`（官方逻辑）。
+- **时间 + 环境固定在天气旁 `welcome-meta`**，与是否配置摄像头无关（2026-07-21：取消「无摄像头时塞进右侧栏」的分支，避免右侧能源/媒体/场景整体上移乱位）。
+- **有摄像头时：** 仅在侧栏顶部多一张摄像头卡；无摄像头时侧栏从能源/媒体等开始，结构不变。
 - **摄像头预览：** 不要写 `max-height:none` / `height:auto`，否则侧栏被撑爆。用主题 `.camera-preview`（建议 `max-height≈160px`，`object-fit:cover`）。
 - **不要**把摄像头 + 时间 + 环境全堆在侧栏（会「更挤」）。
-- **不要**把门锁芯片塞进 `.time-card`（会叠在时间上）。
+- **不要**把门锁芯片塞进 `.time-card`（会叠在时间上）。报警盾牌可留在 welcome-meta 时间行右侧。
 
 ### 2.2 门禁信息展示（`src/utils/index.ts` → `infoDisplayValue`）
 
@@ -58,7 +59,7 @@ config.home_selection.environment  // string[]，顺序即显示顺序
 | `src/editor/pickers.ts` → `listPicker` | 每行增加 ↑↓（`data-move-path` / `data-move-index` / `data-move-delta`） |
 | `src/editor/config.ts` → `moveListItem` | 交换数组项并 `config-changed` |
 | `src/editor/events.ts` → `bindListButtons` | 绑定 ↑↓ 点击后 `reload` |
-| `src/components/environment.ts` | 按 `home_selection.environment` 顺序渲染；多楼层时同楼层内仍保持该顺序 |
+| `src/components/environment.ts` | 多房间：点击 chip 切换；chip 顺序 = 编辑器传感器首次出现顺序；房内行序同 ↑↓ |
 
 用户操作路径：编辑仪表盘 → **环境信息** → 用 ↑↓ 调整 → 保存。
 
@@ -188,8 +189,8 @@ PY"
 
 ## 8. 验证清单
 
-- [ ] 无摄像头：时间在侧栏，不重叠。
-- [ ] 有摄像头：侧栏摄像头高度受限；时间/环境在 welcome-meta；不挤爆。
+- [ ] 无摄像头：时间/环境仍在 welcome-meta（天气旁）；右侧从能源等开始，不把时间/环境塞进侧栏。
+- [ ] 有摄像头：侧栏顶部仅多摄像头；时间/环境仍在 welcome-meta；不挤爆。
 - [ ] `info.entity` 为 R20K 锁：文案为「门禁 · 已上锁/未上锁」，不出现「门禁开门」叠在时间上。
 - [ ] 清空能源实体：首页无「今日用电」占位卡。
 - [ ] 编辑器环境信息 ↑↓：保存后首页三行顺序变化。

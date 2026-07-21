@@ -1,33 +1,44 @@
 import { html, nothing } from 'lit';
 import type { TemplateResult } from 'lit';
 
-import type { EntityRegistryEntry, HassEntity, RenderedDevice } from '../types';
+import type { EntityRegistryEntry, HassEntity, RenderedDevice, SecurityMonitorSource } from '../types';
 import type { RenderContext } from '../render/context';
 import { renderPageShell } from '../components/page-shell';
 import { renderImage } from '../render/context';
-import { renderLiveCameraPreview } from '../components/camera-stream';
+import { renderGo2rtcLivePreview } from '../components/camera-stream';
 import { assetKeyForDomain, deviceStateLabel, selectedSkin, t } from '../utils';
 import { alarmStateLabel } from '../components/alarm-control-panel';
 import { setAlarmMode } from '../components/alarm-code-dialog';
+import { renderThemedSwitch } from '../components/themed-switch';
 
 const SECURITY_TOGGLE_DOMAINS = new Set([
   'light', 'switch', 'fan', 'cover', 'valve', 'media_player', 'lock',
   'input_boolean', 'automation', 'group', 'vacuum', 'humidifier', 'water_heater', 'siren',
 ]);
 
-/** Sub-stream / low-res camera duplicates — keep main stream on security page. */
-function isCameraSubstream(entity: HassEntity): boolean {
-  if (!entity.entity_id.startsWith('camera.')) return false;
-  const id = entity.entity_id.toLowerCase();
-  const name = String(entity.attributes?.friendly_name || '');
-  return (
-    id.includes('zi_ma_liu')
-    || id.includes('substream')
-    || id.includes('minorstream')
-    || id.includes('thirdstream')
-    || /子码流/.test(name)
-    || /sub\s*stream/i.test(name)
-  );
+/**
+ * Security cams — go2rtc WebRTC only (one RTSP producer per cam).
+ * PITFALL: Akuvox R20K allows ~1 concurrent RTSP on ch00_1.
+ * 门禁 ONLY akuvox_sub — never also open HA camera.r20k_* / ONVIF (HA reinjects onvif_* into go2rtc.yaml).
+ * See CUSTOM_FEATURES.md + .cursor/rules/akuvox-rtsp-single-client.mdc
+ */
+const DEFAULT_SECURITY_MONITOR_SOURCES: SecurityMonitorSource[] = [
+  { stream: 'akuvox_sub', label: '门禁监控', provider: 'go2rtc-mjpeg' },
+  { stream: 'tp_ipc_main', label: '监控', provider: 'go2rtc-mjpeg' },
+  { stream: 'yw_sub', label: '客厅监控', provider: 'go2rtc-mjpeg' },
+];
+
+function securityCamHideId(source: SecurityMonitorSource): string {
+  return `go2rtc:${source.stream}`;
+}
+
+function listSecurityMonitorSources(_ctx: RenderContext): SecurityMonitorSource[] {
+  void _ctx;
+  return DEFAULT_SECURITY_MONITOR_SOURCES.map((s) => ({ ...s }));
+}
+
+function renderSecurityCamPreview(_ctx: RenderContext, item: SecurityMonitorSource): TemplateResult {
+  return renderGo2rtcLivePreview(item.stream, 'camera-preview camera-live', item.go2rtc_url);
 }
 
 function isRegistryHidden(entityId: string, registry: EntityRegistryEntry[] | undefined): boolean {
@@ -57,7 +68,12 @@ function isUsefulSecurityBinarySensor(entity: HassEntity): boolean {
   const deviceClass = String(entity.attributes?.device_class || '').toLowerCase();
   const hay = `${id} ${name}`;
 
-  if (/cell_motion|camera_motion|connectivity|监控人体/.test(hay)) return false;
+  if (/cell_motion|camera_motion|connectivity|监控人体|motion_alarm|人体传感器/.test(hay)) {
+    return false;
+  }
+  if (deviceClass === 'motion' || deviceClass === 'occupancy' || deviceClass === 'connectivity') {
+    return false;
+  }
   if (['door', 'garage_door', 'window', 'opening'].includes(deviceClass)) return true;
   if (/ringing|doorbell|门铃/.test(hay)) return true;
   return false;
@@ -96,11 +112,24 @@ export function renderSecurityView(ctx: RenderContext): TemplateResult {
   const editBar = ctx.kioskFullscreen
     ? nothing
     : html`
-      <div class="filter-bar" style="justify-content:flex-start;margin-bottom:10px;">
+      <div
+        class="filter-bar security-hide-bar"
+        style="justify-content:flex-start;margin-bottom:10px;position:relative;z-index:20;"
+      >
         <button
-          class="chip${ctx.securityHideEditMode ? ' active' : ''}"
-          @click=${() => ctx.setSecurityHideEditMode(!ctx.securityHideEditMode)}
-        >${ctx.translate('editHidden')}</button>
+          type="button"
+          class="chip security-hide-chip${ctx.securityHideEditMode ? ' active' : ''}"
+          ?disabled=${ctx.securityHideSaving}
+          @click=${(e: Event) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (ctx.securityHideSaving) return;
+            if (ctx.securityHideEditMode) ctx.setSecurityHideEditMode(false);
+            else ctx.setSecurityHideEditMode(true);
+          }}
+        >${ctx.securityHideEditMode
+          ? (ctx.securityHideSaving ? ctx.translate('editHiddenSaving') : ctx.translate('editHiddenDone'))
+          : ctx.translate('editHidden')}</button>
         ${ctx.securityHideEditMode
           ? html`<span class="muted" style="font-size:12px;opacity:0.85;">${ctx.translate('hideSecurityHint')}</span>`
           : nothing}
@@ -117,11 +146,20 @@ export function renderSecurityView(ctx: RenderContext): TemplateResult {
   );
 }
 
+let lastLockDialogAt = 0;
+
 function onSecurityCardClick(ctx: RenderContext, entityId: string, event?: Event): void {
+  event?.preventDefault();
+  event?.stopPropagation();
   if (ctx.securityHideEditMode) {
-    event?.preventDefault();
-    event?.stopPropagation();
     ctx.onToggleSecurityHidden(entityId);
+    return;
+  }
+  if (entityId.startsWith('lock.')) {
+    const now = Date.now();
+    if (now - lastLockDialogAt < 400) return;
+    lastLockDialogAt = now;
+    ctx.onHandleAction(entityId, 'lock-dialog');
     return;
   }
   ctx.onHandleAction(entityId, 'more-info');
@@ -129,61 +167,54 @@ function onSecurityCardClick(ctx: RenderContext, entityId: string, event?: Event
 
 function renderSecurityCards(ctx: RenderContext): TemplateResult | typeof nothing {
   const hiddenSet = new Set(ctx.securityHidden);
-  const all = Object.values(ctx.hass.states)
-    .filter((entity): entity is HassEntity => Boolean(entity?.entity_id && /^(camera|lock|alarm_control_panel|binary_sensor)\./.test(entity.entity_id)))
+  const monitorSources = listSecurityMonitorSources(ctx);
+  const visibleStreams = monitorSources.filter((s) => {
+    const hideId = securityCamHideId(s);
+    if (ctx.securityHideEditMode) return true;
+    return !hiddenSet.has(hideId) && !hiddenSet.has(s.stream)
+      && !(s.entity && hiddenSet.has(s.entity));
+  });
+  const others = Object.values(ctx.hass.states)
+    .filter((entity): entity is HassEntity => Boolean(entity?.entity_id && /^(lock|alarm_control_panel|binary_sensor)\./.test(entity.entity_id)))
     .filter((entity) => {
       if (isRegistryHidden(entity.entity_id, ctx.entityRegistry)) return false;
-      if (isCameraSubstream(entity)) return false;
       if (!ctx.securityHideEditMode && hiddenSet.has(entity.entity_id)) return false;
       if (entity.entity_id.startsWith('binary_sensor.')) return isUsefulSecurityBinarySensor(entity);
       if (entity.entity_id.startsWith('lock.')) return isUsefulSecurityLock(entity);
       return true;
-    });
+    })
+    .slice(0, ctx.securityHideEditMode ? 24 : 8);
 
-  const cameraLimit = ctx.securityHideEditMode ? 12 : 6;
-  const otherLimit = ctx.securityHideEditMode ? 16 : 8;
-  const cameras = all.filter((e) => e.entity_id.startsWith('camera.')).slice(0, cameraLimit);
-  const others = all.filter((e) => !e.entity_id.startsWith('camera.')).slice(0, otherLimit);
-  const entities = [...cameras, ...others];
-
-  if (entities.length === 0) return nothing;
+  if (visibleStreams.length === 0 && others.length === 0) return nothing;
 
   const skin = selectedSkin(ctx.config);
 
-  const cameraCards = cameras.map(entity => {
-    const domain = entity.entity_id.split('.')[0] || 'camera';
-    const stateLabel = deviceStateLabel(entity.state, ctx.language, ctx.hass, domain);
-    const entityPicture = String(entity.attributes?.entity_picture || '');
-    const accessToken = String(entity.attributes?.access_token || '');
-    const snapshotUrl = entityPicture
-      || (accessToken
-        ? `/api/camera_proxy/${entity.entity_id}?token=${encodeURIComponent(accessToken)}`
-        : `/api/camera_proxy/${entity.entity_id}`);
-    const openSnapshot = (event: Event) => {
-      if (ctx.securityHideEditMode) {
-        onSecurityCardClick(ctx, entity.entity_id, event);
-        return;
-      }
+  const cameraCards = visibleStreams.map((item) => {
+    const hideId = securityCamHideId(item);
+    const isHidden = hiddenSet.has(hideId) || hiddenSet.has(item.stream)
+      || Boolean(item.entity && hiddenSet.has(item.entity));
+    const label = item.label || item.stream;
+    const onCameraClick = (event: Event) => {
+      if (!ctx.securityHideEditMode) return;
       event.preventDefault();
       event.stopPropagation();
-      window.open(`${snapshotUrl}${snapshotUrl.includes('?') ? '&' : '?'}ts=${Date.now()}`, '_blank', 'noopener');
+      ctx.onToggleSecurityHidden(hideId);
     };
-    const isHidden = hiddenSet.has(entity.entity_id);
     return html`
-      <button
-        class="camera-card${isHidden ? ' security-card-hidden' : ''}"
+      <div
+        class="camera-card${isHidden ? ' security-card-hidden' : ''}${ctx.securityHideEditMode ? ' camera-card-edit' : ''}"
         style=${isHidden ? 'opacity:0.55;' : nothing}
-        @click=${openSnapshot}
+        role=${ctx.securityHideEditMode ? 'button' : nothing}
+        @click=${onCameraClick}
       >
-        ${renderLiveCameraPreview(ctx.hass, entity)}
-        <div class="camera-meta">
-          <div>
-            <p class="device-name">${String(entity.attributes?.friendly_name || entity.entity_id)}</p>
-            <p class="muted">${ctx.securityHideEditMode && isHidden ? t(ctx.language, 'entityHidden') : t(ctx.language, 'snapshot')}</p>
-          </div>
-          <div class="status">${ctx.securityHideEditMode ? (isHidden ? t(ctx.language, 'entityHidden') : t(ctx.language, 'editHidden')) : stateLabel}</div>
+        ${renderSecurityCamPreview(ctx, item)}
+        <div class="camera-meta camera-meta-overlay">
+          <p class="device-name">${label}</p>
+          ${ctx.securityHideEditMode ? html`
+            <span class="status">${isHidden ? t(ctx.language, 'entityHidden') : t(ctx.language, 'tapToHide')}</span>
+          ` : nothing}
         </div>
-      </button>
+      </div>
     `;
   });
 
@@ -204,9 +235,9 @@ function renderSecurityCards(ctx: RenderContext): TemplateResult | typeof nothin
 
     let control: TemplateResult;
     if (ctx.securityHideEditMode) {
-      control = html`<div class="control-row" style="justify-content:flex-end"><span class="state-word">${isHidden ? t(ctx.language, 'entityHidden') : t(ctx.language, 'editHidden')}</span></div>`;
+      control = html`<div class="control-row" style="justify-content:flex-end"><span class="state-word">${isHidden ? t(ctx.language, 'entityHidden') : t(ctx.language, 'tapToHide')}</span></div>`;
     } else if (isRelayLock) {
-      control = html`<div class="control-row" style="justify-content:flex-end"><span class="state-word">${stateLabel}</span></div>`;
+      control = html`<div class="control-row" style="justify-content:flex-end"><span class="state-word lock-open-hint">${ctx.language === 'zh-CN' ? '点击开门' : 'Tap to open'}</span></div>`;
     } else if (isAlarm) {
       const attrs = entity.attributes || {};
       const supportedFeatures = (attrs.supported_features as number) || 0;
@@ -232,14 +263,15 @@ function renderSecurityCards(ctx: RenderContext): TemplateResult | typeof nothin
         : '';
       control = html`<div class="control-row" style="justify-content:flex-end;gap:6px" @click=${(e: Event) => e.stopPropagation()}>${armBtns}${disarmBtn}</div>`;
     } else if (togglable) {
-      control = html`<div class="control-row" style="justify-content:flex-end"><ha-control-switch .checked=${['on', 'playing', 'open', 'locked'].includes(entity.state)} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0" @click=${(e: Event) => e.stopPropagation()} @change=${(e: Event) => { e.stopPropagation(); ctx.onHandleAction(entity.entity_id, 'toggle'); }} .label=${String(entity.attributes?.friendly_name || entity.entity_id)}></ha-control-switch></div>`;
+      control = html`<div class="control-row" style="justify-content:flex-end">${renderThemedSwitch(['on', 'playing', 'open', 'locked'].includes(entity.state), () => ctx.onHandleAction(entity.entity_id, 'toggle'), String(entity.attributes?.friendly_name || entity.entity_id))}</div>`;
     } else {
       control = html`<div class="control-row" style="justify-content:flex-end"><span class="state-word">${stateLabel}</span></div>`;
     }
 
     return html`
       <button
-        class="device ${statusClass}${isHidden ? ' security-card-hidden' : ''}"
+        type="button"
+        class="device ${statusClass}${isHidden ? ' security-card-hidden' : ''}${!ctx.securityHideEditMode && domain === 'lock' ? ' security-lock-card' : ''}"
         style=${isHidden ? 'opacity:0.55;' : nothing}
         @click=${(e: Event) => onSecurityCardClick(ctx, entity.entity_id, e)}
       >

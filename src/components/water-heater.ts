@@ -5,6 +5,7 @@ import type { DashboardConfig, HomeAssistant, RenderedDevice, TranslationKey } f
 import type { Language } from '../i18n';
 import { assetKeyForDomain, deviceStateLabel, formatRelativeTime, selectedSkin, t } from '../utils';
 import { renderImage } from '../render/context';
+import { renderThemedSwitch } from './themed-switch';
 
 const OP_LABELS: Record<string, TranslationKey> = {
   auto: 'hvacAuto', eco: 'presetEco', electric: 'presetNone',
@@ -83,7 +84,7 @@ export function renderWaterHeaterCard(
         <select class="filter-select" style="font-size:var(--sp-font-3xs);min-height:32px;min-width:48px;padding:0 16px 0 4px;background-size:8px;flex-shrink:0" @change=${(e: Event) => { e.stopPropagation(); doService('set_operation_mode', { operation_mode: (e.target as HTMLSelectElement).value }); }} @click=${(e: Event) => e.stopPropagation()}>
           ${operationList.map(m => html`<option value=${m} ?selected=${m === operationMode}>${opLabel(m, language)}</option>`)}
         </select>` : ''}
-        <ha-control-switch .checked=${!isOff} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0;margin-left:auto" @change=${(e: Event) => { e.stopPropagation(); doService(isOff ? 'turn_on' : 'turn_off', {}); }} @click=${(e: Event) => e.stopPropagation()} .label=${device.name}></ha-control-switch>
+        ${renderThemedSwitch(!isOff, () => doService(isOff ? 'turn_on' : 'turn_off', {}), device.name)}
       </div>
     </button>
   `;

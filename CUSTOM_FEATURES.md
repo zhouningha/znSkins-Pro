@@ -18,6 +18,8 @@
 ## 当前必须保留的定制功能
 
 - 能源页读取 HA 原生能源配置的「个体设备」(`device_consumption`)：每个设备一张卡，显示今日用电+昨日对比+30天柱状图，图标按名称智能匹配；用户在 HA 能源设置里增删设备即自动生效，无需卡片编辑器 UI
+- 能源页设备卡须显示楼层·房间（实体/设备 area → floor registry），并按楼层分组；顶部与设备卡显示今日/本周/本月累计
+- 炬为电表：功率实体 Riemann 积分 → 能源个体设备；并有独立 utility_meter「今日/本周/本月」
 - 首页「今日用电」大数字与「较昨日」必须用 recorder 按天 `change` 统计（当天 0 点起算），不能直接读 `total_increasing` 累计实体的当前 state；柱状图同步使用该实体的日增量序列
 - God of War 主题：`god_of_war_3_wall`
 - God of War 官方素材裁切版：`source-kratos-wallpaper.jpg` 保留用户指定 1920x1080 原图（MD5 `204ca3b343688906f5ca57de48c827cd`），`avatar.png` 使用从该原图裁出的正方形官方头像源图（MD5 `98269216d3a9d5729f3572509d5b317e`），背景/房间/图标来自官方素材裁切，禁止回退到程序化模拟图
@@ -32,8 +34,9 @@
 - 点击切换房间
 - 当前房间名显示
 - 首页环境卡按“房间/区域”切换，不按官方默认楼层静态分组
-- 环境实体归属规则：优先使用实体自身 `area_id`，没有则使用所属设备的 `area_id`，再通过 HA 区域注册表显示房间名；只有没有任何区域归属时才显示“其他”
-- 官方楼层功能可以保留，但不能覆盖首页环境卡的房间切换逻辑
+- 首页环境列表（2026-07-21）：**点击房间/区域 chip 切换**；chip 与房内行均按编辑器 `home_selection.environment` 顺序（某房间以该列表中**首次出现**的传感器决定 chip 位次）。不用楼层分组、不用房间名字母序。编辑器过滤温湿度/CO2/PM；默认可选上限 12。芯片温度等诊断量建议不要放进环境列表
+- 环境实体归属规则：优先实体 `area_id`，否则设备 `area_id`；无归属归入「其他」
+- 首页环境房间切换与房间页 `selectedFloor` 独立（复用 `selectedEnvFloor` 状态存当前 area_id）
 - 空调 `climate` 卡片不能退化为只有开关：卡片主体点击必须打开 God of War 风格调温弹层，右侧开关只负责开/关；弹层读取 HA climate 属性，支持目标温度加减、模式、风速
 - 空调调温弹层在平板 `2018` kiosk/fullscreen 账户下必须限制在真实可视高度内；内容超出时弹层内部纵向滚动，不能被 fullscreen host 的 `overflow:hidden` 裁掉下半部分
 - 设备页长按隐藏必须受“编辑隐藏/管理隐藏”状态保护：默认浏览设备时长按不隐藏；打开编辑隐藏后才显示提示并允许长按隐藏/恢复
@@ -62,6 +65,14 @@
 - 保留物理按键相关逻辑
 - 保留安全性补充，但不影响现有平板使用
 - 灯光色温条：只要灯支持色温且开启就显示色温滑条；优先读写 `color_temp_kelvin`，兼容旧 mireds；当前值缺失时用范围中值占位。能力来源必须合并「实时 state 属性 + entity registry `capabilities`」（小米灯等常把 `supported_color_modes`/kelvin 范围只写在注册表里）。此逻辑在公共灯卡片中，对所有官方皮肤与 God of War 生效
+- **主题分工（2026-07-20）：** 交互/结构逻辑以动物森友会为准（歌单左右切换 `input_select.living_room_music_source` + Music Assistant、安防三路、开门弹层行为、侧栏不硬撑空卡等）；**换肤只换视觉**（颜色、材质、圆角、图标）。禁止为战神单独改回官方下拉歌单或另一套交互。战神 `theme.css` 必须覆盖 `.media-playlist` / `.media-playlist-nav` / `.media-playlist-label`，不能裸奔成系统白方块。
+- **圆角自绘开关：** 设备/灯光等一律用主题 `.switch` / `.switch.on`（`renderThemedSwitch`），禁止 `ha-control-switch`（会变成系统灰方块，战神/森友会视觉都会丢）。
+- **窗帘/阀门位置：** 点按进度条 `.device-pos-track` / `.device-pos-fill` + 本地乐观进度，禁止 sticky `ha-control-slider`（HA 默认蓝条）。填充色跟主题 `--sp-accent`。
+- **主题分工（2026-07-20 定稿）：** 以 **动物森友会（`animal-crossing`）的交互与布局逻辑为全主题基准**（首页侧栏结构、安防三路、开门弹层行为、设备排序/隐藏、媒体分工等）。换肤只换视觉（色板、材质、背景、圆角装饰）；禁止为战神/其他主题另写一套冲突逻辑。战神 `god_of_war_3_wall` 仅保留视觉 token + 文档已登记的墙控 `data-wall-panel="1080p"` 专属适配；侧栏 `.side` / panel 高度策略须与动物森友会一致。开门弹层：行为统一，外观按当前 `resource_pack.skin` 跟随。
+- **首页监控布局（2026-07-21，全主题共享 `src/views/home.ts`）：** 时间 + 环境固定在天气旁 `welcome-meta`；有无 `camera.entity` 只决定侧栏顶部是否多一张摄像头卡，**禁止**无监控时把时间/环境塞进右侧栏导致能源/媒体/场景整体上移。此类结构改动写在共享 TS，不写单个皮肤 `theme.css`。
+- **首页搜索已移除（2026-07-21）：** 墙控不展示「搜索设备」条/弹层；以场景与首页快捷设备为主。勿再把搜索入口加回首页。
+- **主题底座（2026-07-20）：** `src/styles/shared-chrome.ts` 在皮肤 `theme.css` 之前注入；**LAYOUT LOCK**（`!important`）固定歌单/摄像头/安防的尺寸·位置·铺满（森友会基准）。开门弹层从 card host 复制 token 上色。换肤 = 只换主题元素/变量，禁止另搞一套显示规则。
+- **Akuvox 门禁 RTSP 单客户端（硬坑，2026-07-20）：** R20K（`192.168.1.45:554`）并发会话极少。安防「门禁监控」**只**走 go2rtc `akuvox_sub`（`/live/ch00_1`）。禁止同页再开 HA `camera.r20k_profile_name*` / ONVIF live / 第二个 go2rtc 名指向同一 URL。HA 会把 `onvif_…Profile_Token_2` 自动写回 `/config/go2rtc.yaml`——发现即删，勿与 `akuvox_sub` 并存。黑屏 + loading 优先查 `http://127.0.0.1:1984/api/streams` 是否双 producer；处理：DELETE 多余流 → restart go2rtc → 仍无帧则 `https://192.168.1.45/api/system/reboot`（digest）。安防固定三路：`akuvox_sub` / `tp_ipc_main` / `yw_sub`；`yw_main` 仅 monitoring。
 
 ## 官方升级冲突处理原则
 
@@ -94,7 +105,20 @@
 - 2026-07-12：God of War 1080p 墙控首页场景改为一行两卡横向分页。My-Home 当前顺序为离场、KTV、芝度观影、Apple TV；首屏显示前两项，向左滑动查看后两项。高度继续读取 `--sp-home-room-card-height`，禁止写死行高；规则仅限 `data-wall-panel="1080p"`。
 - 2026-07-12：墙控布局按皮肤隔离。只有 `god_of_war_3_wall` 可设置专属 host 属性和尺寸变量；其他官方皮肤切入时必须清理残留状态并走自身响应式布局。Kiosk 0.2.36 使用 Android 身份标记：God of War 条件化使用 1920×1080 viewport，官方皮肤恢复原 viewport。
 - 2026-07-13：安卓 Kiosk 设备页兼容旧 WebView 的瓦片内存上限：同时支持 `data-android-kiosk` 与旧版 `data-kiosk-fullscreen` 宿主标记，仅在设备页降低 `.device` 合成成本并延迟离屏 `.device-group` 绘制；新版可再按 16 张分页，避免 Chromium 报 `tile memory limits exceeded` 并把设备卡闪成空白背景块。Mac 普通页面和其他页面不受影响。
-- 2026-07-18：安防页自动列表排除摄像头子码流（`zi_ma_liu` / `substream` / `minorstream` / 友好名含「子码流」），并尊重 entity registry 的 `hidden_by` / `disabled_by`；不禁用实体、不影响 HomeKit 与其它仪表盘引用。
+- 2026-07-19：安防页摄像头预览直接复用 dashboard-n/monitoring 的 go2rtc 源（`akuvox_akuvox_door` / `tp_ipc_main` / `yw_main`），不改 monitoring 看板；可见性仍由「编辑隐藏」控制。
+- 2026-07-20：安防页改为与 monitoring **同款卡片**：门禁 `webrtc-camera`；「监控」「客厅监控」`advanced-camera-card` 直连 `http://<host>:1984`（与 monitoring 的 `tp_ipc_main` / `yw_main` 配置一致），减少经 HA WebRTC 中转的卡顿；卡片只创建一次，hass 更新不 remount。
+- 2026-07-20：安防「门禁监控」改用可用的 HA 实体 `camera.r20k_profile_name_2`（hui-image live）；go2rtc `akuvox_akuvox_door` + webrtc-camera 在安防页会卡 Loading，不改 monitoring 看板。
+- 2026-07-20：fork JS 部署到 `/local/community/znSkins-Pro/skins-pro-fork-*.js` 并锁定 Lovelace resource；HACS/官方 skins-pro 重装会覆盖 `/local/community/skins-pro/`，不能只写那个目录。安防摄像头固定三路，禁止回退成罗列全部 camera.*。
+- 2026-07-20：安防三路预览改为 go2rtc MJPEG 直连（`akuvox_sub` / `tp_ipc_main` / `yw_main`）。`akuvox_akuvox_door` 取帧超时；webrtc/advanced-camera-card 在 skins-pro 内常黑屏。
+- 2026-07-20：安防三路均走 go2rtc WebRTC：`akuvox_sub` / `tp_ipc_main` / `yw_sub`（客厅子码流；HA `hui-image` live 延迟更高）。`yw_main` 仅留给 monitoring。
+- 2026-07-20：安防监控视觉跟随当前皮肤——预览改用 go2rtc `VideoRTC`（无 `stream.html` 原生控件），卡片强制 `position:relative` 容器；各皮肤 `theme.css` 补 `.camera-meta-overlay` / security 卡片玻璃样式（organic 曾缺导致画面撑满 stage）。
+- 2026-07-21：安防预览曾试 JPEG 轮询 / veil / 双缓冲以去掉播放三角，平板卡顿；**恢复原版 go2rtc VideoRTC**（`webrtc,mse,mjpeg`，controls=false）。流名不变（`akuvox_sub` / `tp_ipc_main` / `yw_sub`），不叠加 HA camera。平板上偶发播放三角可接受。
+- 2026-07-20：organic 首页歌单切换须含 `.media-playlist` / `.media-playlist-nav` / `.media-playlist-label`（与动物森友会同 DOM）；缺样式时前后键会退回浏览器默认灰方块。
+- 2026-07-20：**shared-chrome + lock token**：基准逻辑/DOM 固定；`SHARED_CHROME_CSS` 兜底控件结构；`openLockDialog` 只复制 host CSS 变量上色。
+- 2026-07-20：战神摄像头曾独立直角 + `aspect-ratio:16/9`；改为 LAYOUT LOCK 在 `theme.css` **之后**强制森友会圆角（`--sp-radius-lg`），预览 `border-radius:inherit`，禁止皮肤再设 `0`。
+- 2026-07-20：**Akuvox 单路硬坑登记：** 门禁黑屏根因是 `akuvox_sub` + HA 注入的 `onvif_…Profile_Token_2` 同时占 `192.168.1.45` 的 `ch00_1`（设备侧会话耗尽 → go2rtc i/o timeout / loading）。禁止再为「兜底」叠加 HA `camera.r20k_*` live。处置：踢 go2rtc 流、清 yaml 里 onvif_、必要时门口机 reboot API；事后验证 `frame.jpeg?src=akuvox_sub` 有 JPEG。规则见 `.cursor/rules/akuvox-rtsp-single-client.mdc` 与上级 `AGENTS.md`。
 - 2026-07-18：平板全屏 / kiosk 时设备页顶部 `filter-bar`（筛选与批量开关等编辑控件）不渲染；`isKioskActive()` + `ctx.kioskFullscreen`，切换全屏后 `requestUpdate()` 立即生效。
-- 2026-07-18：安防页「编辑隐藏」按钮：非全屏时显示；打开后点击卡片切换隐藏/恢复，写入 `security_page.hidden` + localStorage + Lovelace strategy 同步；10s 无操作自动退出；全屏 / kiosk 不显示该按钮。
-- 2026-07-18：安防页门禁整理：排除锁屏类 `lock`、摄像头人体传感器噪声；门磁/门铃/门禁相关 binary_sensor 才显示；R20K/Akuvox relay lock 不用开关样式，显示开门状态文案；摄像头与其它实体分开限流。
+- 2026-07-18 / 2026-07-19：安防页「编辑隐藏」：非全屏时显示；编辑中点卡片只改草稿（localStorage），点「完成」才写入 Lovelace strategy `security_page.hidden`；无自动退出、不在每次点击时 save（避免 remount 关编辑）；解析优先级 draft > localStorage > HA，禁止 union；全屏 / kiosk 不显示该按钮。实现见 `src/utils/security-hidden.ts`。
+- 2026-07-19：安防页门禁点击打开主题一致开锁卡片（非 HA more-info 滑块）；5 秒倒计时自动关闭；点「开门」调用 `lock.unlock`。
+- 2026-07-20：开门弹层挂 `document.body`，必须从 skins-pro host **复制 `--sp-*` / `--glass-*`** 并用 CSS 变量着色；禁止写死动物森友会绿/奶油色，否则切战神后弹层不继承主题。
+- 2026-07-19：摄像头预览铺满：`hui-image` 传 `fitMode=cover` + `aspectRatio`（安防卡 `16:10`），并用 `sp-camera-preview` 向嵌套 player shadow DOM 注入 `object-fit:cover`（主题 CSS 穿不透 shadow）。

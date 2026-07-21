@@ -5,6 +5,7 @@ import type { DashboardConfig, EntityRegistryEntry, HomeAssistant, RenderedDevic
 import type { Language } from '../i18n';
 import { assetKeyForDomain, deviceStateLabel, formatRelativeTime, selectedSkin } from '../utils';
 import { renderImage } from '../render/context';
+import { renderThemedSwitch } from './themed-switch';
 
 const BRIGHTNESS_MODES = new Set(['brightness', 'color_temp', 'hs', 'rgb', 'rgbw', 'rgbww', 'xy']);
 const COLOR_TEMP_MODES = new Set(['color_temp']);
@@ -203,7 +204,7 @@ export function renderLightCard(
           <input type="color" .value=${currentHex} style="opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0" @input=${(e: Event) => { e.stopPropagation(); const v = (e.target as HTMLInputElement).value; doService('turn_on', { rgb_color: hexToRgb(v) }); }} @click=${stopCardClick}>
         </label>
         ` : ''}
-        <ha-control-switch .checked=${isOn} style="--control-switch-thickness:24px;--control-switch-border-radius:var(--sp-radius-pill);--control-switch-padding:3px;width:44px;flex-shrink:0;margin-left:auto" @change=${(e: Event) => { e.stopPropagation(); doService('toggle', {}); }} @click=${stopCardClick} @pointerdown=${stopCardClick} .label=${device.name}></ha-control-switch>
+        ${renderThemedSwitch(isOn, () => doService('toggle', {}), device.name)}
       </div>
     </button>
   `;

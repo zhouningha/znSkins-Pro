@@ -71,6 +71,11 @@ class SkinsProStrategy {
             // or unhide can never stick after lovelace reload.
             hidden: [...new Set((((sc('security_page').hidden as string[]) || [])).filter(Boolean))],
           },
+          devices_page: {
+            ...autoConfig.devices_page,
+            ...sc('devices_page'),
+            hidden: [...new Set((((sc('devices_page').hidden as string[]) || [])).filter(Boolean))],
+          },
         };
       } catch (err) {
         console.error('[SkinsPro] generate error', err);

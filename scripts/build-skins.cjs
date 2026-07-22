@@ -189,10 +189,11 @@ function resolveSkinDir(skin) {
     'export const SKIN_ICON_MAPS: Record<string, Record<string, string>> = ' + JSON.stringify(iconMaps) + ';\n',
   );
 
-  // Generate i18n/index.ts — auto-discover language files in src/i18n/
+  // Generate i18n/index.ts — only real locale modules (en.ts, zh-CN.ts, …).
+  // Helpers must not live in src/i18n/ (they break default-export locale loading).
   const i18nDir = path.join('src', 'i18n');
   const i18nFiles = fs.readdirSync(i18nDir)
-    .filter(f => f.endsWith('.ts') && f !== 'index.ts' && f !== 'types.ts')
+    .filter(f => f === 'en.ts' || /^[a-z]{2}(-[A-Za-z]+)?\.ts$/.test(f))
     .sort();
   const localeImports = i18nFiles.map(f => {
     const name = f.replace(/\.ts$/, '');

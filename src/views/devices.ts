@@ -6,21 +6,35 @@ import { getRealDevicesForRender, getDeviceRooms, getDeviceTypes, deviceTypeGrou
 import { domainGroupLabel } from '../selectors/areas';
 import { renderPageShell } from '../components/page-shell';
 import { renderDeviceCard } from '../components/device-card';
+import { DEVICE_HIDE_LONG_PRESS_MS } from '../utils/devices-hidden';
 import { t } from '../utils';
 
 /** Android Kiosk WebView tile budget — page long device lists (Mac: no paging). */
 const ANDROID_KIOSK_DEVICE_PAGE_SIZE = 16;
 
+type HidePressState = { timer?: number; longPressed: boolean };
+const hidePressByEntity = new Map<string, HidePressState>();
+
+function hidePressState(entityId: string): HidePressState {
+  let state = hidePressByEntity.get(entityId);
+  if (!state) {
+    state = { longPressed: false };
+    hidePressByEntity.set(entityId, state);
+  }
+  return state;
+}
+
 export function renderDevicesView(ctx: RenderContext): TemplateResult {
   const allDevices = getRealDevicesForRender(ctx.hass, ctx.deviceRegistry, ctx.entityRegistry, ctx.areas);
   const rooms = getDeviceRooms(allDevices);
   const types = getDeviceTypes(allDevices);
+  const hiddenSet = new Set(ctx.deviceHidden);
 
   const filteredDevices = getRealDevicesForRender(ctx.hass, ctx.deviceRegistry, ctx.entityRegistry, ctx.areas, {
     filterRoom: ctx.filterRoom,
     filterType: ctx.filterType,
     hideUnassigned: ctx.hideUnassigned,
-  });
+  }).filter((d) => ctx.deviceHideEditMode || !hiddenSet.has(d.entityId));
 
   const pageSize = ctx.androidKiosk ? ANDROID_KIOSK_DEVICE_PAGE_SIZE : 0;
   const totalPages = pageSize > 0 ? Math.max(1, Math.ceil(filteredDevices.length / pageSize)) : 1;
@@ -51,6 +65,10 @@ export function renderDevicesView(ctx: RenderContext): TemplateResult {
     `
     : nothing;
 
+  const hideBtnLabel = ctx.deviceHideEditMode
+    ? (ctx.deviceHideSaving ? ctx.translate('editHiddenSaving') : ctx.translate('editHiddenDone'))
+    : ctx.translate('editHidden');
+
   return renderPageShell(
     ctx.translate('devices'),
     ctx.translate('quickControl'),
@@ -72,18 +90,30 @@ export function renderDevicesView(ctx: RenderContext): TemplateResult {
         </select>
         <button class="action-btn" @click=${() => ctx.onBatchControl('on')}>${ctx.translate('turnOnAll')}</button>
         <button class="action-btn" @click=${() => ctx.onBatchControl('off')}>${ctx.translate('turnOffAll')}</button>
+        <button
+          class="action-btn${ctx.deviceHideEditMode ? ' active' : ''}"
+          ?disabled=${ctx.deviceHideSaving}
+          @click=${() => ctx.setDeviceHideEditMode(!ctx.deviceHideEditMode)}
+        >${hideBtnLabel}</button>
       </div>
+      ${ctx.deviceHideEditMode
+        ? html`<p class="muted device-hide-hint">${ctx.translate('hideDevicesHint')}</p>`
+        : nothing}
     `,
     html`
       <div class="page-scroll themed-scrollbar">
         ${pager}
-        ${renderRealDeviceGroups(ctx, pagedDevices)}
+        ${renderRealDeviceGroups(ctx, pagedDevices, hiddenSet)}
       </div>
     `
   );
 }
 
-function renderRealDeviceGroups(ctx: RenderContext, devices: ReturnType<typeof getRealDevicesForRender>): TemplateResult | typeof nothing {
+function renderRealDeviceGroups(
+  ctx: RenderContext,
+  devices: ReturnType<typeof getRealDevicesForRender>,
+  hiddenSet: Set<string>,
+): TemplateResult | typeof nothing {
   if (devices.length === 0) {
     return html`<div class="empty-state">${ctx.translate('noDevices')}</div>`;
   }
@@ -105,10 +135,72 @@ function renderRealDeviceGroups(ctx: RenderContext, devices: ReturnType<typeof g
     return html`
       <section class="device-group">
         <div class="section-title"><h2>${groupLabel}</h2><p class="muted">${String(items.length)}</p></div>
-        <div class="devices devices-page-grid">
-          ${items.map((device) => renderDeviceCard(ctx.config, ctx.hass, device, ctx.language, ctx.onHandleAction, true, ctx.entityRegistry))}
+        <div class="devices devices-page-grid${ctx.deviceHideEditMode ? ' device-hide-edit' : ''}">
+          ${items.map((device) => renderDeviceHideWrap(ctx, device, hiddenSet.has(device.entityId)))}
         </div>
       </section>
     `;
   })}`;
+}
+
+function renderDeviceHideWrap(
+  ctx: RenderContext,
+  device: ReturnType<typeof getRealDevicesForRender>[number],
+  isHidden: boolean,
+): TemplateResult {
+  const card = renderDeviceCard(
+    ctx.config,
+    ctx.hass,
+    device,
+    ctx.language,
+    ctx.onHandleAction,
+    true,
+    ctx.entityRegistry,
+  );
+
+  if (!ctx.deviceHideEditMode) {
+    return card;
+  }
+
+  const press = hidePressState(device.entityId);
+
+  const clearPress = (): void => {
+    if (press.timer) {
+      window.clearTimeout(press.timer);
+      press.timer = undefined;
+    }
+  };
+
+  return html`
+    <div
+      class="device-hide-wrap device-hide-edit-target${isHidden ? ' device-card-hidden' : ''}"
+      @pointerdown=${(e: PointerEvent) => {
+        if (e.button !== 0) return;
+        ctx.bumpDeviceHideIdle();
+        press.longPressed = false;
+        clearPress();
+        if (isHidden) return;
+        press.timer = window.setTimeout(() => {
+          press.longPressed = true;
+          ctx.onDeviceHideLongPress(device.entityId);
+        }, DEVICE_HIDE_LONG_PRESS_MS);
+      }}
+      @pointerup=${() => clearPress()}
+      @pointerleave=${() => clearPress()}
+      @pointercancel=${() => clearPress()}
+      @click=${(e: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+        ctx.bumpDeviceHideIdle();
+        if (press.longPressed) {
+          press.longPressed = false;
+          return;
+        }
+        if (isHidden) ctx.onDeviceHideClick(device.entityId);
+      }}
+    >
+      ${isHidden ? html`<span class="device-hide-badge">${ctx.translate('entityHidden')}</span>` : nothing}
+      ${card}
+    </div>
+  `;
 }

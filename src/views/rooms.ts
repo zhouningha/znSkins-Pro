@@ -3,7 +3,7 @@ import type { TemplateResult } from 'lit';
 
 import type { AreaRegistryEntry } from '../types';
 import type { RenderContext } from '../render/context';
-import { areaCounts, areaScenes, areaActiveCounts, areaSummaryById } from '../selectors/areas';
+import { areaCounts, areaSummaryById } from '../selectors/areas';
 import { renderPageShell } from '../components/page-shell';
 import { assetUrl, t } from '../utils';
 
@@ -14,8 +14,6 @@ interface RoomViewEntry {
   picture?: string | null;
   summary: string;
   counts: { devices: number; entities: number };
-  activeCounts: ReturnType<typeof areaActiveCounts>;
-  scenes: ReturnType<typeof areaScenes>;
 }
 
 export function renderRoomsView(ctx: RenderContext): TemplateResult {
@@ -81,62 +79,41 @@ export function renderAreaRooms(
     picture: area.picture,
     summary: areaSummaryById(area.area_id, ctx.hass, ctx.entityRegistry, ctx.deviceRegistry, ctx.language),
     counts: areaCounts(area.area_id, ctx.entityRegistry, ctx.deviceRegistry),
-    activeCounts: areaActiveCounts(area.area_id, ctx.hass, ctx.entityRegistry, ctx.deviceRegistry, ctx.language),
-    scenes: areaScenes(area.area_id, area.name, ctx.hass, ctx.entityRegistry, ctx.deviceRegistry),
   }));
 
   if (requireRealAreas && rooms.length === 0) return nothing;
 
   const useAreaPics = ctx.config.use_area_pictures;
 
+  const openRoom = (roomName: string) => {
+    ctx.setFilterRoom(roomName);
+    ctx.onNavigate('devices');
+  };
+
   return html`${rooms.map((room) => {
     const imgSrc = useAreaPics && room.picture ? room.picture : assetUrl(ctx.config, room.image || 'room_living');
     const roomImg = imgSrc ? html`<img alt=${room.name} src=${imgSrc}>` : nothing;
 
-    const sceneChips = room.scenes.length > 0 ? html`
-      <div class="room-scenes">
-        ${room.scenes.map((scene) => html`
-          <button class="room-scene-chip" @click=${(e: Event) => { e.stopPropagation(); ctx.onRunScene(scene.entity_id); }}>
-            ${scene.name}
-          </button>
-        `)}
-      </div>
-    ` : nothing;
-
-    const activeCountsRow = room.activeCounts.length > 0 ? html`
-      <div class="room-active">
-        ${room.activeCounts.map((g) => html`
-          <button class="room-active-chip" @click=${(e: Event) => { e.stopPropagation(); ctx.onTurnOffAreaType(g.entityIds); }}>
-            <span>${g.label} ${g.count}</span>
-          </button>
-        `)}
-      </div>
-    ` : nothing;
-
     if (showSummary) {
       return html`
-        <button class="room">
+        <button type="button" class="room" @click=${() => openRoom(room.name)}>
           ${roomImg}
-          ${sceneChips}
           <div class="room-label">
             <h3>${room.name}</h3>
             <p class="muted">${room.summary}</p>
           </div>
-          ${activeCountsRow}
         </button>
       `;
     }
     const countLabel = t(ctx.language, 'deviceEntityCount', { devices: room.counts.devices, entities: room.counts.entities });
     return html`
-      <button class="room">
+      <button type="button" class="room" @click=${() => openRoom(room.name)}>
         ${roomImg}
-        ${sceneChips}
         <div class="room-label">
           <h3>${room.name}</h3>
           <p class="muted">${room.summary}</p>
           <p class="room-stats">${countLabel}</p>
         </div>
-        ${activeCountsRow}
       </button>
     `;
   })}`;

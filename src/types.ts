@@ -194,6 +194,11 @@ export interface SecurityPageConfig {
   streams?: SecurityGo2rtcStream[];
 }
 
+export interface DevicesPageConfig {
+  /** Entity IDs hidden from the devices page (edit-hidden mode). */
+  hidden?: string[];
+}
+
 export interface HomeLimitsConfig {
   devices?: number;
   rooms?: number;
@@ -242,6 +247,7 @@ export interface DashboardConfig {
   media_player?: MediaPlayerConfig;
   camera?: CameraConfig;
   security_page?: SecurityPageConfig;
+  devices_page?: DevicesPageConfig;
   home_limits?: HomeLimitsConfig;
   home_selection?: HomeSelectionConfig;
 }
@@ -310,6 +316,7 @@ export type TranslationKey =
   | 'editHiddenDone'
   | 'editHiddenSaving'
   | 'hideSecurityHint'
+  | 'hideDevicesHint'
   | 'entityHidden'
   | 'tapToHide'
   | 'groupLights'
@@ -367,6 +374,8 @@ export type TranslationKey =
   | 'fanHigh'
   | 'fanOn'
   | 'fanOff'
+  | 'fanSilent'
+  | 'fanFull'
   | 'swingOff'
   | 'swingBoth'
   | 'swingVertical'

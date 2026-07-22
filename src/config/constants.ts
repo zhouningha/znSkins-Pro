@@ -109,6 +109,9 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   security_page: {
     hidden: [],
   },
+  devices_page: {
+    hidden: [],
+  },
   home_limits: {
     devices: 5,
     rooms: 4,

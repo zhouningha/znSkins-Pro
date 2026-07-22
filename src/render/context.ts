@@ -44,6 +44,9 @@ export interface RenderContext {
   securityHideEditMode: boolean;
   securityHideSaving: boolean;
   securityHidden: string[];
+  deviceHideEditMode: boolean;
+  deviceHideSaving: boolean;
+  deviceHidden: string[];
   weatherForecast?: WeatherForecastDay[];
   energyHistory?: number[];
   energyYesterday?: string;
@@ -71,6 +74,10 @@ export interface RenderContext {
   setDevicePageIndex: (page: number) => void;
   setSecurityHideEditMode: (on: boolean) => void;
   onToggleSecurityHidden: (entityId: string) => void;
+  setDeviceHideEditMode: (on: boolean) => void;
+  onDeviceHideLongPress: (entityId: string) => void;
+  onDeviceHideClick: (entityId: string) => void;
+  bumpDeviceHideIdle: () => void;
 
   resolvedTheme: 'light' | 'dark';
 }

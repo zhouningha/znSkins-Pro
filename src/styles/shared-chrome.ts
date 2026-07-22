@@ -272,6 +272,26 @@ export const SHARED_CHROME_CSS = `
   color: #fff !important;
 }
 
+/* Cover/valve position bar — LAYOUT LOCK (AC). Skins only color via --sp-accent. */
+.device-pos-track {
+  flex: 1 1 auto !important;
+  min-width: 64px !important;
+  height: 10px !important;
+  border-radius: 999px !important;
+  background: var(--sp-device-bg, var(--sp-switch-bg, rgba(0,0,0,.12))) !important;
+  overflow: hidden !important;
+  cursor: pointer !important;
+  position: relative !important;
+  touch-action: manipulation !important;
+}
+.device-pos-fill {
+  height: 100% !important;
+  border-radius: inherit !important;
+  background: var(--sp-accent, var(--sp-accent-green, #7BC67E)) !important;
+  pointer-events: none !important;
+  transition: width 0.12s ease-out;
+}
+
 /* Security card chrome — colors from tokens; structure/radius fixed (AC) */
 .mc-app[data-view="security"] .camera-card {
   background: var(--sp-glass-bg, var(--glass-regular, rgba(255,248,230,.62))) !important;
@@ -459,4 +479,91 @@ export const SHARED_CHROME_CSS = `
 }
 .android-device-page-button ha-icon { --mdc-icon-size: 22px; }
 .android-device-page-button:disabled { opacity: 0.35; cursor: default; }
+
+/* Devices page edit-hidden */
+.device-hide-hint {
+  margin: 0 0 var(--sp-space-sm, 8px) !important;
+  font-size: var(--sp-font-sm, 13px);
+}
+.device-hide-wrap {
+  position: relative !important;
+  display: block !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+.device-hide-wrap > .device,
+.device-hide-wrap > button.device {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+.device-hide-wrap.device-hide-edit-target > * {
+  pointer-events: none !important;
+}
+.device-hide-wrap.device-card-hidden {
+  opacity: 0.48 !important;
+  filter: grayscale(0.25);
+}
+.device-hide-badge {
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  z-index: 2 !important;
+  padding: 2px 8px !important;
+  border-radius: 999px !important;
+  font-size: var(--sp-font-3xs, 11px) !important;
+  font-weight: 700 !important;
+  color: #fff !important;
+  background: rgba(0,0,0,.55) !important;
+  pointer-events: none !important;
+}
+.filter-bar .action-btn.active {
+  outline: 2px solid var(--sp-accent, #c4a574);
+  outline-offset: 1px;
+}
+
+/* Themed device-card selects — follow current skin tokens (not OS grey popup) */
+.sp-select {
+  position: relative !important;
+  display: inline-block !important;
+  flex-shrink: 0 !important;
+  z-index: 3;
+}
+.sp-select-trigger {
+  list-style: none !important;
+  min-height: 32px !important;
+  min-width: 52px !important;
+  max-width: 96px !important;
+  padding: 0 18px 0 6px !important;
+  border: var(--sp-border-width, 1px) solid var(--sp-border-chip, var(--sp-border-glass, rgba(255,255,255,.35))) !important;
+  border-radius: var(--sp-radius-pill, 999px) !important;
+  background-color: var(--sp-device-bg, var(--sp-glass-light, var(--glass-regular, rgba(255,255,255,.55)))) !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%23888' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 6px center !important;
+  background-size: 10px !important;
+  color: var(--sp-text-main, var(--sp-text-primary, inherit)) !important;
+  font: inherit !important;
+  font-size: var(--sp-font-3xs, 11px) !important;
+  line-height: 32px !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  user-select: none !important;
+}
+.sp-select-trigger::-webkit-details-marker { display: none !important; }
+.sp-select-menu {
+  /* Real menu is a body portal (see themed-select.ts). Keep stub hidden. */
+  display: none !important;
+}
+.sp-select-compact .sp-select-trigger {
+  min-height: 32px !important;
+  font-size: var(--sp-font-3xs, 11px) !important;
+}
 `;

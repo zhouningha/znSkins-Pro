@@ -45,6 +45,15 @@ import {
   toggleHiddenId,
   writeSecurityHiddenLocal,
 } from './utils/security-hidden';
+import {
+  DEVICE_EDIT_IDLE_MS,
+  addHiddenId,
+  readDevicesHiddenLocal,
+  removeHiddenId,
+  resolveDevicesHiddenIds,
+  saveDevicesHiddenToHa,
+  writeDevicesHiddenLocal,
+} from './utils/devices-hidden';
 
 import { mergeConfig } from './config';
 import { fetchEnergyHistory, fetchEnergySources, enrichEnergySourcesWithMeters, loadWeatherForecast, loadAreas, loadDeviceRegistry, loadEntityRegistry, loadFloors, ensureKiosk, isAndroidKiosk, isKioskActive, toggleKiosk } from './ha';
@@ -191,6 +200,12 @@ export class SkinsProCard extends LitElement {
   /** Draft while editing; also caches last known list after Done. */
   private _securityHiddenDraft: string[] | null = null;
 
+  /** Devices page hide: edit mode + draft (see utils/devices-hidden.ts). */
+  @state() private _deviceHideEditMode = false;
+  @state() private _deviceHideSaving = false;
+  private _deviceHiddenDraft: string[] | null = null;
+  private _deviceHideIdleTimer?: number;
+
   private _autoFullscreenDone = false;
   private _autoFullscreenAttempts = 0;
   private _loadedSkinMetadata?: string;
@@ -217,6 +232,7 @@ export class SkinsProCard extends LitElement {
   public disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('resize', this._handleWindowResize);
+    this.clearDeviceHideIdle();
     void this.unsubscribeWeatherForecast();
   }
 
@@ -224,7 +240,7 @@ export class SkinsProCard extends LitElement {
     if (!config || config.type !== 'custom:skins-pro-card') {
       throw new Error('Card type must be custom:skins-pro-card');
     }
-    this._config = this.mergeSecurityHiddenFromSources(config);
+    this._config = this.mergeHiddenFromSources(config);
     this._energyHistory = undefined;
     this._energyYesterday = undefined;
     this._energyMonthToDate = undefined;
@@ -508,6 +524,9 @@ export class SkinsProCard extends LitElement {
       securityHideEditMode: this._securityHideEditMode,
       securityHideSaving: this._securityHideSaving,
       securityHidden: this.getSecurityHiddenIds(),
+      deviceHideEditMode: this._deviceHideEditMode,
+      deviceHideSaving: this._deviceHideSaving,
+      deviceHidden: this.getDeviceHiddenIds(),
       weatherForecast: this._weatherForecast,
       energyHistory: energyHistoryOverride ?? this._energyHistory,
       energyYesterday: this._energyYesterday,
@@ -533,6 +552,10 @@ export class SkinsProCard extends LitElement {
       setDevicePageIndex: (page) => { this._devicePageIndex = Math.max(0, page); },
       setSecurityHideEditMode: (on) => this.setSecurityHideEditMode(on),
       onToggleSecurityHidden: (entityId) => this.toggleSecurityHidden(entityId),
+      setDeviceHideEditMode: (on) => this.setDeviceHideEditMode(on),
+      onDeviceHideLongPress: (entityId) => this.hideDeviceEntity(entityId),
+      onDeviceHideClick: (entityId) => this.unhideDeviceEntity(entityId),
+      bumpDeviceHideIdle: () => this.bumpDeviceHideIdle(),
       resolvedTheme: this._resolveTheme(),
     };
   }
@@ -583,6 +606,111 @@ export class SkinsProCard extends LitElement {
       writeSecurityHiddenLocal(hidden, this.userIdForStorage());
     }
     return merged;
+  }
+
+  private mergeDevicesHiddenFromSources(config: DashboardConfig): DashboardConfig {
+    const merged = mergeConfig(config);
+    const hidden = resolveDevicesHiddenIds({
+      draft: this._deviceHiddenDraft,
+      configHidden: merged.devices_page?.hidden,
+      userId: this.userIdForStorage(),
+    });
+    merged.devices_page = { ...merged.devices_page, hidden };
+    if (this._deviceHiddenDraft === null && readDevicesHiddenLocal(this.userIdForStorage()) === null) {
+      writeDevicesHiddenLocal(hidden, this.userIdForStorage());
+    }
+    return merged;
+  }
+
+  private mergeHiddenFromSources(config: DashboardConfig): DashboardConfig {
+    return this.mergeDevicesHiddenFromSources(this.mergeSecurityHiddenFromSources(config));
+  }
+
+  private getDeviceHiddenIds(): string[] {
+    return resolveDevicesHiddenIds({
+      draft: this._deviceHiddenDraft,
+      configHidden: this._config?.devices_page?.hidden,
+      userId: this.userIdForStorage(),
+    });
+  }
+
+  private clearDeviceHideIdle(): void {
+    if (this._deviceHideIdleTimer) {
+      window.clearTimeout(this._deviceHideIdleTimer);
+      this._deviceHideIdleTimer = undefined;
+    }
+  }
+
+  private bumpDeviceHideIdle(): void {
+    if (!this._deviceHideEditMode || this._deviceHideSaving) return;
+    this.clearDeviceHideIdle();
+    this._deviceHideIdleTimer = window.setTimeout(() => {
+      this.setDeviceHideEditMode(false);
+    }, DEVICE_EDIT_IDLE_MS);
+  }
+
+  private applyDeviceHiddenDraft(next: string[]): void {
+    this._deviceHiddenDraft = next;
+    writeDevicesHiddenLocal(next, this.userIdForStorage());
+    this._config = mergeConfig({
+      ...this._config!,
+      devices_page: { ...this._config?.devices_page, hidden: next },
+    });
+    this.bumpDeviceHideIdle();
+    this.requestUpdate();
+  }
+
+  /** Edit-mode long-press — hide entity. */
+  private hideDeviceEntity(entityId: string): void {
+    if (!this._deviceHideEditMode || this._deviceHideSaving) return;
+    this.applyDeviceHiddenDraft(addHiddenId(this.getDeviceHiddenIds(), entityId));
+  }
+
+  /** Edit-mode click on already-hidden card — restore. */
+  private unhideDeviceEntity(entityId: string): void {
+    if (!this._deviceHideEditMode || this._deviceHideSaving) return;
+    this.applyDeviceHiddenDraft(removeHiddenId(this.getDeviceHiddenIds(), entityId));
+  }
+
+  private setDeviceHideEditMode(on: boolean): void {
+    if (on) {
+      this._deviceHiddenDraft = this.getDeviceHiddenIds();
+      this._deviceHideEditMode = true;
+      this._deviceHideSaving = false;
+      this.bumpDeviceHideIdle();
+      this.requestUpdate();
+      return;
+    }
+    if (!this._deviceHideEditMode) return;
+    if (this._deviceHideSaving) return;
+
+    this.clearDeviceHideIdle();
+    const hidden = normalizeHiddenIds(this._deviceHiddenDraft ?? this.getDeviceHiddenIds());
+    this._deviceHiddenDraft = hidden;
+    writeDevicesHiddenLocal(hidden, this.userIdForStorage());
+    this._config = mergeConfig({
+      ...this._config!,
+      devices_page: { ...this._config?.devices_page, hidden },
+    });
+
+    const connection = this._hass?.connection;
+    if (!connection?.sendMessagePromise) {
+      this._deviceHideEditMode = false;
+      this.requestUpdate();
+      return;
+    }
+
+    this._deviceHideSaving = true;
+    this.requestUpdate();
+    void saveDevicesHiddenToHa(connection, hidden)
+      .then((ok) => {
+        if (!ok) console.warn('[Skins Pro] devices hide saved locally; HA strategy sync failed');
+      })
+      .finally(() => {
+        this._deviceHideSaving = false;
+        this._deviceHideEditMode = false;
+        this.requestUpdate();
+      });
   }
 
   /** Edit-mode tap only — updates draft + localStorage, never HA. */
@@ -777,6 +905,8 @@ export class SkinsProCard extends LitElement {
   private navigateTo(target: string): void {
     const valid: ViewName[] = ['home', 'devices', 'rooms', 'scenes', 'automations', 'security', 'energy'];
     if (valid.includes(target as ViewName)) {
+      if (target !== 'devices' && this._deviceHideEditMode) this.setDeviceHideEditMode(false);
+      if (target !== 'security' && this._securityHideEditMode) this.setSecurityHideEditMode(false);
       this._view = target as ViewName;
     }
   }
@@ -784,6 +914,7 @@ export class SkinsProCard extends LitElement {
   private toggleKioskFullscreen(): void {
     // Edit-hidden UI is hidden in kiosk; clear so hidden items don't get stuck.
     if (this._securityHideEditMode) this.setSecurityHideEditMode(false);
+    if (this._deviceHideEditMode) this.setDeviceHideEditMode(false);
     const host = this._host();
     if (document.body.classList.contains('skins-pro-kiosk')) {
       toggleKiosk();
@@ -796,11 +927,12 @@ export class SkinsProCard extends LitElement {
   }
 
   private async batchControl(state: 'on' | 'off', translate: (key: TranslationKey) => string): Promise<void> {
+    const hidden = new Set(this.getDeviceHiddenIds());
     const devices = getRealDevicesForRender(this._hass, this._deviceRegistry, this._entityRegistry, this._areas, {
       filterRoom: this._filterRoom,
       filterType: this._filterType,
       hideUnassigned: this._hideUnassigned,
-    });
+    }).filter((d) => !hidden.has(d.entityId));
     const controllable = devices.filter((d) => CONTROLLABLE_DOMAINS.has(d.detail));
     if (controllable.length === 0) return;
     if (!confirm(translate('confirmAction'))) return;

@@ -44,6 +44,11 @@ export function mergeConfig(config: DashboardConfig): DashboardConfig {
       ...config.security_page,
       hidden: [...new Set((config.security_page?.hidden || DEFAULT_CONFIG.security_page?.hidden || []).filter(Boolean))],
     },
+    devices_page: {
+      ...DEFAULT_CONFIG.devices_page,
+      ...config.devices_page,
+      hidden: [...new Set((config.devices_page?.hidden || DEFAULT_CONFIG.devices_page?.hidden || []).filter(Boolean))],
+    },
     home_limits: {
       ...DEFAULT_CONFIG.home_limits,
       ...config.home_limits,

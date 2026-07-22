@@ -1,8 +1,9 @@
-import { html } from 'lit';
+import { html, nothing } from 'lit';
 import type { TemplateResult } from 'lit';
 
 import type { DashboardConfig, EntityRegistryEntry, HomeAssistant, RenderedDevice } from '../types';
 import type { Language } from '../i18n';
+import { domainLabel } from '../utils/domain-labels';
 import { assetKeyForDomain, deviceStateLabel, formatRelativeTime, formatSceneOrScriptRelativeTime, selectedSkin } from '../utils';
 import { renderImage } from '../render/context';
 import { renderClimateCard } from './climate';
@@ -88,28 +89,55 @@ export function renderDeviceCard(
   const isMedia = device.detail === 'media_player';
   const isCover = device.detail === 'cover';
   const isValve = device.detail === 'valve';
-  const action = isMedia ? 'play-pause' : (CONTROLLABLE_DOMAINS.has(device.detail) && !isCover && !isValve ? 'toggle' : 'more-info');
-  const mediaState = isMedia ? hass.states?.[device.entityId] : undefined;
+  const stateObj = hass.states?.[device.entityId];
+  const attrs = (stateObj?.attributes || {}) as Record<string, unknown>;
+  // HA CoverEntityFeature.SET_POSITION / ValveEntityFeature.SET_POSITION = 4
+  const rawPos = attrs.current_position;
+  const posNum = typeof rawPos === 'number' ? rawPos : (typeof rawPos === 'string' ? Number(rawPos) : NaN);
+  const coverPos = Number.isFinite(posNum) ? posNum : undefined;
+  const canSetPos = (isCover || isValve) && (
+    coverPos !== undefined || (Number(attrs.supported_features || 0) & 4) !== 0
+  );
+  const displayPos = coverPos !== undefined
+    ? coverPos
+    : (device.state === 'open' || device.state === 'opening' ? 100
+      : device.state === 'closed' || device.state === 'closing' ? 0 : 50);
+  const action = isMedia
+    ? 'play-pause'
+    : (canSetPos
+      ? 'position'
+      : (CONTROLLABLE_DOMAINS.has(device.detail) ? 'toggle' : 'more-info'));
+  const mediaState = isMedia ? stateObj : undefined;
   const albumArt = isMedia ? (mediaState?.attributes?.entity_picture as string | undefined) : undefined;
   const vol = isMedia ? (mediaState?.attributes?.volume_level as number | undefined) : undefined;
   const volPct = vol !== undefined ? Math.round(vol * 100) : undefined;
-  const hasPosSlider = isCover || isValve;
-  const coverPos = hasPosSlider ? (hass.states?.[device.entityId]?.attributes?.current_position as number | undefined) : undefined;
   const lastTime = deviceLastChanged(hass, device, language);
 
+  let control: TemplateResult | typeof nothing = nothing;
+  if (action === 'play-pause') {
+    control = html`
+      ${volPct !== undefined ? renderVolumeBar(hass, device.entityId, vol) : ''}
+      <ha-icon icon="mdi:skip-previous" style="--mdc-icon-size:16px;color:var(--sp-text-primary);display:flex;cursor:pointer;opacity:.6" @click=${(e: Event) => { e.stopPropagation(); hass.callService('media_player', 'media_previous_track', { entity_id: device.entityId }); }}></ha-icon>
+      <ha-icon icon=${device.state === 'playing' ? 'mdi:pause' : 'mdi:play'} class="media-toggle-icon"></ha-icon>
+      <ha-icon icon="mdi:skip-next" style="--mdc-icon-size:16px;color:var(--sp-text-primary);display:flex;cursor:pointer;opacity:.6" @click=${(e: Event) => { e.stopPropagation(); hass.callService('media_player', 'media_next_track', { entity_id: device.entityId }); }}></ha-icon>
+    `;
+  } else if (action === 'position') {
+    control = renderPositionBar(hass, device.entityId, isValve ? 'valve' : 'cover', displayPos);
+  } else if (action === 'toggle') {
+    control = renderThemedSwitch(active, () => onHandleAction(device.entityId, action), device.name);
+  }
+
   return html`
-    <button class="device ${statusClass}" @click=${hasPosSlider ? undefined : () => onHandleAction(device.entityId, action)} style=${hasPosSlider ? 'cursor:default' : ''}>
+    <button class="device ${statusClass}" @click=${action === 'position' ? undefined : () => onHandleAction(device.entityId, action)} style=${action === 'position' ? 'cursor:default' : ''}>
       <div class="device-top">
         ${albumArt ? html`<img class="item-img" src=${albumArt} alt="">` : renderImage(config, assetKey, device.name, 'item-img')}
         <div class="tag-stack"><div class="status">${stateLabel}</div></div>
       </div>
       <div class="device-copy"><p class="device-name">${device.name}</p><p class="muted">${lastTime || device.subtitle}</p></div>
-      <div class="control-row" style=${showDomain ? '' : 'justify-content:flex-end'}>${showDomain ? html`<span class="state-word">${device.detail}</span>` : ''}${action === 'play-pause' ? html`
-        ${volPct !== undefined ? renderVolumeBar(hass, device.entityId, vol) : ''}
-        <ha-icon icon="mdi:skip-previous" style="--mdc-icon-size:16px;color:var(--sp-text-primary);display:flex;cursor:pointer;opacity:.6" @click=${(e: Event) => { e.stopPropagation(); hass.callService('media_player', 'media_previous_track', { entity_id: device.entityId }); }}></ha-icon>
-        <ha-icon icon=${device.state === 'playing' ? 'mdi:pause' : 'mdi:play'} class="media-toggle-icon"></ha-icon>
-        <ha-icon icon="mdi:skip-next" style="--mdc-icon-size:16px;color:var(--sp-text-primary);display:flex;cursor:pointer;opacity:.6" @click=${(e: Event) => { e.stopPropagation(); hass.callService('media_player', 'media_next_track', { entity_id: device.entityId }); }}></ha-icon>
-      ` : (action === 'toggle' ? renderThemedSwitch(active, () => onHandleAction(device.entityId, action), device.name) : (hasPosSlider && coverPos !== undefined ? renderPositionBar(hass, device.entityId, isValve ? 'valve' : 'cover', coverPos) : ''))}</div>
+      <div class="control-row" style=${showDomain ? '' : 'justify-content:flex-end'}>
+        ${showDomain ? html`<span class="state-word">${domainLabel(device.detail, language)}</span>` : ''}
+        ${control}
+      </div>
     </button>
   `;
 }

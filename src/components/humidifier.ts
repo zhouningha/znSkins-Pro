@@ -6,6 +6,7 @@ import type { Language } from '../i18n';
 import { assetKeyForDomain, deviceStateLabel, formatRelativeTime, selectedSkin, t } from '../utils';
 import { renderImage } from '../render/context';
 import { renderThemedSwitch } from './themed-switch';
+import { renderThemedSelect } from './themed-select';
 
 const MODE_LABELS: Record<string, TranslationKey> = {
   normal: 'hvacAuto', eco: 'presetEco', away: 'presetAway', boost: 'presetBoost',
@@ -85,10 +86,12 @@ export function renderHumidifierCard(
           <span style="font-weight:700;font-size:var(--sp-font-2xs);min-width:24px;text-align:center">${Math.round(targetHumidity)}%</span>
           <div class="media-volbtn" role="button" style="width:28px;height:32px;padding:0;box-shadow:none" @click=${(e: Event) => { e.stopPropagation(); const next = Math.min(maxH, targetHumidity + step); doService('set_humidity', { humidity: next }); }}><ha-icon icon="mdi:plus" style="--mdc-icon-size:14px"></ha-icon></div>
         </div>` : ''}
-        ${isOn && modes.length > 0 ? html`
-        <select class="filter-select" style="font-size:var(--sp-font-3xs);min-height:32px;min-width:48px;padding:0 16px 0 4px;background-size:8px;flex-shrink:0" @change=${(e: Event) => { e.stopPropagation(); doService('set_mode', { mode: (e.target as HTMLSelectElement).value }); }} @click=${(e: Event) => e.stopPropagation()}>
-          ${modes.map(m => html`<option value=${m} ?selected=${m === mode}>${modeLabel(m, language)}</option>`)}
-        </select>` : ''}
+        ${isOn && modes.length > 0 ? renderThemedSelect({
+          className: 'sp-select-compact',
+          value: mode || modes[0] || '',
+          options: modes.map((m) => ({ value: m, label: modeLabel(m, language) })),
+          onChange: (v) => doService('set_mode', { mode: v }),
+        }) : ''}
         ${renderThemedSwitch(isOn, () => doService(isOn ? 'turn_off' : 'turn_on', {}), device.name)}
       </div>
     </button>

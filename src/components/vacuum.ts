@@ -6,6 +6,7 @@ import type { Language } from '../i18n';
 import { assetKeyForDomain, formatRelativeTime, selectedSkin, t } from '../utils';
 import { renderImage } from '../render/context';
 import { renderThemedSwitch } from './themed-switch';
+import { renderThemedSelect } from './themed-select';
 
 const VACUUM_STATE_LABELS: Record<string, TranslationKey> = {
   cleaning: 'vacuumCleaning',
@@ -80,10 +81,12 @@ export function renderVacuumCard(
         <p class="muted">${mutedText}</p>
       </div>
       <div class="control-row" style="gap:4px" @click=${(e: Event) => e.stopPropagation()}>
-        ${fanSpeedList.length > 0 ? html`
-        <select class="filter-select" style="font-size:var(--sp-font-3xs);min-height:32px;min-width:48px;padding:0 16px 0 4px;background-size:8px;flex-shrink:0" @change=${(e: Event) => { e.stopPropagation(); setFanSpeed((e.target as HTMLSelectElement).value); }} @click=${(e: Event) => e.stopPropagation()}>
-          ${fanSpeedList.map(s => html`<option value=${s} ?selected=${s === fanSpeed}>${s}</option>`)}
-        </select>` : ''}
+        ${fanSpeedList.length > 0 ? renderThemedSelect({
+          className: 'sp-select-compact',
+          value: fanSpeed || fanSpeedList[0] || '',
+          options: fanSpeedList.map((s) => ({ value: s, label: s })),
+          onChange: (v) => setFanSpeed(v),
+        }) : ''}
         ${isActive ? pauseBtn : startBtn}
         ${(isActive || isPaused) ? dockBtn : ''}
         ${locateBtn}

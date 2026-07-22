@@ -6,6 +6,7 @@ import type { Language } from '../i18n';
 import { assetKeyForDomain, deviceStateLabel, formatRelativeTime, selectedSkin, t } from '../utils';
 import { renderImage } from '../render/context';
 import { renderThemedSwitch } from './themed-switch';
+import { renderThemedSelect } from './themed-select';
 
 export function renderFanCard(
   config: DashboardConfig | undefined,
@@ -58,10 +59,12 @@ export function renderFanCard(
         ${isOn && percentage !== undefined ? html`
         <ha-control-slider .value=${percentage} min="0" max="100" step=${percentageStep} style="--control-slider-thickness:28px;--control-slider-border-radius:var(--sp-radius-pill);flex:1;min-width:0" @value-changed=${(e: CustomEvent) => { e.stopPropagation(); const v = (e.detail.value ?? 0) as number; if (v === 0) { doService('turn_off', {}); } else { doService('set_percentage', { percentage: v }); } }} @click=${(e: Event) => e.stopPropagation()}></ha-control-slider>
         ` : ''}
-        ${isOn && presetModes.length > 0 ? html`
-        <select class="filter-select" style="font-size:var(--sp-font-3xs);min-height:32px;min-width:48px;padding:0 16px 0 4px;background-size:8px;flex-shrink:0" @change=${(e: Event) => { e.stopPropagation(); doService('set_preset_mode', { preset_mode: (e.target as HTMLSelectElement).value }); }} @click=${(e: Event) => e.stopPropagation()}>
-          ${presetModes.map(m => html`<option value=${m} ?selected=${m === presetMode}>${fanPresetLabel(m, language)}</option>`)}
-        </select>` : ''}
+        ${isOn && presetModes.length > 0 ? renderThemedSelect({
+          className: 'sp-select-compact',
+          value: presetMode || presetModes[0] || '',
+          options: presetModes.map((m) => ({ value: m, label: fanPresetLabel(m, language) })),
+          onChange: (v) => doService('set_preset_mode', { preset_mode: v }),
+        }) : ''}
         ${isOn && oscillating !== undefined ? html`
         <div class="media-volbtn" role="button" style="width:32px;height:32px;padding:0;flex-shrink:0" title=${t(language, 'fanOscillate')} @click=${(e: Event) => { e.stopPropagation(); doService('oscillate', { oscillating: !oscillating }); }}><ha-icon icon=${oscillating ? 'mdi:rotate-3d-variant' : 'mdi:rotate-360'} style="--mdc-icon-size:14px"></ha-icon></div>` : ''}
         ${isOn && currentDirection !== undefined ? html`

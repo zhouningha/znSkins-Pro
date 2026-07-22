@@ -26,6 +26,7 @@
 - God of War 主舞台背景 `background.jpg` 固定使用 `source-gow-4k-bg.png` 生成的战神熔岩神殿远景（MD5 `af45e72ec15a2a074121a731631dd405`），不要回退到山景奥林匹斯远景/巨人脸特写，横幅里会压住文字
 - God of War 房间图池至少保留 10 张 `room-*.jpg` 作为素材池/备选；但 God of War 主题默认房间卡使用透明背景透出主题大图，不渲染独立房间 `<img>`；用户明确排除绿色大厅图 `source-room-gow3-daedalus-environment.jpg`
 - 房间卡图片必须有破图兜底：保留 `hideBrokenImage` 和房间/头像 `<img @error=...>` 处理，任何资源路径短暂失效时不能显示浏览器蓝色问号，只能隐藏破图并使用卡片背景兜底
+- 房间卡（首页/房间页）：**不叠加场景芯片与开启中芯片**；点卡片进入设备页并按该房间筛选。场景只在场景页/首页侧栏场景区控制（2026-07-22）
 - God of War 视觉偏好：深色暗红玻璃侧边栏 + 更强背景压暗（见 `HA_RESTORE.md`）
 - 圆角自绘开关：使用主题 `.switch` 样式，不直接依赖会破坏视觉的 `ha-control-switch`
 - God of War 媒体播放器外层必须保持主题圆角，并裁切内部背景、封面和动态内容：`.glass-card,.time-card` 保留 `border-radius: var(--sp-radius-lg)` 与 `overflow: hidden`；不得因切换主题、构建或原生控件样式覆盖而变成直角面板
@@ -37,9 +38,10 @@
 - 首页环境列表（2026-07-21）：**点击房间/区域 chip 切换**；chip 与房内行均按编辑器 `home_selection.environment` 顺序（某房间以该列表中**首次出现**的传感器决定 chip 位次）。不用楼层分组、不用房间名字母序。编辑器过滤温湿度/CO2/PM；默认可选上限 12。芯片温度等诊断量建议不要放进环境列表
 - 环境实体归属规则：优先实体 `area_id`，否则设备 `area_id`；无归属归入「其他」
 - 首页环境房间切换与房间页 `selectedFloor` 独立（复用 `selectedEnvFloor` 状态存当前 area_id）
-- 空调 `climate` 卡片不能退化为只有开关：卡片主体点击必须打开 God of War 风格调温弹层，右侧开关只负责开/关；弹层读取 HA climate 属性，支持目标温度加减、模式、风速
+- 空调 `climate` 卡片不能退化为只有开关：卡上直接调温/模式/风速；**点卡片空白不再打开 more-info / 调温弹层**（2026-07-22）。设备卡下拉用主题 `sp-select`（`--sp-*`），换肤自动跟随，禁止依赖系统原生灰白 popup。
 - 空调调温弹层在平板 `2018` kiosk/fullscreen 账户下必须限制在真实可视高度内；内容超出时弹层内部纵向滚动，不能被 fullscreen host 的 `overflow:hidden` 裁掉下半部分
 - 设备页长按隐藏必须受“编辑隐藏/管理隐藏”状态保护：默认浏览设备时长按不隐藏；打开编辑隐藏后才显示提示并允许长按隐藏/恢复
+- 设备页「编辑隐藏」（2026-07-22）：filter-bar「全部关闭」后按钮；编辑中长按隐藏、点已隐藏卡恢复；10s 无操作自动退出并写入 `devices_page.hidden`（localStorage + Lovelace strategy）；浏览态不显示已隐藏设备；全屏/kiosk 不显示该按钮。实现见 `src/utils/devices-hidden.ts`。
 - 设备页隐藏/恢复必须对所有实体类型统一持久化，`media_player.*` 不得在刷新初始化或版本迁移时被从隐藏名单剔除
 - 首页场景配置同时支持 `scene.*` 和 `script.*`，按用户指定顺序显示并按实体域调用 `turn_on`；不能要求用户为已有观影/KTV/离场脚本重复创建 HA 场景
 - 全屏 / kiosk 模式下设备页整个顶部控制栏都不渲染，包括房间/类型筛选、未分配筛选、隐藏管理和全部开启/关闭；退出全屏后恢复

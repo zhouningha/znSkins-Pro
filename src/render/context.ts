@@ -67,6 +67,9 @@ export interface RenderContext {
 
   setDeviceGrouping: (g: 'area' | 'domain') => void;
   setFilterRoom: (r: string) => void;
+  /** After navigating from a room card: scroll to this area section on devices (all rooms still shown). */
+  focusDeviceRoom: string;
+  setFocusDeviceRoom: (room: string) => void;
   setFilterType: (t: string) => void;
   setHideUnassigned: (h: boolean) => void;
   setSelectedFloor: (f: string) => void;

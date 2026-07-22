@@ -133,7 +133,7 @@ function renderRealDeviceGroups(
       ? items.length > 0 ? domainGroupLabel(deviceTypeGroupKey(items[0]!.detail), ctx.language) : group
       : group;
     return html`
-      <section class="device-group">
+      <section class="device-group" data-device-room=${group}>
         <div class="section-title"><h2>${groupLabel}</h2><p class="muted">${String(items.length)}</p></div>
         <div class="devices devices-page-grid${ctx.deviceHideEditMode ? ' device-hide-edit' : ''}">
           ${items.map((device) => renderDeviceHideWrap(ctx, device, hiddenSet.has(device.entityId)))}

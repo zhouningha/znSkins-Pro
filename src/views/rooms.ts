@@ -86,7 +86,10 @@ export function renderAreaRooms(
   const useAreaPics = ctx.config.use_area_pictures;
 
   const openRoom = (roomName: string) => {
-    ctx.setFilterRoom(roomName);
+    // Show all rooms on devices, grouped by area; scroll to the tapped room.
+    ctx.setFilterRoom('');
+    ctx.setDeviceGrouping('area');
+    ctx.setFocusDeviceRoom(roomName);
     ctx.onNavigate('devices');
   };
 

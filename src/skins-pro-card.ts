@@ -158,6 +158,7 @@ export class SkinsProCard extends LitElement {
   @state() private _view: ViewName = 'home';
   @state() private _deviceGrouping: 'area' | 'domain' = 'area';
   @state() private _filterRoom = '';
+  @state() private _focusDeviceRoom = '';
   @state() private _filterType = '';
   @state() private _hideUnassigned = true;
 
@@ -514,6 +515,7 @@ export class SkinsProCard extends LitElement {
       view: this._view,
       deviceGrouping: this._deviceGrouping,
       filterRoom: this._filterRoom,
+      focusDeviceRoom: this._focusDeviceRoom,
       filterType: this._filterType,
       hideUnassigned: this._hideUnassigned,
       selectedFloor: this._selectedFloor,
@@ -545,6 +547,7 @@ export class SkinsProCard extends LitElement {
       onTurnOffAreaType: (entityIds) => turnOffAreaTypeAction(this._hass, entityIds),
       setDeviceGrouping: (g) => { this._deviceGrouping = g; this._devicePageIndex = 0; },
       setFilterRoom: (r) => { this._filterRoom = r; this._devicePageIndex = 0; },
+      setFocusDeviceRoom: (room) => { this._focusDeviceRoom = room; },
       setFilterType: (t) => { this._filterType = t; this._devicePageIndex = 0; },
       setHideUnassigned: (h) => { this._hideUnassigned = h; this._devicePageIndex = 0; },
       setSelectedFloor: (f) => { this._selectedFloor = f; },
@@ -850,6 +853,19 @@ export class SkinsProCard extends LitElement {
         this.requestUpdate();
       }
     }
+    this._scrollToFocusedDeviceRoom();
+  }
+
+  /** Room card → devices: keep all areas visible, scroll to the tapped room section. */
+  private _scrollToFocusedDeviceRoom(): void {
+    if (this._view !== 'devices' || !this._focusDeviceRoom) return;
+    const room = this._focusDeviceRoom;
+    this._focusDeviceRoom = '';
+    window.requestAnimationFrame(() => {
+      const root = this.renderRoot as ShadowRoot | null;
+      const section = root?.querySelector(`[data-device-room="${CSS.escape(room)}"]`) as HTMLElement | null;
+      section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 
   private _shouldAutoFullscreen(): boolean {

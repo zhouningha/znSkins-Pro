@@ -19,7 +19,7 @@
 - God of War 主舞台背景保持战神熔岩神殿远景：确认 `skins-pro/god_of_war_3_wall/source-gow-4k-bg.png` 存在，且 `skins-pro/god_of_war_3_wall/background.jpg` MD5 为 `af45e72ec15a2a074121a731631dd405`，不能回退为山景奥林匹斯远景或巨人脸/手臂特写图
 - God of War 房间图池至少 10 张作为素材池/备选；默认房间卡必须是透明卡片透出主题大图，不渲染独立房间 `<img>`；不得恢复用户排除的绿色大厅图 `source-room-gow3-daedalus-environment.jpg`
 - 房间卡图片加载失败时不能出现浏览器蓝色问号；确认 `hideBrokenImage` 和房间/头像图片的 `@error` 兜底仍在
-- 房间卡无场景/开启中叠加芯片；点击房间卡应进入设备页并筛到该房间
+- 房间卡无场景/开启中叠加芯片；点击房间卡应进入设备页、按区域显示全屋设备并滚到该房间（不是只筛出单房间）
 - 首页背景、头像、设备图标不丢失
 - 圆角自绘开关正常显示，不变方块
 - God of War 媒体播放器外层四角保持圆角，内部内容未溢出；确认 `.glass-card,.time-card` 同时存在 `border-radius: var(--sp-radius-lg)` 和 `overflow: hidden`

@@ -242,7 +242,11 @@ export class SkinsProCard extends LitElement {
       const language = normalizeLanguage(
         this._config.language === 'auto' ? this._hass.language : this._config.language,
       );
-      openDoorbellDialog(this, this._hass, language, selectedSkin(this._config));
+      try {
+        openDoorbellDialog(this, this._hass, language, selectedSkin(this._config));
+      } catch (error) {
+        console.warn('[Skins Pro] doorbell dialog open failed', error);
+      }
       return;
     }
     if (isDoorbellDialogOpen()) closeDoorbellDialog();
@@ -254,6 +258,8 @@ export class SkinsProCard extends LitElement {
     if (this._hass && this._config?.weather?.entity && this._weatherForecastEntity !== this._config.weather.entity) {
       void this.loadWeatherForecast();
     }
+    // Card may mount after doorbell already active — open then.
+    this._syncDoorbellDialog();
   }
 
   public disconnectedCallback(): void {
@@ -283,6 +289,7 @@ export class SkinsProCard extends LitElement {
     this._autoFullscreenAttempts = 0;
     this._loadedSkinMetadata = undefined;
     void this.unsubscribeWeatherForecast();
+    this._syncDoorbellDialog();
     this.requestUpdate();
   }
 
@@ -298,6 +305,7 @@ export class SkinsProCard extends LitElement {
       void this.loadDeviceRegistry();
       void this.loadFloorsRegistry();
       void this.loadEnergyHistory();
+      this._syncDoorbellDialog();
     }
     const weatherEntity = this._config?.weather?.entity;
     if (weatherEntity && this._weatherForecastEntity !== weatherEntity) {
@@ -869,6 +877,8 @@ export class SkinsProCard extends LitElement {
     applyThemeVariables(this._host(), this._config);
     this._applyLayout();
     this._applyThemeAttribute();
+    // Re-check after paint — covers first load when doorbell already pending.
+    this._syncDoorbellDialog();
     if (this._shouldAutoFullscreen() && !this._autoFullscreenDone) {
       applyFullscreenHeight(this._host());
       const applied = ensureKiosk();

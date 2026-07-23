@@ -162,6 +162,7 @@ const en: Record<TranslationKey, string> = {
   editorHomeDevices: 'Home Devices',
   editorHomeRooms: 'Home Rooms',
   editorHomeScenes: 'Home Scenes',
+  editorScenesPage: 'Main Scenes Page',
   editorHomeEnv: 'Home Environment',
   editorInfo: 'Info',
   editorFullscreen: 'Fullscreen',

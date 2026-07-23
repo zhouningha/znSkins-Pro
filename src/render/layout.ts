@@ -1,6 +1,19 @@
 import type { DashboardConfig } from '../types';
 import { assetUrl } from '../utils';
 
+function viewportHeight(): number {
+  const vv = window.visualViewport?.height;
+  if (typeof vv === 'number' && vv > 0) return Math.floor(vv);
+  return Math.floor(window.innerHeight);
+}
+
+function isKioskHost(host: HTMLElement): boolean {
+  return host.hasAttribute('data-kiosk-fullscreen')
+    || host.hasAttribute('data-sp-kiosk')
+    || host.getAttribute('data-android-kiosk') === 'true'
+    || document.body.classList.contains('skins-pro-kiosk');
+}
+
 export function applyLayoutHeight(host: HTMLElement | null | undefined): void {
   if (!host) return;
 
@@ -10,12 +23,19 @@ export function applyLayoutHeight(host: HTMLElement | null | undefined): void {
     return;
   }
 
+  // Kiosk / Android wall panel: fill the real visual viewport (no letterbox).
+  if (isKioskHost(host)) {
+    applyFullscreenHeight(host);
+    return;
+  }
+
   const rect = host.getBoundingClientRect();
   const paddingBottom = 0;
   const isShortLandscape = window.matchMedia('(orientation: landscape)').matches && window.innerHeight < 500;
+  const vh = viewportHeight();
   const availableHeight = isShortLandscape
-    ? Math.max(240, Math.floor(window.innerHeight - rect.top - paddingBottom))
-    : Math.max(560, Math.floor(window.innerHeight - rect.top - paddingBottom));
+    ? Math.max(240, Math.floor(vh - rect.top - paddingBottom))
+    : Math.max(560, Math.floor(vh - rect.top - paddingBottom));
   host.style.setProperty('--sp-runtime-height', `${availableHeight}px`);
   host.style.setProperty('--sp-runtime-min-height', `${availableHeight}px`);
 }
@@ -36,10 +56,9 @@ export function applyThemeVariables(host: HTMLElement | null | undefined, config
 
 export function applyFullscreenHeight(host: HTMLElement | null | undefined): void {
   if (!host) return;
-  const isShortLandscape = window.matchMedia('(orientation: landscape)').matches && window.innerHeight < 500;
-  const h = isShortLandscape
-    ? Math.max(240, Math.floor(window.innerHeight))
-    : Math.max(560, Math.floor(window.innerHeight));
+  const vh = viewportHeight();
+  const isShortLandscape = window.matchMedia('(orientation: landscape)').matches && vh < 500;
+  const h = isShortLandscape ? Math.max(240, vh) : Math.max(560, vh);
   host.style.setProperty('--sp-runtime-height', `${h}px`);
   host.style.setProperty('--sp-runtime-min-height', `${h}px`);
 }
@@ -48,7 +67,7 @@ export function applyKioskExitHeight(host: HTMLElement | null | undefined): void
   if (!host) return;
   requestAnimationFrame(() => {
     const r = host.getBoundingClientRect();
-    const h = Math.max(560, Math.floor(window.innerHeight - r.top));
+    const h = Math.max(560, Math.floor(viewportHeight() - r.top));
     host.style.setProperty('--sp-runtime-height', `${h}px`);
     host.style.setProperty('--sp-runtime-min-height', `${h}px`);
   });

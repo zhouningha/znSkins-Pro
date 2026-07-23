@@ -24,6 +24,7 @@ export interface EditorTemplateData {
 export function renderEditorTemplate(data: EditorTemplateData): string {
   const c = data.config || {};
   const hs = c.home_selection || {};
+  const sp = c.scenes_page || {};
   const hl = c.home_limits || {};
   const loc = data.translate;
 
@@ -75,6 +76,13 @@ export function renderEditorTemplate(data: EditorTemplateData): string {
               </select>
             </label>` : ''}
           </div>
+        </div>
+      </div>
+
+      <div class="sp-row">
+        <div class="sp-card">
+          <h3>${loc('editorScenesPage')}</h3>
+          ${listPicker(loc('scenes'), 'scenes_page.selection', sp.selection || [], ['scene', 'script'])}
         </div>
       </div>
 

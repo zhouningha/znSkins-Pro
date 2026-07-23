@@ -1,12 +1,61 @@
 /**
  * Shared chrome — LAYOUT LOCK + token-colored widgets.
  *
- * Loaded BEFORE skin theme.css.
- * Animal Crossing defines size/position/fill; skins only change visual tokens
- * (--sp-accent, --sp-glass-bg, backgrounds, icons). Themes must not invent
- * alternate layout rules for monitor / lock / playlist.
+ * Injected AFTER skin theme.css (see skins-pro-card.ts) with !important so
+ * skins cannot invent alternate size/position/fill. Skins only change visual
+ * tokens (--sp-accent, --sp-glass-bg, backgrounds, icons).
  */
 export const SHARED_CHROME_CSS = `
+/* ========== LAYOUT LOCK: kiosk / Android edge-to-edge ==========
+   Tablet kiosk must fill the real viewport — no --sp-app-padding frame.
+   Verified cause of the wood/blank border: .mc-app padding (16px AC default). */
+:host([data-kiosk-fullscreen]),
+:host([data-android-kiosk="true"]),
+:host([data-sp-kiosk]) {
+  --sp-app-padding: 0px !important;
+  --sp-stage-radius: 0px !important;
+}
+:host([data-kiosk-fullscreen]) .mc-app,
+:host([data-android-kiosk="true"]) .mc-app,
+:host([data-sp-kiosk]) .mc-app {
+  padding: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+:host([data-kiosk-fullscreen]) .sidebar,
+:host([data-android-kiosk="true"]) .sidebar,
+:host([data-sp-kiosk]) .sidebar,
+:host([data-kiosk-fullscreen]) .stage,
+:host([data-android-kiosk="true"]) .stage,
+:host([data-sp-kiosk]) .stage {
+  border-radius: 0 !important;
+}
+:host([data-kiosk-fullscreen]),
+:host([data-android-kiosk="true"]),
+:host([data-sp-kiosk]) {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  height: var(--sp-runtime-height, 100vh) !important;
+  min-height: var(--sp-runtime-min-height, 100vh) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+:host([data-kiosk-fullscreen]) ha-card,
+:host([data-android-kiosk="true"]) ha-card,
+:host([data-sp-kiosk]) ha-card {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+  height: 100% !important;
+}
+
 /* ========== LAYOUT LOCK: media playlist ========== */
 .media-playlist {
   display: flex !important;
@@ -524,6 +573,14 @@ export const SHARED_CHROME_CSS = `
 .filter-bar .action-btn.active {
   outline: 2px solid var(--sp-accent, #c4a574);
   outline-offset: 1px;
+}
+.scene-area-section {
+  display: grid;
+  gap: var(--sp-space-sm, 10px);
+  margin-bottom: var(--sp-space-lg, 18px);
+}
+.scene-area-section .section-title {
+  margin-bottom: 0;
 }
 
 /* Themed device-card selects — follow current skin tokens (not OS grey popup) */

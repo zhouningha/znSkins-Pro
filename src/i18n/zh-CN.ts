@@ -162,6 +162,7 @@ const zh: Record<TranslationKey, string> = {
   editorHomeDevices: '首页设备',
   editorHomeRooms: '首页房间',
   editorHomeScenes: '首页场景',
+  editorScenesPage: '大屏场景',
   editorHomeEnv: '首页环境',
   editorInfo: '信息展示',
   editorFullscreen: '全屏',

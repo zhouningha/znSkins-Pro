@@ -199,6 +199,11 @@ export interface DevicesPageConfig {
   hidden?: string[];
 }
 
+export interface ScenesPageConfig {
+  /** Scene/script entity IDs shown on the scenes page, grouped by HA floor/area. */
+  selection?: string[];
+}
+
 export interface HomeLimitsConfig {
   devices?: number;
   rooms?: number;
@@ -248,6 +253,7 @@ export interface DashboardConfig {
   camera?: CameraConfig;
   security_page?: SecurityPageConfig;
   devices_page?: DevicesPageConfig;
+  scenes_page?: ScenesPageConfig;
   home_limits?: HomeLimitsConfig;
   home_selection?: HomeSelectionConfig;
 }
@@ -428,6 +434,7 @@ export type TranslationKey =
   | 'editorHomeDevices'
   | 'editorHomeRooms'
   | 'editorHomeScenes'
+  | 'editorScenesPage'
   | 'editorHomeEnv'
   | 'editorInfo'
   | 'editorFullscreen'

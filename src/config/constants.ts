@@ -112,6 +112,9 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   devices_page: {
     hidden: [],
   },
+  scenes_page: {
+    selection: [],
+  },
   home_limits: {
     devices: 5,
     rooms: 4,

@@ -27,7 +27,6 @@ const HOST_TOKEN_KEYS = [
   '--glass-regular',
   '--glass-thick',
   '--glass-thin',
-  /* optional lock-specific overrides skins may set */
   '--sp-lock-scrim',
   '--sp-lock-card-bg',
   '--sp-lock-card-border',
@@ -44,10 +43,6 @@ const HOST_TOKEN_KEYS = [
   '--sp-lock-unlock-fg',
 ] as const;
 
-/**
- * Single lock-dialog stylesheet — structure fixed; colors from host tokens.
- * Mounted on document.body (outside shadow theme.css), so tokens are copied in.
- */
 const LOCK_DIALOG_STYLE = `
 #${LOCK_DIALOG_ID} {
   position: fixed; inset: 0; z-index: 100000;
@@ -129,6 +124,23 @@ const LOCK_DIALOG_STYLE = `
 #${LOCK_DIALOG_ID} .lock-dialog-unlock:disabled { opacity: 0.55; cursor: not-allowed; }
 `;
 
+export type LockDialogOptions = {
+  /** Countdown seconds (default 5). */
+  autoCloseSec?: number;
+  /** Override title (default entity friendly name). */
+  title?: string;
+  /** Cancel button label (default 取消). */
+  cancelLabel?: string;
+  /** Custom unlock action (default lock.unlock). */
+  onUnlock?: () => Promise<void>;
+  /** Called when user taps cancel / scrim. */
+  onCancel?: () => void | Promise<void>;
+  /** Called when countdown hits 0 (before close). */
+  onTimeout?: () => void | Promise<void>;
+  /** If true, tapping scrim does nothing (doorbell). */
+  preventScrimClose?: boolean;
+};
+
 function entityTitle(hass: HomeAssistant, entityId: string): string {
   const state = hass.states?.[entityId];
   return String(state?.attributes?.friendly_name || entityId);
@@ -152,8 +164,16 @@ export function copyHostThemeTokens(host: HTMLElement | null | undefined, target
   }
 }
 
+export function isLockDialogOpen(): boolean {
+  return Boolean(document.getElementById(LOCK_DIALOG_ID));
+}
+
+export function closeLockDialog(): void {
+  document.getElementById(LOCK_DIALOG_ID)?.remove();
+}
+
 /**
- * Unlock dialog — same logic for every skin.
+ * Unlock dialog — same chrome for manual lock + doorbell.
  * Visuals follow host CSS variables (copied from active theme).
  */
 export function openLockDialog(
@@ -162,24 +182,39 @@ export function openLockDialog(
   entityId: string,
   language: Language,
   skin = 'modern',
+  options: LockDialogOptions = {},
 ): void {
   document.getElementById(LOCK_DIALOG_ID)?.remove();
 
-  let remainingMs = AUTO_CLOSE_SEC * 1000;
+  const autoCloseSec = Math.max(1, options.autoCloseSec ?? AUTO_CLOSE_SEC);
+  let remainingMs = autoCloseSec * 1000;
   let timer: number | undefined;
   let unlocking = false;
   let lastPaintKey = '';
+  let closed = false;
   const started = performance.now();
 
   const container = document.createElement('div');
   container.id = LOCK_DIALOG_ID;
   container.dataset.skin = skin;
-  container.dataset.lockDialogBuild = 'token-202607201553';
+  container.dataset.lockDialogBuild = 'doorbell-reuse-202607231726';
   copyHostThemeTokens(host, container);
 
   const close = () => {
+    if (closed) return;
+    closed = true;
     if (timer) window.clearInterval(timer);
     container.remove();
+  };
+
+  const cancel = async () => {
+    try {
+      await options.onCancel?.();
+    } catch (error) {
+      console.warn('[Skins Pro] lock dialog cancel failed', error);
+    } finally {
+      close();
+    }
   };
 
   const unlock = async () => {
@@ -187,31 +222,45 @@ export function openLockDialog(
     unlocking = true;
     paint(true);
     try {
-      await hass.callService('lock', 'unlock', { entity_id: entityId });
+      if (options.onUnlock) {
+        await options.onUnlock();
+      } else {
+        await hass.callService('lock', 'unlock', { entity_id: entityId });
+      }
     } catch (error) {
       console.warn('[Skins Pro] lock.unlock failed', error);
     } finally {
       unlocking = false;
       paint(true);
+      // Doorbell / custom unlock: close after action so state can clear.
+      if (options.onUnlock) close();
     }
+  };
+
+  const onScrim = () => {
+    if (options.preventScrimClose) return;
+    void cancel();
   };
 
   const paint = (force = false) => {
     const stateObj = hass.states?.[entityId];
     const state = stateObj?.state || 'unavailable';
-    const pct = Math.max(0, Math.min(100, (remainingMs / (AUTO_CLOSE_SEC * 1000)) * 100));
+    const pct = Math.max(0, Math.min(100, (remainingMs / (autoCloseSec * 1000)) * 100));
     const secs = Math.max(1, Math.ceil(remainingMs / 1000));
     const key = `${state}|${secs}|${Math.round(pct)}|${unlocking ? 1 : 0}`;
     if (!force && key === lastPaintKey) return;
     lastPaintKey = key;
 
+    const title = options.title || entityTitle(hass, entityId);
+    const cancelLabel = options.cancelLabel || t(language, 'editorCancel');
+
     render(html`
       <style>${LOCK_DIALOG_STYLE}</style>
-      <div class="lock-dialog-scrim" @click=${close}>
+      <div class="lock-dialog-scrim" @click=${onScrim}>
         <div class="lock-dialog-card" @click=${(e: Event) => e.stopPropagation()}>
           <div class="lock-dialog-titles">
             <p class="lock-dialog-sub">${t(language, 'security')}</p>
-            <h2>${entityTitle(hass, entityId)}</h2>
+            <h2>${title}</h2>
           </div>
 
           <div class="lock-dialog-status">
@@ -225,8 +274,8 @@ export function openLockDialog(
           <p class="lock-dialog-hint">${t(language, 'lockAutoClose', { n: secs })}</p>
 
           <div class="lock-dialog-actions">
-            <button type="button" class="lock-dialog-cancel" @click=${close}>
-              ${t(language, 'editorCancel')}
+            <button type="button" class="lock-dialog-cancel" @click=${() => { void cancel(); }}>
+              ${cancelLabel}
             </button>
             <button
               type="button"
@@ -246,9 +295,17 @@ export function openLockDialog(
   paint(true);
 
   timer = window.setInterval(() => {
-    remainingMs = Math.max(0, AUTO_CLOSE_SEC * 1000 - (performance.now() - started));
+    remainingMs = Math.max(0, autoCloseSec * 1000 - (performance.now() - started));
     if (remainingMs <= 0) {
-      close();
+      void (async () => {
+        try {
+          await options.onTimeout?.();
+        } catch (error) {
+          console.warn('[Skins Pro] lock dialog timeout failed', error);
+        } finally {
+          close();
+        }
+      })();
       return;
     }
     paint();

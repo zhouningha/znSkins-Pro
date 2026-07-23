@@ -58,14 +58,7 @@ import {
 import { mergeConfig } from './config';
 import { fetchEnergyHistory, fetchEnergySources, enrichEnergySourcesWithMeters, loadWeatherForecast, loadAreas, loadDeviceRegistry, loadEntityRegistry, loadFloors, ensureKiosk, isAndroidKiosk, isKioskActive, toggleKiosk } from './ha';
 
-import { openLockDialog } from './components/lock-dialog';
-import {
-  closeDoorbellDialog,
-  DOORBELL_ACTIVE_ENTITY,
-  isDoorbellDialogOpen,
-  openDoorbellDialog,
-  updateDoorbellDialogHass,
-} from './components/doorbell-dialog';
+import { openLockDialog, isLockDialogOpen } from './components/lock-dialog';
 import type { RenderContext } from './render/context';
 import { applyFullscreenHeight, applyKioskExitHeight, applyLayoutHeight, applyThemeVariables } from './render/layout';
 import { getRealDevicesForRender } from './selectors/devices';
@@ -78,6 +71,13 @@ import { renderAutomationsView } from './views/automations';
 import { renderEnergyView } from './views/energy';
 import { renderSecurityView } from './views/security';
 import { SHARED_CHROME_CSS } from './styles/shared-chrome';
+
+/** HA package r20k_doorbell.yaml — reuse manual lock dialog on pending. */
+const DOORBELL_ACTIVE_ENTITY = 'input_boolean.r20k_doorbell_active';
+const DOORBELL_LOCK_ENTITY = 'lock.r20k_2c74_relaya';
+const DOORBELL_OPEN_SCRIPT = 'script.r20k_open_door';
+const DOORBELL_DISMISS_SCRIPT = 'script.r20k_doorbell_dismiss';
+const DOORBELL_DIALOG_SEC = 15;
 
 /** Fork LAYOUT LOCK (playlist/camera…) — AFTER skin theme.css so skins cannot invent alternate size/radius. */
 const SHARED_CHROME_STYLE = html`<style id="sp-shared-chrome">${SHARED_CHROME_CSS}</style>`;
@@ -217,6 +217,9 @@ export class SkinsProCard extends LitElement {
   private _autoFullscreenDone = false;
   private _autoFullscreenAttempts = 0;
   private _loadedSkinMetadata?: string;
+  /** Avoid reopening the same doorbell session after user closes / timeout. */
+  private _doorbellDialogHandled = false;
+  private _doorbellPollTimer?: number;
   private readonly _handleWindowResize = () => this._applyLayout();
 
   public get hass(): HomeAssistant | undefined {
@@ -230,26 +233,38 @@ export class SkinsProCard extends LitElement {
     this.requestUpdate('hass', old);
   }
 
-  /** Tablet overlay when R20K doorbell is pending — same chrome as lock-dialog. */
+  /** Doorbell → same lock dialog as manual「门禁开门」(not HA notification text). */
   private _syncDoorbellDialog(): void {
     if (!this._hass || !this._config) return;
     const active = this._hass.states?.[DOORBELL_ACTIVE_ENTITY]?.state === 'on';
-    if (active) {
-      if (isDoorbellDialogOpen()) {
-        updateDoorbellDialogHass(this._hass);
-        return;
-      }
-      const language = normalizeLanguage(
-        this._config.language === 'auto' ? this._hass.language : this._config.language,
-      );
-      try {
-        openDoorbellDialog(this, this._hass, language, selectedSkin(this._config));
-      } catch (error) {
-        console.warn('[Skins Pro] doorbell dialog open failed', error);
-      }
+    if (!active) {
+      this._doorbellDialogHandled = false;
       return;
     }
-    if (isDoorbellDialogOpen()) closeDoorbellDialog();
+    if (this._doorbellDialogHandled || isLockDialogOpen()) return;
+
+    const language = normalizeLanguage(
+      this._config.language === 'auto' ? this._hass.language : this._config.language,
+    );
+    const hass = this._hass;
+    this._doorbellDialogHandled = true;
+    try {
+      openLockDialog(this, hass, DOORBELL_LOCK_ENTITY, language, selectedSkin(this._config), {
+        autoCloseSec: DOORBELL_DIALOG_SEC,
+        preventScrimClose: true,
+        onUnlock: async () => {
+          await hass.callService('script', 'turn_on', { entity_id: DOORBELL_OPEN_SCRIPT });
+        },
+        onCancel: async () => {
+          await hass.callService('script', 'turn_on', { entity_id: DOORBELL_DISMISS_SCRIPT });
+        },
+        // Timeout: close UI only — HA still notifies phone after its own 15s timer.
+        onTimeout: () => undefined,
+      });
+    } catch (error) {
+      this._doorbellDialogHandled = false;
+      console.warn('[Skins Pro] doorbell lock dialog failed', error);
+    }
   }
 
   public connectedCallback(): void {
@@ -258,8 +273,9 @@ export class SkinsProCard extends LitElement {
     if (this._hass && this._config?.weather?.entity && this._weatherForecastEntity !== this._config.weather.entity) {
       void this.loadWeatherForecast();
     }
-    // Card may mount after doorbell already active — open then.
     this._syncDoorbellDialog();
+    if (this._doorbellPollTimer) window.clearInterval(this._doorbellPollTimer);
+    this._doorbellPollTimer = window.setInterval(() => this._syncDoorbellDialog(), 1500);
   }
 
   public disconnectedCallback(): void {
@@ -267,7 +283,10 @@ export class SkinsProCard extends LitElement {
     window.removeEventListener('resize', this._handleWindowResize);
     this.clearDeviceHideIdle();
     void this.unsubscribeWeatherForecast();
-    closeDoorbellDialog();
+    if (this._doorbellPollTimer) {
+      window.clearInterval(this._doorbellPollTimer);
+      this._doorbellPollTimer = undefined;
+    }
   }
 
   public setConfig(config: DashboardConfig): void {

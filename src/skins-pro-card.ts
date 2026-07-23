@@ -58,7 +58,7 @@ import {
 import { mergeConfig } from './config';
 import { fetchEnergyHistory, fetchEnergySources, enrichEnergySourcesWithMeters, loadWeatherForecast, loadAreas, loadDeviceRegistry, loadEntityRegistry, loadFloors, ensureKiosk, isAndroidKiosk, isKioskActive, toggleKiosk } from './ha';
 
-import { openLockDialog, isLockDialogOpen } from './components/lock-dialog';
+import { openLockDialog, isLockDialogOpen, DOORBELL_PREVIEW_STREAM } from './components/lock-dialog';
 import type { RenderContext } from './render/context';
 import { applyFullscreenHeight, applyKioskExitHeight, applyLayoutHeight, applyThemeVariables } from './render/layout';
 import { getRealDevicesForRender } from './selectors/devices';
@@ -251,7 +251,10 @@ export class SkinsProCard extends LitElement {
     try {
       openLockDialog(this, hass, DOORBELL_LOCK_ENTITY, language, selectedSkin(this._config), {
         autoCloseSec: DOORBELL_DIALOG_SEC,
+        title: language === 'zh-CN' ? '门口有人' : 'Someone at the door',
         preventScrimClose: true,
+        previewStream: DOORBELL_PREVIEW_STREAM,
+        playSound: true,
         onUnlock: async () => {
           await hass.callService('script', 'turn_on', { entity_id: DOORBELL_OPEN_SCRIPT });
         },

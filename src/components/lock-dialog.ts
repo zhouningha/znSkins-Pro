@@ -2,9 +2,12 @@ import { html, render } from 'lit';
 import type { HomeAssistant } from '../types';
 import type { Language } from '../i18n';
 import { t } from '../utils';
+import { monitoringGo2rtcUrl } from './camera-stream';
 
 const LOCK_DIALOG_ID = 'sp-lock-dialog';
 const AUTO_CLOSE_SEC = 5;
+/** Same go2rtc stream as security「门禁监控」— do not open a second Akuvox RTSP. */
+export const DOORBELL_PREVIEW_STREAM = 'akuvox_sub';
 
 /** CSS vars copied from skins-pro-card :host onto body-mounted dialog. */
 const HOST_TOKEN_KEYS = [
@@ -66,6 +69,9 @@ const LOCK_DIALOG_STYLE = `
   color: inherit;
   pointer-events: auto; touch-action: manipulation;
 }
+#${LOCK_DIALOG_ID}[data-has-preview="true"] .lock-dialog-card {
+  width: min(440px, 100%);
+}
 #${LOCK_DIALOG_ID} .lock-dialog-sub {
   margin: 0 0 4px; font-size: 12px; font-weight: 600;
   color: var(--sp-lock-sub, var(--sp-accent, inherit));
@@ -73,6 +79,21 @@ const LOCK_DIALOG_STYLE = `
 }
 #${LOCK_DIALOG_ID} .lock-dialog-titles h2 {
   margin: 0; font-size: 22px; font-weight: 800; color: inherit;
+}
+#${LOCK_DIALOG_ID} .lock-dialog-preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: calc(var(--sp-radius-lg, 22px) - 6px);
+  overflow: hidden;
+  background: #050608;
+  border: 1px solid var(--sp-border-glass, rgba(0,0,0,.12));
+}
+#${LOCK_DIALOG_ID} .lock-dialog-preview img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: center;
+  display: block; background: #050608;
 }
 #${LOCK_DIALOG_ID} .lock-dialog-status {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -139,6 +160,10 @@ export type LockDialogOptions = {
   onTimeout?: () => void | Promise<void>;
   /** If true, tapping scrim does nothing (doorbell). */
   preventScrimClose?: boolean;
+  /** go2rtc stream name for live preview (e.g. akuvox_sub). */
+  previewStream?: string;
+  /** Play repeating doorbell chime while open. */
+  playSound?: boolean;
 };
 
 function entityTitle(hass: HomeAssistant, entityId: string): string {
@@ -152,6 +177,72 @@ function stateHeading(state: string, language: Language): string {
   if (state === 'open' || state === 'opening') return language === 'zh-CN' ? '已打开' : 'Open';
   if (state === 'unavailable' || state === 'unknown') return language === 'zh-CN' ? '离线' : 'Offline';
   return state;
+}
+
+function previewUrl(stream: string): string {
+  return `${monitoringGo2rtcUrl().replace(/\/$/, '')}/api/stream.mjpeg?src=${encodeURIComponent(stream)}`;
+}
+
+/** Short two-tone chime; repeats until stop(). Works without local mp3 assets. */
+function startDoorbellChime(): { stop: () => void } {
+  const AudioCtx = window.AudioContext
+    || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioCtx) return { stop: () => undefined };
+
+  let stopped = false;
+  let ctx: AudioContext | undefined;
+  let intervalId: number | undefined;
+
+  const ding = () => {
+    if (stopped || !ctx) return;
+    const now = ctx.currentTime;
+    const gain = ctx.createGain();
+    gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.22, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+
+    const o1 = ctx.createOscillator();
+    o1.type = 'sine';
+    o1.frequency.setValueAtTime(880, now);
+    o1.connect(gain);
+    o1.start(now);
+    o1.stop(now + 0.22);
+
+    const o2 = ctx.createOscillator();
+    o2.type = 'sine';
+    o2.frequency.setValueAtTime(1174.7, now + 0.18);
+    o2.connect(gain);
+    o2.start(now + 0.18);
+    o2.stop(now + 0.5);
+  };
+
+  try {
+    ctx = new AudioCtx();
+    void ctx.resume().then(() => {
+      if (stopped) return;
+      ding();
+      intervalId = window.setInterval(ding, 2200);
+    });
+    try {
+      navigator.vibrate?.([120, 80, 120]);
+    } catch {
+      /* ignore */
+    }
+  } catch (error) {
+    console.warn('[Skins Pro] doorbell chime failed', error);
+  }
+
+  return {
+    stop: () => {
+      stopped = true;
+      if (intervalId) window.clearInterval(intervalId);
+      if (ctx) {
+        void ctx.close().catch(() => undefined);
+        ctx = undefined;
+      }
+    },
+  };
 }
 
 /** Copy theme tokens from card host onto the body-mounted dialog. */
@@ -169,7 +260,9 @@ export function isLockDialogOpen(): boolean {
 }
 
 export function closeLockDialog(): void {
-  document.getElementById(LOCK_DIALOG_ID)?.remove();
+  const el = document.getElementById(LOCK_DIALOG_ID);
+  el?.querySelectorAll('img').forEach((img) => img.removeAttribute('src'));
+  el?.remove();
 }
 
 /**
@@ -184,26 +277,31 @@ export function openLockDialog(
   skin = 'modern',
   options: LockDialogOptions = {},
 ): void {
-  document.getElementById(LOCK_DIALOG_ID)?.remove();
+  closeLockDialog();
 
   const autoCloseSec = Math.max(1, options.autoCloseSec ?? AUTO_CLOSE_SEC);
+  const previewStream = options.previewStream?.trim() || '';
   let remainingMs = autoCloseSec * 1000;
   let timer: number | undefined;
   let unlocking = false;
   let lastPaintKey = '';
   let closed = false;
   const started = performance.now();
+  const chime = options.playSound ? startDoorbellChime() : { stop: () => undefined };
 
   const container = document.createElement('div');
   container.id = LOCK_DIALOG_ID;
   container.dataset.skin = skin;
-  container.dataset.lockDialogBuild = 'doorbell-reuse-202607231726';
+  container.dataset.hasPreview = previewStream ? 'true' : 'false';
+  container.dataset.lockDialogBuild = 'doorbell-preview-sound-202607231735';
   copyHostThemeTokens(host, container);
 
   const close = () => {
     if (closed) return;
     closed = true;
     if (timer) window.clearInterval(timer);
+    chime.stop();
+    container.querySelectorAll('img').forEach((img) => img.removeAttribute('src'));
     container.remove();
   };
 
@@ -232,7 +330,6 @@ export function openLockDialog(
     } finally {
       unlocking = false;
       paint(true);
-      // Doorbell / custom unlock: close after action so state can clear.
       if (options.onUnlock) close();
     }
   };
@@ -247,7 +344,7 @@ export function openLockDialog(
     const state = stateObj?.state || 'unavailable';
     const pct = Math.max(0, Math.min(100, (remainingMs / (autoCloseSec * 1000)) * 100));
     const secs = Math.max(1, Math.ceil(remainingMs / 1000));
-    const key = `${state}|${secs}|${Math.round(pct)}|${unlocking ? 1 : 0}`;
+    const key = `${state}|${secs}|${Math.round(pct)}|${unlocking ? 1 : 0}|${previewStream}`;
     if (!force && key === lastPaintKey) return;
     lastPaintKey = key;
 
@@ -262,6 +359,14 @@ export function openLockDialog(
             <p class="lock-dialog-sub">${t(language, 'security')}</p>
             <h2>${title}</h2>
           </div>
+
+          ${previewStream
+            ? html`
+              <div class="lock-dialog-preview" aria-label=${t(language, 'doorbellPreview')}>
+                <img src=${previewUrl(previewStream)} alt="" decoding="async" />
+              </div>
+            `
+            : ''}
 
           <div class="lock-dialog-status">
             <p class="lock-dialog-state">${stateHeading(state, language)}</p>

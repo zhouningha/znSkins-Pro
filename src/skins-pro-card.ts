@@ -58,7 +58,7 @@ import {
 import { mergeConfig } from './config';
 import { fetchEnergyHistory, fetchEnergySources, enrichEnergySourcesWithMeters, loadWeatherForecast, loadAreas, loadDeviceRegistry, loadEntityRegistry, loadFloors, ensureKiosk, isAndroidKiosk, isKioskActive, toggleKiosk } from './ha';
 
-import { openLockDialog, isLockDialogOpen, DOORBELL_PREVIEW_STREAM } from './components/lock-dialog';
+import { openLockDialog, closeLockDialog, isLockDialogOpen, DOORBELL_PREVIEW_STREAM } from './components/lock-dialog';
 import type { RenderContext } from './render/context';
 import { applyFullscreenHeight, applyKioskExitHeight, applyLayoutHeight, applyThemeVariables } from './render/layout';
 import { getRealDevicesForRender } from './selectors/devices';
@@ -219,6 +219,8 @@ export class SkinsProCard extends LitElement {
   private _loadedSkinMetadata?: string;
   /** Avoid reopening the same doorbell session after user closes / timeout. */
   private _doorbellDialogHandled = false;
+  /** `input_datetime.r20k_last_doorbell` value for the session we already showed. */
+  private _doorbellSessionKey = '';
   private _doorbellPollTimer?: number;
   private readonly _handleWindowResize = () => this._applyLayout();
 
@@ -237,10 +239,24 @@ export class SkinsProCard extends LitElement {
   private _syncDoorbellDialog(): void {
     if (!this._hass || !this._config) return;
     const active = this._hass.states?.[DOORBELL_ACTIVE_ENTITY]?.state === 'on';
+    const lastDoorbell = String(this._hass.states?.['input_datetime.r20k_last_doorbell']?.state || '');
+    const timerOn = this._hass.states?.['timer.r20k_doorbell_wait']?.state === 'active';
+    const sessionKey = lastDoorbell || (active ? 'active' : '');
+
     if (!active) {
       this._doorbellDialogHandled = false;
+      if (!timerOn) this._doorbellSessionKey = '';
       return;
     }
+
+    // New doorbell event (timestamp changed) → force a fresh dialog even if
+    // the previous session left `_doorbellDialogHandled` stuck true.
+    if (sessionKey && sessionKey !== this._doorbellSessionKey) {
+      this._doorbellSessionKey = sessionKey;
+      this._doorbellDialogHandled = false;
+      if (isLockDialogOpen()) closeLockDialog();
+    }
+
     if (this._doorbellDialogHandled || isLockDialogOpen()) return;
 
     const language = normalizeLanguage(
@@ -248,10 +264,11 @@ export class SkinsProCard extends LitElement {
     );
     const hass = this._hass;
     this._doorbellDialogHandled = true;
+    console.info('[Skins Pro] doorbell dialog open', { sessionKey, timerOn });
     try {
       openLockDialog(this, hass, DOORBELL_LOCK_ENTITY, language, selectedSkin(this._config), {
         autoCloseSec: DOORBELL_DIALOG_SEC,
-        title: language === 'zh-CN' ? '门口有人' : 'Someone at the door',
+        title: t(language, 'doorbellTitle'),
         preventScrimClose: true,
         previewStream: DOORBELL_PREVIEW_STREAM,
         playSound: true,

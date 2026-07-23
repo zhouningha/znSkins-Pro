@@ -59,6 +59,13 @@ import { mergeConfig } from './config';
 import { fetchEnergyHistory, fetchEnergySources, enrichEnergySourcesWithMeters, loadWeatherForecast, loadAreas, loadDeviceRegistry, loadEntityRegistry, loadFloors, ensureKiosk, isAndroidKiosk, isKioskActive, toggleKiosk } from './ha';
 
 import { openLockDialog } from './components/lock-dialog';
+import {
+  closeDoorbellDialog,
+  DOORBELL_ACTIVE_ENTITY,
+  isDoorbellDialogOpen,
+  openDoorbellDialog,
+  updateDoorbellDialogHass,
+} from './components/doorbell-dialog';
 import type { RenderContext } from './render/context';
 import { applyFullscreenHeight, applyKioskExitHeight, applyLayoutHeight, applyThemeVariables } from './render/layout';
 import { getRealDevicesForRender } from './selectors/devices';
@@ -219,7 +226,26 @@ export class SkinsProCard extends LitElement {
   public set hass(value: HomeAssistant | undefined) {
     const old = this._hass;
     this._hass = value;
+    this._syncDoorbellDialog();
     this.requestUpdate('hass', old);
+  }
+
+  /** Tablet overlay when R20K doorbell is pending — same chrome as lock-dialog. */
+  private _syncDoorbellDialog(): void {
+    if (!this._hass || !this._config) return;
+    const active = this._hass.states?.[DOORBELL_ACTIVE_ENTITY]?.state === 'on';
+    if (active) {
+      if (isDoorbellDialogOpen()) {
+        updateDoorbellDialogHass(this._hass);
+        return;
+      }
+      const language = normalizeLanguage(
+        this._config.language === 'auto' ? this._hass.language : this._config.language,
+      );
+      openDoorbellDialog(this, this._hass, language, selectedSkin(this._config));
+      return;
+    }
+    if (isDoorbellDialogOpen()) closeDoorbellDialog();
   }
 
   public connectedCallback(): void {
@@ -235,6 +261,7 @@ export class SkinsProCard extends LitElement {
     window.removeEventListener('resize', this._handleWindowResize);
     this.clearDeviceHideIdle();
     void this.unsubscribeWeatherForecast();
+    closeDoorbellDialog();
   }
 
   public setConfig(config: DashboardConfig): void {

@@ -123,4 +123,5 @@
 - 2026-07-18 / 2026-07-19：安防页「编辑隐藏」：非全屏时显示；编辑中点卡片只改草稿（localStorage），点「完成」才写入 Lovelace strategy `security_page.hidden`；无自动退出、不在每次点击时 save（避免 remount 关编辑）；解析优先级 draft > localStorage > HA，禁止 union；全屏 / kiosk 不显示该按钮。实现见 `src/utils/security-hidden.ts`。
 - 2026-07-19：安防页门禁点击打开主题一致开锁卡片（非 HA more-info 滑块）；5 秒倒计时自动关闭；点「开门」调用 `lock.unlock`。
 - 2026-07-20：开门弹层挂 `document.body`，必须从 skins-pro host **复制 `--sp-*` / `--glass-*`** 并用 CSS 变量着色；禁止写死动物森友会绿/奶油色，否则切战神后弹层不继承主题。
+- 2026-07-23：**门铃弹窗（平板）v1：** `input_boolean.r20k_doorbell_active` 为 on 时，Skins Pro 弹出与开锁同款 token 弹层；预览只用 go2rtc `akuvox_sub`（MJPEG）；「开门」→ `script.r20k_open_door`，「忽略」→ `script.r20k_doorbell_dismiss`；倒计时对齐 `timer.r20k_doorbell_wait`（到点提示已推手机，弹层不自动关，直到开门/忽略或 active 关）。对讲未做。手机 15s 超时通知仍由 HA `r20k_doorbell.yaml` 负责。
 - 2026-07-19：摄像头预览铺满：`hui-image` 传 `fitMode=cover` + `aspectRatio`（安防卡 `16:10`），并用 `sp-camera-preview` 向嵌套 player shadow DOM 注入 `object-fit:cover`（主题 CSS 穿不透 shadow）。

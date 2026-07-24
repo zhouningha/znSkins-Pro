@@ -141,17 +141,53 @@ export function renderLiveCameraPreview(
 
 /** Same go2rtc base URL as dashboard-n/monitoring. */
 export function monitoringGo2rtcUrl(): string {
-  const host = typeof window !== 'undefined' && window.location?.hostname
-    ? window.location.hostname
-    : '192.168.1.17';
+  const loc = typeof window !== 'undefined' ? window.location : undefined;
+  const host = loc?.hostname || '192.168.1.17';
+  // External hostname cannot expose :1984; prefer LAN go2rtc on the wire.
+  // (HTTPS pages still need same-origin ingress — see resolveGo2rtcBaseForPreview.)
+  if (/homekitzhou|nabu\.casa|ui\.nabu/i.test(host)) {
+    return 'http://192.168.1.17:1984';
+  }
   return `http://${host}:1984`;
+}
+
+/**
+ * Prefer same-origin go2rtc ingress on HTTPS (avoids mixed-content block on :1984).
+ * Falls back to monitoringGo2rtcUrl() on LAN http / if supervisor API unavailable.
+ */
+export async function resolveGo2rtcBaseForPreview(hass?: HomeAssistant): Promise<string> {
+  const loc = typeof window !== 'undefined' ? window.location : undefined;
+  if (loc?.protocol === 'https:' && hass?.connection?.sendMessagePromise) {
+    try {
+      const cached = sessionStorage.getItem('sp-go2rtc-ingress');
+      if (cached) return cached;
+      const info = await hass.connection.sendMessagePromise<{ ingress_entry?: string; data?: { ingress_entry?: string } }>({
+        type: 'supervisor/api',
+        endpoint: '/addons/core_go2rtc/info',
+        method: 'get',
+      });
+      const entry = info?.ingress_entry || info?.data?.ingress_entry;
+      if (entry) {
+        const base = `${loc.origin}${entry}`.replace(/\/$/, '');
+        sessionStorage.setItem('sp-go2rtc-ingress', base);
+        return base;
+      }
+    } catch {
+      /* supervisor API may be denied for non-admin */
+    }
+  }
+  return monitoringGo2rtcUrl();
 }
 
 type Go2rtcVideoRtc = HTMLElement & {
   mode?: string;
+  media?: string;
+  background?: boolean;
+  visibilityCheck?: boolean;
   src?: string | URL;
   video?: HTMLVideoElement;
   oninit?: () => void;
+  play?: () => void;
 };
 
 let videoRtcLoad: Promise<void> | null = null;
@@ -175,12 +211,20 @@ function ensureGo2rtcVideoTag(baseUrl: string): Promise<void> {
               if (video) {
                 video.controls = false;
                 video.muted = true;
+                video.autoplay = true;
                 video.playsInline = true;
+                video.setAttribute('playsinline', '');
+                video.setAttribute('webkit-playsinline', '');
+                video.disablePictureInPicture = true;
+                // Hide native big-play / control chrome (Android WebView often shows a play glyph).
+                video.style.setProperty('pointer-events', 'none');
+                video.controlsList?.add?.('nodownload');
                 video.style.width = '100%';
                 video.style.height = '100%';
                 video.style.objectFit = 'cover';
                 video.style.display = 'block';
                 video.style.background = '#111';
+                void video.play().catch(() => undefined);
               }
             }
           }
@@ -295,6 +339,9 @@ export class SpGo2rtcLivePreview extends LitElement {
         el.className = 'sp-go2rtc-live';
         el.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;background:#111;';
         el.mode = 'webrtc,mse,mjpeg';
+        el.media = 'video'; // video-only — avoids waiting on audio / play-button UX
+        el.background = true;
+        el.visibilityCheck = false;
         slot.replaceChildren(el);
       }
       this._player = el;
@@ -306,8 +353,13 @@ export class SpGo2rtcLivePreview extends LitElement {
       if (video) {
         video.controls = false;
         video.muted = true;
+        video.autoplay = true;
+        video.playsInline = true;
         video.style.objectFit = 'cover';
+        video.style.pointerEvents = 'none';
+        void video.play().catch(() => undefined);
       }
+      el.play?.();
     } catch {
       if (token === this._mountToken) this._useImgFallback('mjpeg');
     }

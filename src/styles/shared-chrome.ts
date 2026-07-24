@@ -341,6 +341,16 @@ export const SHARED_CHROME_CSS = `
   transition: width 0.12s ease-out;
 }
 
+/* Light brightness / color_temp — follow skin --sp-accent (GoW gold, not HA primary blue). */
+ha-control-slider {
+  --control-slider-color: var(--sp-accent, var(--sp-accent-green, #7BC67E)) !important;
+  --control-slider-background: var(--sp-device-bg, rgba(128,128,128,.22)) !important;
+  --control-slider-background-opacity: 1 !important;
+  --control-slider-border-radius: var(--sp-radius-pill, var(--sp-radius-infinite, 999px)) !important;
+  border-radius: var(--sp-radius-pill, var(--sp-radius-infinite, 999px)) !important;
+  overflow: hidden !important;
+}
+
 /* Security card chrome — colors from tokens; structure/radius fixed (AC) */
 .mc-app[data-view="security"] .camera-card {
   background: var(--sp-glass-bg, var(--glass-regular, rgba(255,248,230,.62))) !important;

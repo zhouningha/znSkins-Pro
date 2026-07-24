@@ -2,7 +2,7 @@ import { html, render } from 'lit';
 import type { HomeAssistant } from '../types';
 import type { Language } from '../i18n';
 import { t } from '../utils';
-import { monitoringGo2rtcUrl } from './camera-stream';
+import { resolveGo2rtcBaseForPreview } from './camera-stream';
 
 const LOCK_DIALOG_ID = 'sp-lock-dialog';
 const AUTO_CLOSE_SEC = 5;
@@ -89,11 +89,32 @@ const LOCK_DIALOG_STYLE = `
   background: #050608;
   border: 1px solid var(--sp-border-glass, rgba(0,0,0,.12));
 }
-#${LOCK_DIALOG_ID} .lock-dialog-preview img {
+#${LOCK_DIALOG_ID} .lock-dialog-preview sp-go2rtc-live-preview,
+#${LOCK_DIALOG_ID} .lock-dialog-preview sp-go2rtc-video,
+#${LOCK_DIALOG_ID} .lock-dialog-preview .sp-go2rtc-slot,
+#${LOCK_DIALOG_ID} .lock-dialog-preview .sp-go2rtc-live,
+#${LOCK_DIALOG_ID} .lock-dialog-preview .sp-go2rtc-mjpeg,
+#${LOCK_DIALOG_ID} .lock-dialog-preview img,
+#${LOCK_DIALOG_ID} .lock-dialog-preview video {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
-  object-fit: cover; object-position: center;
   display: block; background: #050608;
+  object-fit: cover; object-position: center;
+  pointer-events: none;
+}
+/* Kill native big-play glyph on WebView / Chromium video elements. */
+#${LOCK_DIALOG_ID} .lock-dialog-preview video::-webkit-media-controls {
+  display: none !important;
+}
+#${LOCK_DIALOG_ID} .lock-dialog-preview video::-webkit-media-controls-start-playback-button {
+  display: none !important;
+  -webkit-appearance: none;
+}
+#${LOCK_DIALOG_ID} .lock-dialog-preview video::-webkit-media-controls-overlay-play-button {
+  display: none !important;
+  -webkit-appearance: none;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 #${LOCK_DIALOG_ID} .lock-dialog-status {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -162,9 +183,23 @@ export type LockDialogOptions = {
   preventScrimClose?: boolean;
   /** go2rtc stream name for live preview (e.g. akuvox_sub). */
   previewStream?: string;
+/** Prefer continuous MJPEG for doorbell dialog (no play glyph). WebRTC still available via live preview. */
+  previewMode?: 'mjpeg' | 'live';
   /** Play repeating doorbell chime while open. */
   playSound?: boolean;
+  /**
+   * Custom doorbell audio URL (mp3/wav/ogg under HA `/local/...`).
+   * Default: `/local/doorbell.mp3`. Falls back to WebAudio ding-dong if load fails.
+   */
+  soundUrl?: string;
+  /** Use doorbell countdown copy (phone notify) instead of plain auto-close. */
+  doorbellHints?: boolean;
+  /** Extra work when dialog opens (e.g. HA TTS chime). */
+  onOpen?: () => void | Promise<void>;
 };
+
+/** Drop your file at `/config/www/doorbell.mp3` → served as this URL. */
+export const DEFAULT_DOORBELL_SOUND_URL = '/local/doorbell.mp3';
 
 function entityTitle(hass: HomeAssistant, entityId: string): string {
   const state = hass.states?.[entityId];
@@ -179,70 +214,171 @@ function stateHeading(state: string, language: Language): string {
   return state;
 }
 
-function previewUrl(stream: string): string {
-  return `${monitoringGo2rtcUrl().replace(/\/$/, '')}/api/stream.mjpeg?src=${encodeURIComponent(stream)}`;
+/** Shared AudioContext — resume on first user gesture so kiosk chime can play later. */
+let sharedAudioCtx: AudioContext | undefined;
+
+export function unlockDoorbellAudio(): void {
+  const AudioCtx = window.AudioContext
+    || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioCtx) return;
+  try {
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+      sharedAudioCtx = new AudioCtx();
+    }
+    void sharedAudioCtx.resume();
+  } catch {
+    /* ignore */
+  }
 }
 
-/** Short two-tone chime; repeats until stop(). Works without local mp3 assets. */
-function startDoorbellChime(): { stop: () => void } {
+function previewMjpegUrl(base: string, stream: string): string {
+  return `${base.replace(/\/$/, '')}/api/stream.mjpeg?src=${encodeURIComponent(stream)}`;
+}
+
+type ChimeHandle = { stop: () => void };
+
+/** WebAudio ding-dong fallback when custom file is missing / blocked. */
+function startSynthDoorbellChime(): ChimeHandle {
+  unlockDoorbellAudio();
   const AudioCtx = window.AudioContext
     || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioCtx) return { stop: () => undefined };
 
   let stopped = false;
-  let ctx: AudioContext | undefined;
+  let ctx = sharedAudioCtx;
   let intervalId: number | undefined;
+  let master: GainNode | undefined;
 
   const ding = () => {
-    if (stopped || !ctx) return;
+    if (stopped || !ctx || ctx.state === 'closed' || !master) return;
     const now = ctx.currentTime;
-    const gain = ctx.createGain();
-    gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.22, now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
-
-    const o1 = ctx.createOscillator();
-    o1.type = 'sine';
-    o1.frequency.setValueAtTime(880, now);
-    o1.connect(gain);
-    o1.start(now);
-    o1.stop(now + 0.22);
-
-    const o2 = ctx.createOscillator();
-    o2.type = 'sine';
-    o2.frequency.setValueAtTime(1174.7, now + 0.18);
-    o2.connect(gain);
-    o2.start(now + 0.18);
-    o2.stop(now + 0.5);
+    const hit = (freq: number, startAt: number, dur: number, peak: number) => {
+      const osc = ctx!.createOscillator();
+      const g = ctx!.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, startAt);
+      g.gain.setValueAtTime(0.0001, startAt);
+      g.gain.exponentialRampToValueAtTime(peak, startAt + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, startAt + dur);
+      osc.connect(g);
+      g.connect(master!);
+      osc.start(startAt);
+      osc.stop(startAt + dur + 0.02);
+    };
+    hit(1046.5, now, 0.45, 0.95);
+    hit(784.0, now + 0.22, 0.55, 0.9);
   };
 
   try {
-    ctx = new AudioCtx();
-    void ctx.resume().then(() => {
+    if (!ctx || ctx.state === 'closed') {
+      ctx = new AudioCtx();
+      sharedAudioCtx = ctx;
+    }
+    master = ctx.createGain();
+    master.gain.value = 1;
+    master.connect(ctx.destination);
+    const run = () => {
       if (stopped) return;
       ding();
-      intervalId = window.setInterval(ding, 2200);
-    });
+      intervalId = window.setInterval(ding, 1400);
+    };
+    if (ctx.state === 'suspended') void ctx.resume().then(run).catch(() => undefined);
+    else run();
     try {
-      navigator.vibrate?.([120, 80, 120]);
+      navigator.vibrate?.([220, 80, 220, 80, 320]);
     } catch {
       /* ignore */
     }
   } catch (error) {
-    console.warn('[Skins Pro] doorbell chime failed', error);
+    console.warn('[Skins Pro] doorbell synth chime failed', error);
   }
 
   return {
     stop: () => {
       stopped = true;
       if (intervalId) window.clearInterval(intervalId);
-      if (ctx) {
-        void ctx.close().catch(() => undefined);
-        ctx = undefined;
+      try {
+        master?.disconnect();
+      } catch {
+        /* ignore */
       }
     },
   };
+}
+
+/**
+ * Prefer a real audio file (looped). Falls back to synth if URL missing/fails.
+ * Put file at `/config/www/doorbell.mp3` or pass any `/local/...` URL.
+ */
+function startDoorbellChime(soundUrl?: string): ChimeHandle {
+  unlockDoorbellAudio();
+  const url = (soundUrl || DEFAULT_DOORBELL_SOUND_URL).trim();
+  if (!url) return startSynthDoorbellChime();
+
+  let stopped = false;
+  let fallback: ChimeHandle | undefined;
+  let audio: HTMLAudioElement | undefined;
+  let intervalId: number | undefined;
+
+  const stopAll = () => {
+    stopped = true;
+    if (intervalId) window.clearInterval(intervalId);
+    intervalId = undefined;
+    fallback?.stop();
+    fallback = undefined;
+    if (audio) {
+      try {
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+      } catch {
+        /* ignore */
+      }
+      audio = undefined;
+    }
+  };
+
+  const useFallback = (reason: string) => {
+    if (stopped || fallback) return;
+    console.warn('[Skins Pro] doorbell sound file failed, using synth', reason, url);
+    fallback = startSynthDoorbellChime();
+  };
+
+  try {
+    audio = new Audio();
+    audio.preload = 'auto';
+    audio.loop = true;
+    audio.volume = 1;
+    // Cache-bust so replacing the file on HA is picked up without hard refresh gymnastics.
+    const sep = url.includes('?') ? '&' : '?';
+    audio.src = `${url}${sep}v=${Date.now()}`;
+
+    const playOnce = () => {
+      if (stopped || !audio) return;
+      void audio.play().catch((err) => useFallback(String(err)));
+    };
+
+    audio.addEventListener('error', () => useFallback('load-error'), { once: true });
+    audio.addEventListener('canplaythrough', () => {
+      if (stopped) return;
+      playOnce();
+      // Some WebViews ignore loop — re-trigger periodically as belt-and-suspenders.
+      intervalId = window.setInterval(() => {
+        if (stopped || !audio || fallback) return;
+        if (audio.ended || audio.paused) playOnce();
+      }, 2500);
+    }, { once: true });
+
+    try {
+      navigator.vibrate?.([220, 80, 220, 80, 320]);
+    } catch {
+      /* ignore */
+    }
+  } catch (error) {
+    useFallback(String(error));
+  }
+
+  return { stop: stopAll };
 }
 
 /** Copy theme tokens from card host onto the body-mounted dialog. */
@@ -281,19 +417,24 @@ export function openLockDialog(
 
   const autoCloseSec = Math.max(1, options.autoCloseSec ?? AUTO_CLOSE_SEC);
   const previewStream = options.previewStream?.trim() || '';
+  /** Doorbell: continuous MJPEG (no play glyph). Manual lock: no preview. */
+  const previewMode = options.previewMode || (previewStream ? 'mjpeg' : 'live');
   let remainingMs = autoCloseSec * 1000;
   let timer: number | undefined;
   let unlocking = false;
   let lastPaintKey = '';
   let closed = false;
+  let previewBase = '';
   const started = performance.now();
-  const chime = options.playSound ? startDoorbellChime() : { stop: () => undefined };
+  const chime = options.playSound
+    ? startDoorbellChime(options.soundUrl)
+    : { stop: () => undefined };
 
   const container = document.createElement('div');
   container.id = LOCK_DIALOG_ID;
   container.dataset.skin = skin;
   container.dataset.hasPreview = previewStream ? 'true' : 'false';
-  container.dataset.lockDialogBuild = 'doorbell-preview-sound-202607231735';
+  container.dataset.lockDialogBuild = 'doorbell-file-sound-202607241600';
   copyHostThemeTokens(host, container);
 
   const close = () => {
@@ -301,7 +442,10 @@ export function openLockDialog(
     closed = true;
     if (timer) window.clearInterval(timer);
     chime.stop();
-    container.querySelectorAll('img').forEach((img) => img.removeAttribute('src'));
+    container.querySelectorAll('sp-go2rtc-live-preview, sp-go2rtc-video, img').forEach((el) => {
+      if (el instanceof HTMLImageElement) el.removeAttribute('src');
+      el.remove();
+    });
     container.remove();
   };
 
@@ -344,12 +488,22 @@ export function openLockDialog(
     const state = stateObj?.state || 'unavailable';
     const pct = Math.max(0, Math.min(100, (remainingMs / (autoCloseSec * 1000)) * 100));
     const secs = Math.max(1, Math.ceil(remainingMs / 1000));
-    const key = `${state}|${secs}|${Math.round(pct)}|${unlocking ? 1 : 0}|${previewStream}`;
+    const key = `${state}|${secs}|${Math.round(pct)}|${unlocking ? 1 : 0}|${previewBase ? 1 : 0}`;
     if (!force && key === lastPaintKey) return;
     lastPaintKey = key;
 
     const title = options.title || entityTitle(hass, entityId);
     const cancelLabel = options.cancelLabel || t(language, 'editorCancel');
+    const phoneNotified = options.doorbellHints ? remainingMs <= 0 : false;
+    const hint = options.doorbellHints
+      ? (phoneNotified ? t(language, 'doorbellPhoneNotified') : t(language, 'doorbellWaitPhone', { n: secs }))
+      : t(language, 'lockAutoClose', { n: secs });
+
+    const previewNode = previewStream && previewBase
+      ? (previewMode === 'mjpeg'
+        ? html`<img src=${previewMjpegUrl(previewBase, previewStream)} alt="" decoding="async" />`
+        : html`<sp-go2rtc-live-preview .stream=${previewStream} .baseUrl=${previewBase}></sp-go2rtc-live-preview>`)
+      : '';
 
     render(html`
       <style>${LOCK_DIALOG_STYLE}</style>
@@ -363,7 +517,7 @@ export function openLockDialog(
           ${previewStream
             ? html`
               <div class="lock-dialog-preview" aria-label=${t(language, 'doorbellPreview')}>
-                <img src=${previewUrl(previewStream)} alt="" decoding="async" />
+                ${previewNode}
               </div>
             `
             : ''}
@@ -376,7 +530,7 @@ export function openLockDialog(
           <div class="lock-dialog-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow=${Math.round(pct)}>
             <span style="width:${pct}%"></span>
           </div>
-          <p class="lock-dialog-hint">${t(language, 'lockAutoClose', { n: secs })}</p>
+          <p class="lock-dialog-hint">${hint}</p>
 
           <div class="lock-dialog-actions">
             <button type="button" class="lock-dialog-cancel" @click=${() => { void cancel(); }}>
@@ -398,6 +552,15 @@ export function openLockDialog(
 
   document.body.appendChild(container);
   paint(true);
+  void options.onOpen?.();
+
+  if (previewStream) {
+    void resolveGo2rtcBaseForPreview(hass).then((base) => {
+      if (closed) return;
+      previewBase = base;
+      paint(true);
+    });
+  }
 
   timer = window.setInterval(() => {
     remainingMs = Math.max(0, autoCloseSec * 1000 - (performance.now() - started));

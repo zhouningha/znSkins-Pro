@@ -58,7 +58,8 @@ import {
 import { mergeConfig } from './config';
 import { fetchEnergyHistory, fetchEnergySources, enrichEnergySourcesWithMeters, loadWeatherForecast, loadAreas, loadDeviceRegistry, loadEntityRegistry, loadFloors, ensureKiosk, isAndroidKiosk, isKioskActive, toggleKiosk } from './ha';
 
-import { openLockDialog, closeLockDialog, isLockDialogOpen, DOORBELL_PREVIEW_STREAM } from './components/lock-dialog';
+import { openLockDialog, closeLockDialog, isLockDialogOpen, DOORBELL_PREVIEW_STREAM, DEFAULT_DOORBELL_SOUND_URL, unlockDoorbellAudio } from './components/lock-dialog';
+import { resolveGo2rtcBaseForPreview } from './components/camera-stream';
 import type { RenderContext } from './render/context';
 import { applyFullscreenHeight, applyKioskExitHeight, applyLayoutHeight, applyThemeVariables } from './render/layout';
 import { getRealDevicesForRender } from './selectors/devices';
@@ -222,7 +223,25 @@ export class SkinsProCard extends LitElement {
   /** `input_datetime.r20k_last_doorbell` value for the session we already showed. */
   private _doorbellSessionKey = '';
   private _doorbellPollTimer?: number;
+  private _doorbellOpenTimer?: number;
+  private _doorbellWarmHost?: HTMLDivElement;
   private readonly _handleWindowResize = () => this._applyLayout();
+  private readonly _unlockAudioOnce = () => {
+    unlockDoorbellAudio();
+    window.removeEventListener('pointerdown', this._unlockAudioOnce, true);
+    window.removeEventListener('touchstart', this._unlockAudioOnce, true);
+  };
+
+  private _clearDoorbellWarm(): void {
+    if (this._doorbellWarmHost) {
+      this._doorbellWarmHost.querySelectorAll('sp-go2rtc-live-preview, sp-go2rtc-video, img').forEach((el) => {
+        if (el instanceof HTMLImageElement) el.removeAttribute('src');
+        el.remove();
+      });
+      this._doorbellWarmHost.remove();
+      this._doorbellWarmHost = undefined;
+    }
+  }
 
   public get hass(): HomeAssistant | undefined {
     return this._hass;
@@ -246,6 +265,11 @@ export class SkinsProCard extends LitElement {
     if (!active) {
       this._doorbellDialogHandled = false;
       if (!timerOn) this._doorbellSessionKey = '';
+      if (this._doorbellOpenTimer) {
+        window.clearTimeout(this._doorbellOpenTimer);
+        this._doorbellOpenTimer = undefined;
+      }
+      this._clearDoorbellWarm();
       return;
     }
 
@@ -254,42 +278,95 @@ export class SkinsProCard extends LitElement {
     if (sessionKey && sessionKey !== this._doorbellSessionKey) {
       this._doorbellSessionKey = sessionKey;
       this._doorbellDialogHandled = false;
+      if (this._doorbellOpenTimer) {
+        window.clearTimeout(this._doorbellOpenTimer);
+        this._doorbellOpenTimer = undefined;
+      }
+      this._clearDoorbellWarm();
       if (isLockDialogOpen()) closeLockDialog();
     }
 
-    if (this._doorbellDialogHandled || isLockDialogOpen()) return;
+    if (this._doorbellDialogHandled || isLockDialogOpen() || this._doorbellOpenTimer) return;
 
-    const language = normalizeLanguage(
-      this._config.language === 'auto' ? this._hass.language : this._config.language,
-    );
     const hass = this._hass;
     this._doorbellDialogHandled = true;
-    console.info('[Skins Pro] doorbell dialog open', { sessionKey, timerOn });
-    try {
-      openLockDialog(this, hass, DOORBELL_LOCK_ENTITY, language, selectedSkin(this._config), {
-        autoCloseSec: DOORBELL_DIALOG_SEC,
-        title: t(language, 'doorbellTitle'),
-        preventScrimClose: true,
-        previewStream: DOORBELL_PREVIEW_STREAM,
-        playSound: true,
-        onUnlock: async () => {
-          await hass.callService('script', 'turn_on', { entity_id: DOORBELL_OPEN_SCRIPT });
-        },
-        onCancel: async () => {
-          await hass.callService('script', 'turn_on', { entity_id: DOORBELL_DISMISS_SCRIPT });
-        },
-        // Timeout: close UI only — HA still notifies phone after its own 15s timer.
-        onTimeout: () => undefined,
-      });
-    } catch (error) {
-      this._doorbellDialogHandled = false;
-      console.warn('[Skins Pro] doorbell lock dialog failed', error);
-    }
+    unlockDoorbellAudio();
+    console.info('[Skins Pro] doorbell dialog arm (live warm 2s)', { sessionKey, timerOn });
+
+    // Prewarm go2rtc live (WebRTC/MSE) off-screen for ~2s, then open overlay — avoids play glyph.
+    void resolveGo2rtcBaseForPreview(hass).then((base) => {
+      if (!this._hass || this._hass.states?.[DOORBELL_ACTIVE_ENTITY]?.state !== 'on') return;
+      this._clearDoorbellWarm();
+      const host = document.createElement('div');
+      host.dataset.spDoorbellWarm = '1';
+      host.style.cssText = 'position:fixed;left:-9999px;top:0;width:480px;height:300px;opacity:0;pointer-events:none;overflow:hidden;';
+      const preview = document.createElement('sp-go2rtc-live-preview') as HTMLElement & { stream: string; baseUrl: string };
+      preview.stream = DOORBELL_PREVIEW_STREAM;
+      preview.baseUrl = base;
+      host.appendChild(preview);
+      document.body.appendChild(host);
+      this._doorbellWarmHost = host;
+    }).catch(() => undefined);
+
+    this._doorbellOpenTimer = window.setTimeout(() => {
+      this._doorbellOpenTimer = undefined;
+      if (!this._hass || !this._config) {
+        this._doorbellDialogHandled = false;
+        this._clearDoorbellWarm();
+        return;
+      }
+      if (this._hass.states?.[DOORBELL_ACTIVE_ENTITY]?.state !== 'on') {
+        this._doorbellDialogHandled = false;
+        this._clearDoorbellWarm();
+        return;
+      }
+      if (isLockDialogOpen()) {
+        this._clearDoorbellWarm();
+        return;
+      }
+
+      const liveHass = this._hass;
+      const liveLang = normalizeLanguage(
+        this._config.language === 'auto' ? liveHass.language : this._config.language,
+      );
+      console.info('[Skins Pro] doorbell dialog open (live)', { sessionKey });
+      try {
+        openLockDialog(this, liveHass, DOORBELL_LOCK_ENTITY, liveLang, selectedSkin(this._config), {
+          autoCloseSec: DOORBELL_DIALOG_SEC,
+          title: t(liveLang, 'doorbellTitle'),
+          cancelLabel: t(liveLang, 'doorbellDismiss'),
+          preventScrimClose: true,
+          previewStream: DOORBELL_PREVIEW_STREAM,
+          previewMode: 'live',
+          playSound: true,
+          soundUrl: (this._config.doorbell_sound || DEFAULT_DOORBELL_SOUND_URL).trim(),
+          doorbellHints: true,
+          onOpen: () => {
+            unlockDoorbellAudio();
+          },
+          onUnlock: async () => {
+            await liveHass.callService('script', 'turn_on', { entity_id: DOORBELL_OPEN_SCRIPT });
+          },
+          onCancel: async () => {
+            await liveHass.callService('script', 'turn_on', { entity_id: DOORBELL_DISMISS_SCRIPT });
+          },
+          onTimeout: () => undefined,
+        });
+      } catch (error) {
+        this._doorbellDialogHandled = false;
+        console.warn('[Skins Pro] doorbell lock dialog failed', error);
+      } finally {
+        // Drop warm player after dialog has its own live consumer (single Akuvox path via go2rtc).
+        this._clearDoorbellWarm();
+      }
+    }, 2000);
   }
 
   public connectedCallback(): void {
     super.connectedCallback();
     window.addEventListener('resize', this._handleWindowResize);
+    window.addEventListener('pointerdown', this._unlockAudioOnce, true);
+    window.addEventListener('touchstart', this._unlockAudioOnce, true);
     if (this._hass && this._config?.weather?.entity && this._weatherForecastEntity !== this._config.weather.entity) {
       void this.loadWeatherForecast();
     }
@@ -301,12 +378,19 @@ export class SkinsProCard extends LitElement {
   public disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('resize', this._handleWindowResize);
+    window.removeEventListener('pointerdown', this._unlockAudioOnce, true);
+    window.removeEventListener('touchstart', this._unlockAudioOnce, true);
     this.clearDeviceHideIdle();
     void this.unsubscribeWeatherForecast();
     if (this._doorbellPollTimer) {
       window.clearInterval(this._doorbellPollTimer);
       this._doorbellPollTimer = undefined;
     }
+    if (this._doorbellOpenTimer) {
+      window.clearTimeout(this._doorbellOpenTimer);
+      this._doorbellOpenTimer = undefined;
+    }
+    this._clearDoorbellWarm();
   }
 
   public setConfig(config: DashboardConfig): void {
@@ -988,7 +1072,19 @@ export class SkinsProCard extends LitElement {
       const language = normalizeLanguage(
         this._config?.language === 'auto' ? this._hass.language : this._config?.language,
       );
-      openLockDialog(this, this._hass, entityId, language, selectedSkin(this._config));
+      // Manual「门禁开门」：同门铃弹层，展示门口 live（go2rtc akuvox_sub，不另拉 RTSP）。
+      const isDoorAccess =
+        entityId === DOORBELL_LOCK_ENTITY
+        || /^lock\.r20k_/.test(entityId)
+        || /门禁|开门|relay/.test(
+          String(this._hass.states?.[entityId]?.attributes?.friendly_name || entityId),
+        );
+      openLockDialog(this, this._hass, entityId, language, selectedSkin(this._config), isDoorAccess
+        ? {
+            previewStream: DOORBELL_PREVIEW_STREAM,
+            previewMode: 'live',
+          }
+        : undefined);
     } else {
       moreInfo(this, entityId);
     }

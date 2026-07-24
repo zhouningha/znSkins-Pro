@@ -126,4 +126,6 @@
 - 2026-07-23：**门铃弹窗（平板）v1：** `input_boolean.r20k_doorbell_active` 为 on 时，Skins Pro 弹出与开锁同款 token 弹层；预览只用 go2rtc `akuvox_sub`（MJPEG）；「开门」→ `script.r20k_open_door`，「忽略」→ `script.r20k_doorbell_dismiss`；倒计时对齐 `timer.r20k_doorbell_wait`（到点提示已推手机，弹层不自动关，直到开门/忽略或 active 关）。对讲未做。手机 15s 超时通知仍由 HA `r20k_doorbell.yaml` 负责。
 - 2026-07-23：**门铃直接复用手动「门禁开门」对话框**（`openLockDialog`）：15s 倒计时；开门→`script.r20k_open_door`，取消→`script.r20k_doorbell_dismiss`；1.5s 轮询兜底，避免全屏/kiosk 漏弹。HA 侧栏 persistent 通知不是弹窗。
 - 2026-07-23：门铃弹层补 **门口画面**（go2rtc `akuvox_sub` MJPEG）+ **提示音**（WebAudio 双音叮咚循环，关弹层停止）；不另拉 Akuvox RTSP。
+- 2026-07-24：**门铃铃声可自定义：** 默认播 `/local/doorbell.mp3`（把文件放到 HA `/config/www/doorbell.mp3`）；Lovelace strategy 可选 `doorbell_sound: /local/你的文件.mp3`；加载失败才回退 WebAudio 叮咚。弹层仍用 live 预热约 2s 再打开。
+- 2026-07-24：**手动「门禁开门」弹层也显示门口 live**（同门铃：`akuvox_sub`），便于开门前确认画面；不另开 Akuvox RTSP。
 - 2026-07-19：摄像头预览铺满：`hui-image` 传 `fitMode=cover` + `aspectRatio`（安防卡 `16:10`），并用 `sp-camera-preview` 向嵌套 player shadow DOM 注入 `object-fit:cover`（主题 CSS 穿不透 shadow）。

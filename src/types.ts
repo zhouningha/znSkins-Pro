@@ -252,6 +252,11 @@ export interface DashboardConfig {
   media_player?: MediaPlayerConfig;
   camera?: CameraConfig;
   security_page?: SecurityPageConfig;
+  /**
+   * Tablet doorbell ringtone URL (mp3/wav/ogg).
+   * Default `/local/doorbell.mp3` — place file at `/config/www/doorbell.mp3`.
+   */
+  doorbell_sound?: string;
   devices_page?: DevicesPageConfig;
   scenes_page?: ScenesPageConfig;
   home_limits?: HomeLimitsConfig;
@@ -435,6 +440,7 @@ export type TranslationKey =
   | 'editorHomeRooms'
   | 'editorHomeScenes'
   | 'editorScenesPage'
+  | 'editorScenesPageHint'
   | 'editorHomeEnv'
   | 'editorInfo'
   | 'editorFullscreen'

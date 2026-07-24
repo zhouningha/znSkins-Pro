@@ -80,13 +80,6 @@ export function renderEditorTemplate(data: EditorTemplateData): string {
       </div>
 
       <div class="sp-row">
-        <div class="sp-card">
-          <h3>${loc('editorScenesPage')}</h3>
-          ${listPicker(loc('scenes'), 'scenes_page.selection', sp.selection || [], ['scene', 'script'])}
-        </div>
-      </div>
-
-      <div class="sp-row">
         <div class="sp-card">${entityPicker(loc('editorWeather'), 'weather.entity', c.weather?.entity || hs.weather_entity || '', ['weather'])}</div>
         <div class="sp-card">${entityPicker(loc('editorInfo'), 'info.entity', c.info?.entity || '', ['input_text', 'sensor', 'binary_sensor', 'lock'])}</div>
       </div>
@@ -103,6 +96,14 @@ export function renderEditorTemplate(data: EditorTemplateData): string {
         <div class="sp-card">
           <h3>${loc('editorCamera')}</h3>
           ${entityPicker(loc('editorCamera'), 'camera.entity', c.camera?.entity || '', ['camera'])}
+        </div>
+      </div>
+
+      <div class="sp-row">
+        <div class="sp-card">
+          <h3>${loc('editorScenesPage')}</h3>
+          <p class="muted" style="margin:0 0 8px;font-size:12px;opacity:.75">${loc('editorScenesPageHint')}</p>
+          ${listPicker(loc('scenes'), 'scenes_page.selection', sp.selection || [], ['scene', 'script'])}
         </div>
       </div>
 

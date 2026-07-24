@@ -182,14 +182,14 @@ export function renderLightCard(
       </div>
       <div class="control-row" @click=${stopCardClick} @pointerdown=${stopCardClick}>
         ${hasBrightness && isOn && briPct !== undefined ? html`
-        <ha-control-slider .value=${briPct} min="0" max="100" style="--control-slider-thickness:28px;--control-slider-border-radius:var(--sp-radius-pill);flex:1;min-width:0" @value-changed=${(e: CustomEvent) => { e.stopPropagation(); doService('turn_on', { brightness: Math.round((e.detail.value ?? 0) * 2.55) }); }} @click=${stopCardClick} @pointerdown=${stopCardClick}></ha-control-slider>
+        <ha-control-slider .value=${briPct} min="0" max="100" style="--control-slider-thickness:28px;--control-slider-border-radius:var(--sp-radius-pill, var(--sp-radius-infinite, 999px));flex:1;min-width:0;--control-slider-color:var(--sp-accent, var(--sp-accent-green, var(--primary-color, #7BC67E)));--control-slider-background:var(--sp-device-bg, rgba(128,128,128,.2))" @value-changed=${(e: CustomEvent) => { e.stopPropagation(); doService('turn_on', { brightness: Math.round((e.detail.value ?? 0) * 2.55) }); }} @click=${stopCardClick} @pointerdown=${stopCardClick}></ha-control-slider>
         ` : ''}
         ${hasColorTemp && isOn ? html`
         <ha-control-slider
           .value=${colorTempControl.currentKelvin}
           min=${colorTempControl.minKelvin}
           max=${colorTempControl.maxKelvin}
-          style="--control-slider-thickness:28px;--control-slider-border-radius:var(--sp-radius-pill);flex:1;min-width:0;--control-slider-color:var(--sp-accent, var(--sp-accent-green, var(--primary-color, #7BC67E)))"
+          style="--control-slider-thickness:28px;--control-slider-border-radius:var(--sp-radius-pill, var(--sp-radius-infinite, 999px));flex:1;min-width:0;--control-slider-color:var(--sp-accent, var(--sp-accent-green, var(--primary-color, #7BC67E)))"
           @value-changed=${(e: CustomEvent) => {
             e.stopPropagation();
             const kelvin = Math.round((e.detail.value ?? colorTempControl.currentKelvin) as number);

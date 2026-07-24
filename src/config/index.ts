@@ -43,6 +43,13 @@ export function mergeConfig(config: DashboardConfig): DashboardConfig {
       ...DEFAULT_CONFIG.security_page,
       ...config.security_page,
       hidden: [...new Set((config.security_page?.hidden || DEFAULT_CONFIG.security_page?.hidden || []).filter(Boolean))],
+      cameras: [...(config.security_page?.cameras ?? DEFAULT_CONFIG.security_page?.cameras ?? [])].filter(Boolean),
+      door_camera: String(config.security_page?.door_camera || DEFAULT_CONFIG.security_page?.door_camera || ''),
+      door_lock: String(config.security_page?.door_lock || DEFAULT_CONFIG.security_page?.door_lock || ''),
+      selection: [...(config.security_page?.selection ?? [])].filter(Boolean),
+      streams: Array.isArray(config.security_page?.streams)
+        ? config.security_page!.streams
+        : DEFAULT_CONFIG.security_page?.streams,
     },
     devices_page: {
       ...DEFAULT_CONFIG.devices_page,

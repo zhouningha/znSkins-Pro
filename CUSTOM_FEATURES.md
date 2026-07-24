@@ -128,4 +128,6 @@
 - 2026-07-23：门铃弹层补 **门口画面**（go2rtc `akuvox_sub` MJPEG）+ **提示音**（WebAudio 双音叮咚循环，关弹层停止）；不另拉 Akuvox RTSP。
 - 2026-07-24：**门铃铃声可自定义：** 默认播 `/local/doorbell.mp3`（把文件放到 HA `/config/www/doorbell.mp3`）；Lovelace strategy 可选 `doorbell_sound: /local/你的文件.mp3`；加载失败才回退 WebAudio 叮咚。弹层仍用 live 预热约 2s 再打开。
 - 2026-07-24：**手动「门禁开门」弹层也显示门口 live**（同门铃：`akuvox_sub`），便于开门前确认画面；不另开 Akuvox RTSP。
+- 2026-07-24：**安防摄像头改编辑器选择：** `security_page.selection`（camera 实体）；不选则安防页不显示画面卡片。门禁相关实体仍映射到 go2rtc `akuvox_sub`（禁止 HA camera live 双拉）。
+- 2026-07-24：**安防拆成「摄像头」+「门禁」：** `security_page.cameras` 与 `door_lock` / `door_camera` 分开配置；不选则各自不显示。门禁画面仍走 go2rtc `akuvox_sub`。
 - 2026-07-19：摄像头预览铺满：`hui-image` 传 `fitMode=cover` + `aspectRatio`（安防卡 `16:10`），并用 `sp-camera-preview` 向嵌套 player shadow DOM 注入 `object-fit:cover`（主题 CSS 穿不透 shadow）。

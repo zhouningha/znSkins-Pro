@@ -70,6 +70,9 @@ class SkinsProStrategy {
             // Saved strategy list is authoritative — never union with defaults/auto
             // or unhide can never stick after lovelace reload.
             hidden: [...new Set((((sc('security_page').hidden as string[]) || [])).filter(Boolean))],
+            cameras: [...((sc('security_page').cameras as string[]) || [])].filter(Boolean),
+            door_camera: String(sc('security_page').door_camera || ''),
+            door_lock: String(sc('security_page').door_lock || ''),
           },
           devices_page: {
             ...autoConfig.devices_page,

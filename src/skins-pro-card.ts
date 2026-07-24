@@ -1073,13 +1073,20 @@ export class SkinsProCard extends LitElement {
         this._config?.language === 'auto' ? this._hass.language : this._config?.language,
       );
       // Manual「门禁开门」：同门铃弹层，展示门口 live（go2rtc akuvox_sub，不另拉 RTSP）。
+      const configuredDoorLock = String(this._config?.security_page?.door_lock || '').trim();
       const isDoorAccess =
-        entityId === DOORBELL_LOCK_ENTITY
+        (configuredDoorLock && entityId === configuredDoorLock)
+        || entityId === DOORBELL_LOCK_ENTITY
         || /^lock\.r20k_/.test(entityId)
         || /门禁|开门|relay/.test(
           String(this._hass.states?.[entityId]?.attributes?.friendly_name || entityId),
         );
-      openLockDialog(this, this._hass, entityId, language, selectedSkin(this._config), isDoorAccess
+      const doorPreview = Boolean(
+        this._config?.security_page?.door_camera
+        || configuredDoorLock
+        || isDoorAccess,
+      );
+      openLockDialog(this, this._hass, entityId, language, selectedSkin(this._config), doorPreview
         ? {
             previewStream: DOORBELL_PREVIEW_STREAM,
             previewMode: 'live',

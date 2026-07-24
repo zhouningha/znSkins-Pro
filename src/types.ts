@@ -188,8 +188,26 @@ export interface SecurityPageConfig {
   /** Entity IDs / go2rtc stream keys hidden from the security page (edit-hidden mode). */
   hidden?: string[];
   /**
-   * Live previews matching dashboard-n/monitoring card configs exactly.
-   * When omitted, defaults to the three working monitoring streams.
+   * Regular security cameras (监控 / 客厅等). Not the door station.
+   * Empty → no camera cards.
+   */
+  cameras?: string[];
+  /**
+   * Door-station camera (门禁画面). Shown separately from `cameras`.
+   * Empty → no door preview card. Plays via go2rtc `akuvox_sub` when Akuvox/R20K.
+   */
+  door_camera?: string;
+  /**
+   * Door lock / open relay (门禁开门). Empty → no door-lock card.
+   */
+  door_lock?: string;
+  /**
+   * @deprecated Prefer `cameras` + `door_camera`. Still read for migration.
+   */
+  selection?: string[];
+  /**
+   * Advanced: explicit go2rtc/HA stream descriptors.
+   * When non-empty, takes precedence over cameras/door_camera for video cards.
    */
   streams?: SecurityGo2rtcStream[];
 }
@@ -441,6 +459,13 @@ export type TranslationKey =
   | 'editorHomeScenes'
   | 'editorScenesPage'
   | 'editorScenesPageHint'
+  | 'editorSecurityPage'
+  | 'editorSecurityPageHint'
+  | 'editorSecurityCameras'
+  | 'editorSecurityDoor'
+  | 'editorSecurityDoorHint'
+  | 'editorSecurityDoorLock'
+  | 'editorSecurityDoorCamera'
   | 'editorHomeEnv'
   | 'editorInfo'
   | 'editorFullscreen'

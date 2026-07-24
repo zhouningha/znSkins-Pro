@@ -108,6 +108,9 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   },
   security_page: {
     hidden: [],
+    cameras: [],
+    door_camera: '',
+    door_lock: '',
   },
   devices_page: {
     hidden: [],

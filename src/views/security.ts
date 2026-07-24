@@ -1,11 +1,11 @@
 import { html, nothing } from 'lit';
 import type { TemplateResult } from 'lit';
 
-import type { EntityRegistryEntry, HassEntity, RenderedDevice, SecurityMonitorSource } from '../types';
+import type { EntityRegistryEntry, HassEntity, RenderedDevice, SecurityGo2rtcStream, SecurityMonitorSource } from '../types';
 import type { RenderContext } from '../render/context';
 import { renderPageShell } from '../components/page-shell';
 import { renderImage } from '../render/context';
-import { renderGo2rtcLivePreview } from '../components/camera-stream';
+import { renderGo2rtcLivePreview, renderLiveCameraPreview } from '../components/camera-stream';
 import { assetKeyForDomain, deviceStateLabel, selectedSkin, t } from '../utils';
 import { alarmStateLabel } from '../components/alarm-control-panel';
 import { setAlarmMode } from '../components/alarm-code-dialog';
@@ -17,27 +17,143 @@ const SECURITY_TOGGLE_DOMAINS = new Set([
 ]);
 
 /**
- * Security cams — go2rtc WebRTC only (one RTSP producer per cam).
- * PITFALL: Akuvox R20K allows ~1 concurrent RTSP on ch00_1.
- * 门禁 ONLY akuvox_sub — never also open HA camera.r20k_* / ONVIF (HA reinjects onvif_* into go2rtc.yaml).
- * See CUSTOM_FEATURES.md + .cursor/rules/akuvox-rtsp-single-client.mdc
+ * Map known HA camera entities → go2rtc stream names used by this house.
+ * Akuvox / R20K MUST use akuvox_sub only (never HA camera.* live on the same RTSP).
  */
-const DEFAULT_SECURITY_MONITOR_SOURCES: SecurityMonitorSource[] = [
-  { stream: 'akuvox_sub', label: '门禁监控', provider: 'go2rtc-mjpeg' },
-  { stream: 'tp_ipc_main', label: '监控', provider: 'go2rtc-mjpeg' },
-  { stream: 'yw_sub', label: '客厅监控', provider: 'go2rtc-mjpeg' },
-];
+const CAMERA_ENTITY_TO_GO2RTC: Record<string, { stream: string; label?: string }> = {
+  'camera.r20k_profile_name_2': { stream: 'akuvox_sub', label: '门禁监控' },
+  'camera.r20k_profile_name': { stream: 'akuvox_sub', label: '门禁监控' },
+  'camera.akuvox_door_camera': { stream: 'akuvox_sub', label: '门禁监控' },
+  'camera.tp_ipc_mainstream': { stream: 'tp_ipc_main', label: '监控' },
+  'camera.tp_ipc_minorstream': { stream: 'tp_ipc_main', label: '监控' },
+  'camera.yw_substream': { stream: 'yw_sub', label: '客厅监控' },
+  'camera.yw_mainstream': { stream: 'yw_sub', label: '客厅监控' },
+};
+
+function isDoorStationCamera(entityId: string): boolean {
+  const id = entityId.trim().toLowerCase();
+  if (!id.startsWith('camera.')) return false;
+  if (/r20k|akuvox/.test(id)) return true;
+  return CAMERA_ENTITY_TO_GO2RTC[id]?.stream === 'akuvox_sub';
+}
+
+function normalizeMonitorSource(raw: SecurityMonitorSource | SecurityGo2rtcStream): SecurityMonitorSource | null {
+  const stream = String(raw.stream || raw.entity || '').trim();
+  if (!stream) return null;
+  const provider = raw.provider
+    || (raw.entity || stream.startsWith('camera.') ? 'ha-camera' : 'go2rtc-mjpeg');
+  return {
+    stream,
+    label: raw.label,
+    provider: provider as SecurityMonitorSource['provider'],
+    entity: raw.entity,
+    go2rtc_url: raw.go2rtc_url,
+    modes: raw.modes,
+  };
+}
+
+/** Regular / door camera entity → monitor source. */
+function cameraEntityToMonitorSource(
+  entityId: string,
+  hass: RenderContext['hass'],
+  kind: 'door' | 'camera',
+): SecurityMonitorSource | null {
+  const id = entityId.trim();
+  if (!id.startsWith('camera.')) return null;
+  const friendly = String(hass.states?.[id]?.attributes?.friendly_name || '').trim();
+  const mapped = CAMERA_ENTITY_TO_GO2RTC[id];
+
+  if (kind === 'door' || isDoorStationCamera(id)) {
+    return {
+      stream: mapped?.stream === 'akuvox_sub' || /r20k|akuvox/i.test(id)
+        ? 'akuvox_sub'
+        : (mapped?.stream || 'akuvox_sub'),
+      label: mapped?.label || friendly || '门禁监控',
+      provider: 'go2rtc-mjpeg',
+      entity: id,
+    };
+  }
+
+  if (mapped) {
+    return {
+      stream: mapped.stream,
+      label: mapped.label || friendly || mapped.stream,
+      provider: 'go2rtc-mjpeg',
+      entity: id,
+    };
+  }
+  return {
+    stream: id,
+    label: friendly || id,
+    provider: 'ha-camera',
+    entity: id,
+  };
+}
+
+function configuredDoorCameraId(page: RenderContext['config']['security_page']): string {
+  const direct = String(page?.door_camera || '').trim();
+  if (direct) return direct;
+  // Legacy: first door-station cam in selection
+  const legacy = (page?.selection || []).find((id) => isDoorStationCamera(id));
+  return legacy || '';
+}
+
+function configuredCameraIds(page: RenderContext['config']['security_page']): string[] {
+  const cams = (page?.cameras || []).map((id) => id.trim()).filter(Boolean);
+  if (cams.length) return cams.filter((id) => !isDoorStationCamera(id));
+  // Legacy selection without cameras[] — keep non-door only
+  return (page?.selection || []).filter((id) => id && !isDoorStationCamera(id));
+}
+
+/**
+ * Door preview first (if configured), then regular cameras.
+ * Empty config → no video cards.
+ */
+function listSecurityMonitorSources(ctx: RenderContext): SecurityMonitorSource[] {
+  const page = ctx.config.security_page;
+  const advanced = page?.streams;
+  if (Array.isArray(advanced) && advanced.length > 0) {
+    return advanced
+      .map((s) => normalizeMonitorSource(s))
+      .filter((s): s is SecurityMonitorSource => Boolean(s));
+  }
+
+  const out: SecurityMonitorSource[] = [];
+  const seen = new Set<string>();
+
+  const doorCam = configuredDoorCameraId(page);
+  if (doorCam) {
+    const src = cameraEntityToMonitorSource(doorCam, ctx.hass, 'door');
+    if (src && !seen.has(src.stream)) {
+      seen.add(src.stream);
+      out.push(src);
+    }
+  }
+
+  for (const entityId of configuredCameraIds(page)) {
+    const src = cameraEntityToMonitorSource(entityId, ctx.hass, 'camera');
+    if (!src || seen.has(src.stream)) continue;
+    seen.add(src.stream);
+    out.push(src);
+  }
+  return out;
+}
 
 function securityCamHideId(source: SecurityMonitorSource): string {
-  return `go2rtc:${source.stream}`;
+  return source.entity || `go2rtc:${source.stream}`;
 }
 
-function listSecurityMonitorSources(_ctx: RenderContext): SecurityMonitorSource[] {
-  void _ctx;
-  return DEFAULT_SECURITY_MONITOR_SOURCES.map((s) => ({ ...s }));
-}
-
-function renderSecurityCamPreview(_ctx: RenderContext, item: SecurityMonitorSource): TemplateResult {
+function renderSecurityCamPreview(ctx: RenderContext, item: SecurityMonitorSource): TemplateResult {
+  if (item.provider === 'ha-camera') {
+    const entityId = item.entity || item.stream;
+    const state = ctx.hass.states?.[entityId];
+    if (state) {
+      return renderLiveCameraPreview(ctx.hass, state, 'camera-preview camera-live', 'live', {
+        aspectRatio: '16:10',
+        fitMode: 'cover',
+      });
+    }
+  }
   return renderGo2rtcLivePreview(item.stream, 'camera-preview camera-live', item.go2rtc_url);
 }
 
@@ -174,13 +290,23 @@ function renderSecurityCards(ctx: RenderContext): TemplateResult | typeof nothin
     return !hiddenSet.has(hideId) && !hiddenSet.has(s.stream)
       && !(s.entity && hiddenSet.has(s.entity));
   });
+  const doorLockId = String(ctx.config.security_page?.door_lock || '').trim();
   const others = Object.values(ctx.hass.states)
     .filter((entity): entity is HassEntity => Boolean(entity?.entity_id && /^(lock|alarm_control_panel|binary_sensor)\./.test(entity.entity_id)))
     .filter((entity) => {
       if (isRegistryHidden(entity.entity_id, ctx.entityRegistry)) return false;
       if (!ctx.securityHideEditMode && hiddenSet.has(entity.entity_id)) return false;
       if (entity.entity_id.startsWith('binary_sensor.')) return isUsefulSecurityBinarySensor(entity);
-      if (entity.entity_id.startsWith('lock.')) return isUsefulSecurityLock(entity);
+      if (entity.entity_id.startsWith('lock.')) {
+        if (isNonDoorLock(entity)) return false;
+        const id = entity.entity_id.toLowerCase();
+        const name = String(entity.attributes?.friendly_name || '');
+        const isDoor = isSecurityDoorRelayLock(entity.entity_id)
+          || /akuvox|r20k|门禁/.test(`${id} ${name}`);
+        // 门禁锁：只显示编辑器选中的 door_lock；未选则不显示。
+        if (isDoor) return Boolean(doorLockId) && entity.entity_id === doorLockId;
+        return isUsefulSecurityLock(entity);
+      }
       return true;
     })
     .slice(0, ctx.securityHideEditMode ? 24 : 8);

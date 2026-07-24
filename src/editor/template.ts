@@ -101,6 +101,20 @@ export function renderEditorTemplate(data: EditorTemplateData): string {
 
       <div class="sp-row">
         <div class="sp-card">
+          <h3>${loc('editorSecurityCameras')}</h3>
+          <p class="muted" style="margin:0 0 8px;font-size:12px;opacity:.75">${loc('editorSecurityPageHint')}</p>
+          ${listPicker(loc('editorCamera'), 'security_page.cameras', (c.security_page?.cameras || c.security_page?.selection || []), ['camera'])}
+        </div>
+        <div class="sp-card">
+          <h3>${loc('editorSecurityDoor')}</h3>
+          <p class="muted" style="margin:0 0 8px;font-size:12px;opacity:.75">${loc('editorSecurityDoorHint')}</p>
+          ${entityPicker(loc('editorSecurityDoorLock'), 'security_page.door_lock', c.security_page?.door_lock || '', ['lock'])}
+          ${entityPicker(loc('editorSecurityDoorCamera'), 'security_page.door_camera', c.security_page?.door_camera || '', ['camera'])}
+        </div>
+      </div>
+
+      <div class="sp-row">
+        <div class="sp-card">
           <h3>${loc('editorScenesPage')}</h3>
           <p class="muted" style="margin:0 0 8px;font-size:12px;opacity:.75">${loc('editorScenesPageHint')}</p>
           ${listPicker(loc('scenes'), 'scenes_page.selection', sp.selection || [], ['scene', 'script'])}

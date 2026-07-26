@@ -64,6 +64,7 @@ export interface RenderContext {
   onToggleKiosk: () => void;
   onMoreInfo: (entityId: string) => void;
   onTurnOffAreaType: (entityIds: string[]) => void;
+  onSetHomeMetaPosition: (x: number, y: number) => void;
 
   setDeviceGrouping: (g: 'area' | 'domain') => void;
   setFilterRoom: (r: string) => void;

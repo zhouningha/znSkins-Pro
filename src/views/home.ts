@@ -64,6 +64,7 @@ export function renderHomeView(
   const homeDevicesStyle = window.matchMedia('(orientation: landscape)').matches
     ? 'display:grid;grid-auto-flow:column;grid-auto-columns:minmax(140px,200px);grid-template-columns:none;justify-content:start;overflow-x:auto;overflow-y:hidden;padding:var(--sp-space-xs);'
     : 'padding:var(--sp-space-xs);';
+  const metaPositionStyle = 'width:min(520px,72vw);max-width:min(520px,72vw);margin:0 auto;box-sizing:border-box;touch-action:none;';
 
   return html`
     <div class="stage-grid">
@@ -72,9 +73,13 @@ export function renderHomeView(
           <h1>${ctx.config.title || localizedText(undefined, ctx.config.title_zh || skinString(selectedSkin(ctx.config), 'title_zh'), ctx.config.title_en || skinString(selectedSkin(ctx.config), 'title_en'), ctx.language)}</h1>
           <p class="quote">${quote}</p>
         </section>
-        <div class="weather-with-meta">
+        <div class="weather-with-meta" style="display:flex;flex-direction:column;align-items:center;gap:var(--sp-space-md,12px);margin-top:var(--sp-space-md,12px);">
           ${renderWeather(ctx.config, ctx.hass, weatherIconName, ctx.weatherForecast, ctx.onMoreInfo)}
-          <div class="welcome-meta" style="flex:1;min-width:0;max-width:min(320px,42%);">
+          <div
+            class="welcome-meta"
+            style=${metaPositionStyle}
+            @pointerdown=${(event: PointerEvent) => startHomeMetaDrag(event, ctx)}
+          >
             <section class="time-card" style="width:100%;box-sizing:border-box;">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;min-width:0;">
                 <span class="time-main">${timeText(ctx.hass, ctx.language)}</span>
@@ -113,6 +118,124 @@ export function renderHomeView(
       </aside>
     </div>
   `;
+}
+
+function normalizePercent(value: number | string | undefined): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const n = typeof value === 'number' ? value : Number.parseFloat(value);
+  if (!Number.isFinite(n)) return undefined;
+  return Math.max(0, Math.min(100, n));
+}
+
+function hasCompletePosition(pos: { x?: number | string; y?: number | string } | undefined): boolean {
+  return normalizePercent(pos?.x) !== undefined && normalizePercent(pos?.y) !== undefined;
+}
+
+function startHomeMetaDrag(event: PointerEvent, ctx: RenderContext): void {
+  if (event.button !== undefined && event.button !== 0) return;
+  if (event.pointerType === 'mouse') event.preventDefault();
+  const card = event.currentTarget as HTMLElement;
+  const stage = card.closest('.stage-grid') as HTMLElement | null;
+  if (!stage) return;
+
+  const startClientX = event.clientX;
+  const startClientY = event.clientY;
+  const startRect = card.getBoundingClientRect();
+  const stageRect = stage.getBoundingClientRect();
+  let dragging = false;
+  let latestX = startClientX;
+  let latestY = startClientY;
+  let holdTimer: number | undefined = window.setTimeout(() => {
+    dragging = true;
+    event.preventDefault();
+    card.setPointerCapture?.(event.pointerId);
+    stage.style.position = 'relative';
+    card.style.position = 'absolute';
+    card.style.left = `${((startRect.left + startRect.width / 2 - stageRect.left) / stageRect.width) * 100}%`;
+    card.style.top = `${((startRect.top + startRect.height / 2 - stageRect.top) / stageRect.height) * 100}%`;
+    card.style.transform = 'translate(-50%,-50%)';
+    card.style.zIndex = '20';
+    card.style.cursor = 'grabbing';
+    card.style.outline = '2px solid rgba(255,255,255,.85)';
+    card.style.outlineOffset = '6px';
+    updatePosition(latestX, latestY);
+  }, 350);
+
+  const cancelHold = () => {
+    if (holdTimer) window.clearTimeout(holdTimer);
+    holdTimer = undefined;
+  };
+  const cleanup = () => {
+    cancelHold();
+    document.removeEventListener('pointermove', move, true);
+    document.removeEventListener('pointerup', up, true);
+    document.removeEventListener('pointercancel', up, true);
+  };
+  const updatePosition = (clientX: number, clientY: number) => {
+    const x = clampPct(((clientX - stageRect.left) / stageRect.width) * 100);
+    const y = clampPct(((clientY - stageRect.top) / stageRect.height) * 100);
+    card.style.left = `${x}%`;
+    card.style.top = `${y}%`;
+    return { x, y };
+  };
+  const move = (moveEvent: PointerEvent) => {
+    latestX = moveEvent.clientX;
+    latestY = moveEvent.clientY;
+    const dx = Math.abs(moveEvent.clientX - startClientX);
+    const dy = Math.abs(moveEvent.clientY - startClientY);
+    if (!dragging && (dx > 8 || dy > 8)) {
+      cancelHold();
+      return;
+    }
+    if (!dragging) return;
+    moveEvent.preventDefault();
+    updatePosition(moveEvent.clientX, moveEvent.clientY);
+  };
+  const up = (upEvent: PointerEvent) => {
+    cleanup();
+    if (!dragging) return;
+    upEvent.preventDefault();
+    const { x, y } = updatePosition(upEvent.clientX, upEvent.clientY);
+    card.style.cursor = '';
+    card.style.outline = '';
+    card.style.outlineOffset = '';
+    const roundedX = Math.round(x);
+    const roundedY = Math.round(y);
+    writeStoredHomeMetaPosition(roundedX, roundedY);
+    ctx.onSetHomeMetaPosition(roundedX, roundedY);
+  };
+
+  document.addEventListener('pointermove', move, true);
+  document.addEventListener('pointerup', up, { once: true, capture: true });
+  document.addEventListener('pointercancel', up, { once: true, capture: true });
+}
+
+function clampPct(value: number): number {
+  if (!Number.isFinite(value)) return 50;
+  return Math.max(0, Math.min(100, value));
+}
+
+const HOME_META_POSITION_KEY = 'skins-pro.home.meta-position';
+
+function readStoredHomeMetaPosition(): { x: number; y: number } | undefined {
+  try {
+    const raw = window.localStorage.getItem(HOME_META_POSITION_KEY);
+    if (!raw) return undefined;
+    const value = JSON.parse(raw) as { x?: unknown; y?: unknown };
+    const x = normalizePercent(typeof value.x === 'number' ? value.x : String(value.x ?? ''));
+    const y = normalizePercent(typeof value.y === 'number' ? value.y : String(value.y ?? ''));
+    return x !== undefined && y !== undefined ? { x, y } : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeStoredHomeMetaPosition(x: number, y: number): void {
+  try {
+    window.localStorage.setItem(HOME_META_POSITION_KEY, JSON.stringify({ x, y }));
+  } catch {
+    /* ignore */
+  }
 }
 
 export function renderSidebar(ctx: RenderContext): TemplateResult {

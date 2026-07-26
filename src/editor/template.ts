@@ -26,6 +26,7 @@ export function renderEditorTemplate(data: EditorTemplateData): string {
   const hs = c.home_selection || {};
   const sp = c.scenes_page || {};
   const hl = c.home_limits || {};
+  const metaPos = c.home_layout?.meta_position || {};
   const loc = data.translate;
 
   return `
@@ -140,6 +141,23 @@ export function renderEditorTemplate(data: EditorTemplateData): string {
         <div class="sp-card">
           <h3>${loc('editorHomeEnv')}</h3>
           ${listPicker(loc('environment'), 'home_selection.environment', hs.environment || [], ['sensor'], hl.environment || 12, ENVIRONMENT_DEVICE_CLASSES)}
+        </div>
+      </div>
+
+      <div class="sp-row">
+        <div class="sp-card">
+          <h3>首页卡片位置</h3>
+          <p class="muted" style="margin:0 0 8px;font-size:12px;opacity:.75">调整时间 + 环境卡片的位置。留空则使用主题默认布局。</p>
+          <div class="sp-row" style="grid-template-columns:1fr 1fr;gap:12px">
+            <label class="sp-field">
+              <span>X 位置 %</span>
+              <input type="number" min="0" max="100" step="1" data-text-path="home_layout.meta_position.x" value="${metaPos.x ?? ''}" placeholder="50">
+            </label>
+            <label class="sp-field">
+              <span>Y 位置 %</span>
+              <input type="number" min="0" max="100" step="1" data-text-path="home_layout.meta_position.y" value="${metaPos.y ?? ''}" placeholder="38">
+            </label>
+          </div>
         </div>
       </div>
 

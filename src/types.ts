@@ -239,6 +239,16 @@ export interface HomeSelectionConfig {
   energy_entity?: string;
 }
 
+export interface HomeLayoutPositionConfig {
+  x?: number | string;
+  y?: number | string;
+}
+
+export interface HomeLayoutConfig {
+  /** Time + environment module position in percent. Empty keeps the skin default layout. */
+  meta_position?: HomeLayoutPositionConfig;
+}
+
 export interface DashboardConfig {
   type: string;
   language?: 'zh-CN' | 'en' | 'auto';
@@ -279,6 +289,7 @@ export interface DashboardConfig {
   scenes_page?: ScenesPageConfig;
   home_limits?: HomeLimitsConfig;
   home_selection?: HomeSelectionConfig;
+  home_layout?: HomeLayoutConfig;
 }
 
 export type DeviceColor = 'yellow' | 'green' | 'blue' | 'purple' | 'red' | 'brown';

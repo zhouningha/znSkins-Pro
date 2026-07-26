@@ -703,6 +703,7 @@ export class SkinsProCard extends LitElement {
       onToggleKiosk: () => this.toggleKioskFullscreen(),
       onMoreInfo: (entityId) => moreInfo(this, entityId),
       onTurnOffAreaType: (entityIds) => turnOffAreaTypeAction(this._hass, entityIds),
+      onSetHomeMetaPosition: (x, y) => this.setHomeMetaPosition(x, y),
       setDeviceGrouping: (g) => { this._deviceGrouping = g; this._devicePageIndex = 0; },
       setFilterRoom: (r) => { this._filterRoom = r; this._devicePageIndex = 0; },
       setFocusDeviceRoom: (room) => { this._focusDeviceRoom = room; },
@@ -818,6 +819,23 @@ export class SkinsProCard extends LitElement {
       devices_page: { ...this._config?.devices_page, hidden: next },
     });
     this.bumpDeviceHideIdle();
+    this.requestUpdate();
+  }
+
+  private setHomeMetaPosition(x: number, y: number): void {
+    const next = mergeConfig({
+      ...this._config!,
+      home_layout: {
+        ...this._config?.home_layout,
+        meta_position: { x, y },
+      },
+    });
+    this._config = next;
+    this.dispatchEvent(new CustomEvent('config-changed', {
+      bubbles: true,
+      composed: true,
+      detail: { config: next },
+    }));
     this.requestUpdate();
   }
 

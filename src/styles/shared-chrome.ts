@@ -6,17 +6,19 @@
  * tokens (--sp-accent, --sp-glass-bg, backgrounds, icons).
  */
 export const SHARED_CHROME_CSS = `
-/* ========== Skin switch: soft fade instead of hard flash ========== */
+/* ========== Skin switch: keep UI sharp while prefetching, then short crossfade ========== */
 :host {
-  transition: opacity 180ms ease;
+  transition: opacity 160ms ease, filter 160ms ease;
 }
 :host([data-skin-transition="out"]),
 :host([data-skin-transition="hold"]) {
-  opacity: 0.22;
+  opacity: 0;
+  filter: blur(1px);
   pointer-events: none;
 }
 :host([data-skin-transition="in"]) {
   opacity: 1;
+  filter: none;
 }
 
 /* ========== LAYOUT LOCK: kiosk / Android edge-to-edge ==========

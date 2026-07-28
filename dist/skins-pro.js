@@ -1,4 +1,4 @@
-/* Skins-Pro 2026-07-28T01:57:09.635Z */
+/* Skins-Pro 2026-07-28T02:07:50.868Z */
 const DEFAULT_ASSETS = {
     base: 'base-texture.jpg',
     stage: 'background.jpg',
@@ -1851,7 +1851,7 @@ function bindTextInputs(host) {
                     host.state.config = applySkin(host.el, host.state.config, value);
                     host.onChange({ config: host.state.config });
                     host.reload();
-                }, 350);
+                }, 450);
                 return;
             }
             host.state.config = setField(host.el, host.state.config, path, value);
@@ -2177,38 +2177,28 @@ if (!customElements.get('skins-pro-card-editor')) {
     customElements.define('skins-pro-card-editor', SkinsProCardEditor);
 }
 
-const FADE_MS = 180;
-const PRELOAD_TIMEOUT_MS = 2500;
+const FADE_OUT_MS = 90;
+const FADE_IN_MS = 160;
+const PRELOAD_TIMEOUT_MS = 1800;
+const WARM_TIMEOUT_MS = 1200;
+const warmedSkins = new Set();
+let warmPassRunning = false;
 function wait(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 function withTimeout(promise, ms) {
-    return Promise.race([
-        promise,
-        wait(ms).then(() => undefined),
-    ]);
+    return Promise.race([promise, wait(ms).then(() => undefined)]);
 }
-function preloadStylesheet(href) {
-    if (!href)
+/** Cache bytes via fetch — avoids leaking permanent <link> tags into document.head. */
+function prefetchUrl(url) {
+    if (!url)
         return Promise.resolve();
-    return new Promise((resolve) => {
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = href;
-        const done = () => {
-            link.onload = null;
-            link.onerror = null;
-            resolve();
-        };
-        link.onload = done;
-        link.onerror = done;
-        document.head.appendChild(link);
-        // Keep the cached stylesheet; browser will reuse for the shadow <link>.
-        window.setTimeout(done, PRELOAD_TIMEOUT_MS);
-    });
+    return fetch(url, { credentials: 'same-origin', cache: 'force-cache' })
+        .then(() => undefined)
+        .catch(() => undefined);
 }
 function preloadImage(url) {
-    if (!url || url === 'url("")' || url.includes('url("")'))
+    if (!url)
         return Promise.resolve();
     const clean = url.replace(/^url\(["']?/, '').replace(/["']?\)$/, '').trim();
     if (!clean || clean === 'none')
@@ -2226,36 +2216,103 @@ function preloadImage(url) {
         window.setTimeout(done, PRELOAD_TIMEOUT_MS);
     });
 }
+function skinAssetUrls(config) {
+    const urls = [
+        assetHref(config, 'theme_css'),
+        assetUrl(config, 'stage'),
+        assetUrl(config, 'base'),
+    ].filter(Boolean);
+    return [...new Set(urls)];
+}
 /** Prefetch theme.css + stage/base so the next paint has bytes in cache. */
 async function preloadSkinAssets(config) {
     if (!config)
         return;
-    const cssHref = assetHref(config, 'theme_css');
+    const urls = skinAssetUrls(config);
     const stage = assetUrl(config, 'stage');
     const base = assetUrl(config, 'base');
     await withTimeout(Promise.all([
-        preloadStylesheet(cssHref),
+        ...urls.map((u) => prefetchUrl(u)),
         preloadImage(stage),
         preloadImage(base),
     ]), PRELOAD_TIMEOUT_MS);
+    const skin = selectedSkin(config);
+    if (skin)
+        warmedSkins.add(skin);
 }
-/** Soft fade-out before swapping skin assets. */
+/**
+ * Idle-warm downloaded skins so the first switch is already cached.
+ * Safe to call repeatedly; each skin warms at most once per page life.
+ */
+function warmKnownSkins(config) {
+    if (!config || warmPassRunning)
+        return;
+    const skins = [...new Set([
+            selectedSkin(config),
+            ...(config.downloaded_skins || []),
+        ].filter(Boolean))];
+    const pending = skins.filter((s) => !warmedSkins.has(s));
+    if (!pending.length)
+        return;
+    warmPassRunning = true;
+    void (async () => {
+        try {
+            for (const skin of pending) {
+                if (warmedSkins.has(skin))
+                    continue;
+                warmedSkins.add(skin);
+                const probe = {
+                    ...config,
+                    resource_pack: {
+                        ...config.resource_pack,
+                        skin,
+                        base_path: skin === 'modern' ? '__AUTO__' : `/local/skins-pro/${skin}/`,
+                    },
+                };
+                await withTimeout(preloadSkinAssets(probe), WARM_TIMEOUT_MS);
+                await wait(40);
+            }
+        }
+        finally {
+            warmPassRunning = false;
+        }
+    })();
+}
+/** Quick fade-out — call only after assets are already warm. */
 async function beginSkinFade(host) {
     if (!host)
         return;
     host.setAttribute('data-skin-transition', 'out');
-    await wait(FADE_MS);
+    await wait(FADE_OUT_MS);
 }
-/** Fade back in after the new theme is applied. */
+/** Fade back in after the new theme is painted. */
 async function endSkinFade(host) {
     if (!host)
         return;
-    // Force a frame at opacity 0 with the new skin painted, then ease in.
     host.setAttribute('data-skin-transition', 'hold');
-    await wait(32);
+    await wait(16);
     host.setAttribute('data-skin-transition', 'in');
-    await wait(FADE_MS);
+    await wait(FADE_IN_MS);
     host.removeAttribute('data-skin-transition');
+}
+/** Wait until the shadow theme <link> finishes (or timeout). */
+async function waitForShadowTheme(root) {
+    if (!root)
+        return;
+    const link = root.querySelector('link[rel="stylesheet"]');
+    if (!link)
+        return;
+    if (link.sheet)
+        return;
+    await withTimeout(new Promise((resolve) => {
+        const done = () => {
+            link.removeEventListener('load', done);
+            link.removeEventListener('error', done);
+            resolve();
+        };
+        link.addEventListener('load', done);
+        link.addEventListener('error', done);
+    }), 900);
 }
 
 /**
@@ -8042,17 +8099,19 @@ function renderSecurityCards(ctx) {
  * tokens (--sp-accent, --sp-glass-bg, backgrounds, icons).
  */
 const SHARED_CHROME_CSS = `
-/* ========== Skin switch: soft fade instead of hard flash ========== */
+/* ========== Skin switch: keep UI sharp while prefetching, then short crossfade ========== */
 :host {
-  transition: opacity 180ms ease;
+  transition: opacity 160ms ease, filter 160ms ease;
 }
 :host([data-skin-transition="out"]),
 :host([data-skin-transition="hold"]) {
-  opacity: 0.22;
+  opacity: 0;
+  filter: blur(1px);
   pointer-events: none;
 }
 :host([data-skin-transition="in"]) {
   opacity: 1;
+  filter: none;
 }
 
 /* ========== LAYOUT LOCK: kiosk / Android edge-to-edge ==========
@@ -9064,16 +9123,17 @@ class SkinsProCard extends i {
         this._syncDoorbellDialog();
         this.requestUpdate();
     }
-    /** Fade out → prefetch theme/assets → swap config → fade in. */
+    /** Prefetch first (UI stays sharp) → quick fade → swap → wait CSS → fade in. */
     async _applySkinWithTransition(next) {
         const token = ++this._skinTransitionToken;
         this._skinTransitioning = true;
         const host = this._host();
         try {
-            await beginSkinFade(host);
+            // Keep current skin fully visible while bytes land in cache.
+            await preloadSkinAssets(next);
             if (token !== this._skinTransitionToken)
                 return;
-            await preloadSkinAssets(next);
+            await beginSkinFade(host);
             if (token !== this._skinTransitionToken)
                 return;
             this._config = next;
@@ -9084,8 +9144,9 @@ class SkinsProCard extends i {
             await this.updateComplete;
             if (token !== this._skinTransitionToken)
                 return;
-            // One more frame so the new <link rel=stylesheet> can attach before fade-in.
-            await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+            await waitForShadowTheme(this.renderRoot);
+            if (token !== this._skinTransitionToken)
+                return;
             applyThemeVariables(host, this._config);
             syncPortalThemeVariables(host);
             await endSkinFade(host);
@@ -9678,6 +9739,10 @@ class SkinsProCard extends i {
         this._applyThemeAttribute();
         // Re-check after paint — covers first load when doorbell already pending.
         this._syncDoorbellDialog();
+        // Background-warm other downloaded skins so the next switch is already cached.
+        if (this._config && !this._skinTransitioning) {
+            warmKnownSkins(this._config);
+        }
         if (this._shouldAutoFullscreen() && !this._autoFullscreenDone) {
             applyFullscreenHeight(this._host());
             const applied = ensureKiosk();

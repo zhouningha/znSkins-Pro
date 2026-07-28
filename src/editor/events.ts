@@ -88,7 +88,7 @@ function bindTextInputs(host: EditorHost): void {
           host.state.config = applySkin(host.el, host.state.config, value);
           host.onChange({ config: host.state.config });
           host.reload();
-        }, 350);
+        }, 450);
         return;
       }
       host.state.config = setField(host.el, host.state.config, path, value);

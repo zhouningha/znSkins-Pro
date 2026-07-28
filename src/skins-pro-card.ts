@@ -37,7 +37,7 @@ import {
   loadSkinMetadata,
   BUNDLED_SKINS,
 } from './utils';
-import { beginSkinFade, endSkinFade, preloadSkinAssets } from './utils/skin-transition';
+import { beginSkinFade, endSkinFade, preloadSkinAssets, waitForShadowTheme, warmKnownSkins } from './utils/skin-transition';
 import {
   normalizeHiddenIds,
   readSecurityHiddenLocal,
@@ -431,15 +431,17 @@ export class SkinsProCard extends LitElement {
     this.requestUpdate();
   }
 
-  /** Fade out → prefetch theme/assets → swap config → fade in. */
+  /** Prefetch first (UI stays sharp) → quick fade → swap → wait CSS → fade in. */
   private async _applySkinWithTransition(next: DashboardConfig): Promise<void> {
     const token = ++this._skinTransitionToken;
     this._skinTransitioning = true;
     const host = this._host();
     try {
-      await beginSkinFade(host);
-      if (token !== this._skinTransitionToken) return;
+      // Keep current skin fully visible while bytes land in cache.
       await preloadSkinAssets(next);
+      if (token !== this._skinTransitionToken) return;
+
+      await beginSkinFade(host);
       if (token !== this._skinTransitionToken) return;
 
       this._config = next;
@@ -450,8 +452,9 @@ export class SkinsProCard extends LitElement {
       await this.updateComplete;
       if (token !== this._skinTransitionToken) return;
 
-      // One more frame so the new <link rel=stylesheet> can attach before fade-in.
-      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+      await waitForShadowTheme(this.renderRoot as ShadowRoot);
+      if (token !== this._skinTransitionToken) return;
+
       applyThemeVariables(host, this._config);
       syncPortalThemeVariables(host);
       await endSkinFade(host);
@@ -1068,6 +1071,10 @@ export class SkinsProCard extends LitElement {
     this._applyThemeAttribute();
     // Re-check after paint — covers first load when doorbell already pending.
     this._syncDoorbellDialog();
+    // Background-warm other downloaded skins so the next switch is already cached.
+    if (this._config && !this._skinTransitioning) {
+      warmKnownSkins(this._config);
+    }
     if (this._shouldAutoFullscreen() && !this._autoFullscreenDone) {
       applyFullscreenHeight(this._host());
       const applied = ensureKiosk();

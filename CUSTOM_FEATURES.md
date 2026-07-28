@@ -77,6 +77,7 @@
 - **Akuvox 门禁 RTSP 单客户端（硬坑，2026-07-20）：** R20K（`192.168.1.45:554`）并发会话极少。安防「门禁监控」**只**走 go2rtc `akuvox_sub`（`/live/ch00_1`）。禁止同页再开 HA `camera.r20k_profile_name*` / ONVIF live / 第二个 go2rtc 名指向同一 URL。HA 会把 `onvif_…Profile_Token_2` 自动写回 `/config/go2rtc.yaml`——发现即删，勿与 `akuvox_sub` 并存。黑屏 + loading 优先查 `http://127.0.0.1:1984/api/streams` 是否双 producer；处理：DELETE 多余流 → restart go2rtc → 仍无帧则 `https://192.168.1.45/api/system/reboot`（digest）。安防固定三路：`akuvox_sub` / `tp_ipc_main` / `yw_sub`；`yw_main` 仅 monitoring。
 - **换肤过渡（2026-07-28）：** 换肤时预缓存目标皮肤再短淡入；**不**在日常 `updated` 里预热全部皮肤（会拖慢平板）。portal token 同步仅皮肤变化时执行。
 - **平板切换主题（2026-07-28）：** 墙控左上/左下角长按 5 秒 →「切换主题」（无需管理密码）。列表来自已安装皮肤；选中后本地过渡并 `lovelace/config/save` 写入 strategy，同步到所有客户端。防误触靠 5 秒长按，不放首页常显按钮。
+- **天气放大卡自动关闭（2026-07-28）：** `sp-weather-dialog` 打开后按秒数自动关；秒数来自墙控 APK 设置 `weather_dialog_auto_close_sec`（注入 `window.__spKioskPrefs`），默认 15，`0`=不自动关；触摸会重置计时。
 
 ## 官方升级冲突处理原则
 

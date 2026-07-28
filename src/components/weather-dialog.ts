@@ -204,8 +204,55 @@ export function isWeatherDialogOpen(): boolean {
 }
 
 export function closeWeatherDialog(): void {
+  clearWeatherAutoClose();
   const el = document.getElementById(WEATHER_DIALOG_ID);
   if (el) el.remove();
+}
+
+function weatherAutoCloseMs(): number {
+  const w = window as Window & {
+    __spKioskPrefs?: { weatherDialogAutoCloseSec?: number | string };
+  };
+  const fromKiosk = Number(w.__spKioskPrefs?.weatherDialogAutoCloseSec);
+  if (Number.isFinite(fromKiosk)) {
+    return Math.max(0, Math.min(300, fromKiosk)) * 1000;
+  }
+  try {
+    const raw = window.localStorage.getItem('skins-pro.weather-dialog-auto-close-sec');
+    if (raw != null && raw !== '') {
+      const n = Number(raw);
+      if (Number.isFinite(n)) return Math.max(0, Math.min(300, n)) * 1000;
+    }
+  } catch {
+    // ignore
+  }
+  return 15_000;
+}
+
+let weatherAutoCloseTimer: number | undefined;
+
+function clearWeatherAutoClose(): void {
+  if (weatherAutoCloseTimer != null) {
+    window.clearTimeout(weatherAutoCloseTimer);
+    weatherAutoCloseTimer = undefined;
+  }
+}
+
+function armWeatherAutoClose(root: HTMLElement): void {
+  clearWeatherAutoClose();
+  const ms = weatherAutoCloseMs();
+  if (ms <= 0) return;
+
+  const bump = () => {
+    clearWeatherAutoClose();
+    weatherAutoCloseTimer = window.setTimeout(() => {
+      closeWeatherDialog();
+    }, ms);
+  };
+
+  root.addEventListener('pointerdown', bump, true);
+  root.addEventListener('touchstart', bump, true);
+  bump();
 }
 
 export function openWeatherDialog(
@@ -307,4 +354,6 @@ export function openWeatherDialog(
       </div>
     </div>
   `, root);
+
+  armWeatherAutoClose(root);
 }

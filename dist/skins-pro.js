@@ -1,4 +1,4 @@
-/* Skins-Pro 2026-07-28T03:05:59.263Z */
+/* Skins-Pro 2026-07-28T05:11:41.459Z */
 const DEFAULT_ASSETS = {
     base: 'base-texture.jpg',
     stage: 'background.jpg',
@@ -4949,9 +4949,51 @@ function fmtNum(value, suffix = '') {
     return `${Math.round(n)}${suffix}`;
 }
 function closeWeatherDialog() {
+    clearWeatherAutoClose();
     const el = document.getElementById(WEATHER_DIALOG_ID);
     if (el)
         el.remove();
+}
+function weatherAutoCloseMs() {
+    const w = window;
+    const fromKiosk = Number(w.__spKioskPrefs?.weatherDialogAutoCloseSec);
+    if (Number.isFinite(fromKiosk)) {
+        return Math.max(0, Math.min(300, fromKiosk)) * 1000;
+    }
+    try {
+        const raw = window.localStorage.getItem('skins-pro.weather-dialog-auto-close-sec');
+        if (raw != null && raw !== '') {
+            const n = Number(raw);
+            if (Number.isFinite(n))
+                return Math.max(0, Math.min(300, n)) * 1000;
+        }
+    }
+    catch {
+        // ignore
+    }
+    return 15000;
+}
+let weatherAutoCloseTimer;
+function clearWeatherAutoClose() {
+    if (weatherAutoCloseTimer != null) {
+        window.clearTimeout(weatherAutoCloseTimer);
+        weatherAutoCloseTimer = undefined;
+    }
+}
+function armWeatherAutoClose(root) {
+    clearWeatherAutoClose();
+    const ms = weatherAutoCloseMs();
+    if (ms <= 0)
+        return;
+    const bump = () => {
+        clearWeatherAutoClose();
+        weatherAutoCloseTimer = window.setTimeout(() => {
+            closeWeatherDialog();
+        }, ms);
+    };
+    root.addEventListener('pointerdown', bump, true);
+    root.addEventListener('touchstart', bump, true);
+    bump();
 }
 function openWeatherDialog(host, hass, entityId, forecast) {
     ensureStyle$1();
@@ -5046,6 +5088,7 @@ function openWeatherDialog(host, hass, entityId, forecast) {
       </div>
     </div>
   `, root);
+    armWeatherAutoClose(root);
 }
 
 const DIALOG_ID = 'sp-skin-picker-dialog';

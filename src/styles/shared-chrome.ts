@@ -6,6 +6,19 @@
  * tokens (--sp-accent, --sp-glass-bg, backgrounds, icons).
  */
 export const SHARED_CHROME_CSS = `
+/* ========== Skin switch: soft fade instead of hard flash ========== */
+:host {
+  transition: opacity 180ms ease;
+}
+:host([data-skin-transition="out"]),
+:host([data-skin-transition="hold"]) {
+  opacity: 0.22;
+  pointer-events: none;
+}
+:host([data-skin-transition="in"]) {
+  opacity: 1;
+}
+
 /* ========== LAYOUT LOCK: kiosk / Android edge-to-edge ==========
    Tablet kiosk must fill the real viewport — no --sp-app-padding frame.
    Verified cause of the wood/blank border: .mc-app padding (16px AC default). */
@@ -54,6 +67,68 @@ export const SHARED_CHROME_CSS = `
   box-shadow: none !important;
   overflow: hidden !important;
   height: 100% !important;
+}
+
+/* Home header/weather group: use AC placement across skins; do not touch side panels.
+   Tablet readability: weather was 240px / 22px — bump size here (LAYOUT LOCK wins over skins). */
+.mc-app[data-view="home"] .stage-grid {
+  position: relative !important;
+}
+.mc-app[data-view="home"] .welcome-group {
+  grid-area: welcome !important;
+  display: grid !important;
+  grid-template-rows: auto auto !important;
+  gap: 0 !important;
+  align-self: start !important;
+  max-width: 540px !important;
+  min-width: 0 !important;
+}
+.mc-app[data-view="home"] .weather-block {
+  margin-top: 14px !important;
+  width: 100% !important;
+  max-width: 400px !important;
+  flex-shrink: 0 !important;
+  cursor: pointer !important;
+}
+.mc-app[data-view="home"] .weather-state-icon {
+  width: 48px !important;
+  height: 48px !important;
+}
+.mc-app[data-view="home"] .weather-state-icon ha-icon {
+  --mdc-icon-size: 30px;
+  width: 30px;
+  height: 30px;
+}
+.mc-app[data-view="home"] .weather-current-temp {
+  font-size: 38px !important;
+  line-height: 1.1 !important;
+}
+.mc-app[data-view="home"] .weather-current-hl {
+  font-size: 18px !important;
+}
+.mc-app[data-view="home"] .weather-current-cond {
+  font-size: 16px !important;
+}
+.mc-app[data-view="home"] .weather-forecast {
+  gap: 6px !important;
+  margin-top: 12px !important;
+}
+.mc-app[data-view="home"] .forecast-day {
+  gap: 4px !important;
+}
+.mc-app[data-view="home"] .forecast-weekday {
+  font-size: 15px !important;
+}
+.mc-app[data-view="home"] .forecast-icon ha-icon {
+  --mdc-icon-size: 28px;
+  width: 28px;
+  height: 28px;
+}
+.mc-app[data-view="home"] .forecast-high {
+  font-size: 15px !important;
+}
+.mc-app[data-view="home"] .forecast-low {
+  font-size: 14px !important;
 }
 
 /* ========== LAYOUT LOCK: media playlist ========== */

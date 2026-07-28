@@ -64,7 +64,15 @@ export function renderHomeView(
   const homeDevicesStyle = window.matchMedia('(orientation: landscape)').matches
     ? 'display:grid;grid-auto-flow:column;grid-auto-columns:minmax(140px,200px);grid-template-columns:none;justify-content:start;overflow-x:auto;overflow-y:hidden;padding:var(--sp-space-xs);'
     : 'padding:var(--sp-space-xs);';
-  const metaPositionStyle = 'width:min(520px,72vw);max-width:min(520px,72vw);margin:0 auto;box-sizing:border-box;touch-action:none;';
+  const savedMetaPosition = hasCompletePosition(ctx.config.home_layout?.meta_position)
+    ? {
+        x: normalizePercent(ctx.config.home_layout?.meta_position?.x)!,
+        y: normalizePercent(ctx.config.home_layout?.meta_position?.y)!,
+      }
+    : readStoredHomeMetaPosition();
+  const metaPositionStyle = savedMetaPosition
+    ? `width:300px !important;max-width:calc(100vw - 32px) !important;margin:0 !important;box-sizing:border-box;touch-action:none;position:absolute !important;left:${savedMetaPosition.x}% !important;top:${savedMetaPosition.y}% !important;transform:translate(-50%,-50%) !important;z-index:20;`
+    : 'width:300px !important;max-width:calc(100vw - 32px) !important;margin:0 auto !important;box-sizing:border-box;touch-action:none;';
 
   return html`
     <div class="stage-grid">
@@ -73,7 +81,7 @@ export function renderHomeView(
           <h1>${ctx.config.title || localizedText(undefined, ctx.config.title_zh || skinString(selectedSkin(ctx.config), 'title_zh'), ctx.config.title_en || skinString(selectedSkin(ctx.config), 'title_en'), ctx.language)}</h1>
           <p class="quote">${quote}</p>
         </section>
-        <div class="weather-with-meta" style="display:flex;flex-direction:column;align-items:center;gap:var(--sp-space-md,12px);margin-top:var(--sp-space-md,12px);">
+        <div class="weather-with-meta" style="display:flex !important;align-items:flex-start !important;margin-top:var(--sp-space-md,12px) !important;grid-area:unset !important;width:fit-content !important;max-width:540px !important;">
           ${renderWeather(ctx.config, ctx.hass, weatherIconName, ctx.weatherForecast, ctx.onMoreInfo)}
           <div
             class="welcome-meta"

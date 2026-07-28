@@ -4,7 +4,7 @@ import { DEFAULT_CONFIG, DEFAULT_DEVICES, DEFAULT_ENVIRONMENT, DEFAULT_SCENES } 
 export * from './constants';
 
 export function mergeConfig(config: DashboardConfig): DashboardConfig {
-  return {
+  const merged: DashboardConfig = {
     ...DEFAULT_CONFIG,
     ...config,
     resource_pack: {
@@ -77,6 +77,18 @@ export function mergeConfig(config: DashboardConfig): DashboardConfig {
       ? [...config.nav, ...(DEFAULT_CONFIG.nav || []).filter((defaultItem) => !config.nav?.some((item) => (item.key || item.target) === (defaultItem.key || defaultItem.target)))]
       : DEFAULT_CONFIG.nav,
   };
+  // Strip sticky theme.css?v=gow-… left from a previous skin so the active skin folder loads cleanly.
+  const themeCss = merged.resource_pack?.assets?.theme_css;
+  if (typeof themeCss === 'string' && themeCss.startsWith('theme.css')) {
+    merged.resource_pack = {
+      ...merged.resource_pack,
+      assets: {
+        ...merged.resource_pack?.assets,
+        theme_css: 'theme.css',
+      },
+    };
+  }
+  return merged;
 }
 
 export function findEntity(states: Record<string, HassEntity | undefined>, candidates: string[]): string | undefined {

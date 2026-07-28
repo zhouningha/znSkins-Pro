@@ -37,6 +37,7 @@ import {
   loadSkinMetadata,
   BUNDLED_SKINS,
 } from './utils';
+import { beginSkinFade, endSkinFade, preloadSkinAssets } from './utils/skin-transition';
 import {
   normalizeHiddenIds,
   readSecurityHiddenLocal,
@@ -61,7 +62,8 @@ import { fetchEnergyHistory, fetchEnergySources, enrichEnergySourcesWithMeters, 
 import { openLockDialog, closeLockDialog, isLockDialogOpen, DOORBELL_PREVIEW_STREAM, DEFAULT_DOORBELL_SOUND_URL, unlockDoorbellAudio } from './components/lock-dialog';
 import { resolveGo2rtcBaseForPreview } from './components/camera-stream';
 import type { RenderContext } from './render/context';
-import { applyFullscreenHeight, applyKioskExitHeight, applyLayoutHeight, applyThemeVariables } from './render/layout';
+import { applyFullscreenHeight, applyKioskExitHeight, applyLayoutHeight, applyThemeVariables, syncPortalThemeVariables } from './render/layout';
+import { openWeatherDialog } from './components/weather-dialog';
 import { getRealDevicesForRender } from './selectors/devices';
 import { CONTROLLABLE_DOMAINS } from './components/device-card';
 import { renderHomeView, renderSidebar, renderMobileNav } from './views/home';
@@ -186,6 +188,8 @@ export class SkinsProCard extends LitElement {
   private _deviceRegistryLoading = false;
   private _floorsLoaded = false;
   private _floorsLoading = false;
+  private _skinTransitioning = false;
+  private _skinTransitionToken = 0;
 
   @state() private _energyHistory?: number[];
   @state() private _energyYesterday?: string;
@@ -397,7 +401,18 @@ export class SkinsProCard extends LitElement {
     if (!config || config.type !== 'custom:skins-pro-card') {
       throw new Error('Card type must be custom:skins-pro-card');
     }
-    this._config = this.mergeHiddenFromSources(config);
+    const next = this.mergeHiddenFromSources(config);
+    const prevSkin = this._config ? selectedSkin(this._config) : '';
+    const nextSkin = selectedSkin(next);
+    const skinChanged = Boolean(prevSkin && nextSkin && prevSkin !== nextSkin);
+
+    // Skin-only swaps: preload + soft fade; keep energy/weather caches (avoids hard reload feel).
+    if (skinChanged && this._config) {
+      void this._applySkinWithTransition(next);
+      return;
+    }
+
+    this._config = next;
     this._energyHistory = undefined;
     this._energyYesterday = undefined;
     this._energyMonthToDate = undefined;
@@ -414,6 +429,38 @@ export class SkinsProCard extends LitElement {
     void this.unsubscribeWeatherForecast();
     this._syncDoorbellDialog();
     this.requestUpdate();
+  }
+
+  /** Fade out → prefetch theme/assets → swap config → fade in. */
+  private async _applySkinWithTransition(next: DashboardConfig): Promise<void> {
+    const token = ++this._skinTransitionToken;
+    this._skinTransitioning = true;
+    const host = this._host();
+    try {
+      await beginSkinFade(host);
+      if (token !== this._skinTransitionToken) return;
+      await preloadSkinAssets(next);
+      if (token !== this._skinTransitionToken) return;
+
+      this._config = next;
+      this._loadedSkinMetadata = undefined;
+      this._autoFullscreenDone = false;
+      this._autoFullscreenAttempts = 0;
+      this.requestUpdate();
+      await this.updateComplete;
+      if (token !== this._skinTransitionToken) return;
+
+      // One more frame so the new <link rel=stylesheet> can attach before fade-in.
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+      applyThemeVariables(host, this._config);
+      syncPortalThemeVariables(host);
+      await endSkinFade(host);
+    } finally {
+      if (token === this._skinTransitionToken) {
+        this._skinTransitioning = false;
+        host?.removeAttribute('data-skin-transition');
+      }
+    }
   }
 
   protected willUpdate(changed: PropertyValues): void {
@@ -701,7 +748,7 @@ export class SkinsProCard extends LitElement {
       onHandleAction: (entityId, action) => this.handleAction(entityId, action),
       onBatchControl: (state) => { void this.batchControl(state, translate); },
       onToggleKiosk: () => this.toggleKioskFullscreen(),
-      onMoreInfo: (entityId) => moreInfo(this, entityId),
+      onMoreInfo: (entityId) => this.openMoreInfo(entityId),
       onTurnOffAreaType: (entityIds) => turnOffAreaTypeAction(this._hass, entityIds),
       onSetHomeMetaPosition: (x, y) => this.setHomeMetaPosition(x, y),
       setDeviceGrouping: (g) => { this._deviceGrouping = g; this._devicePageIndex = 0; },
@@ -1016,6 +1063,7 @@ export class SkinsProCard extends LitElement {
 
   protected updated(): void {
     applyThemeVariables(this._host(), this._config);
+    syncPortalThemeVariables(this._host());
     this._applyLayout();
     this._applyThemeAttribute();
     // Re-check after paint — covers first load when doorbell already pending.
@@ -1111,8 +1159,21 @@ export class SkinsProCard extends LitElement {
           }
         : undefined);
     } else {
-      moreInfo(this, entityId);
+      this.openMoreInfo(entityId);
     }
+  }
+
+  private openMoreInfo(entityId: string): void {
+    // Weather: themed body dialog (HA more-info middle panel ignores skin tokens).
+    if (entityId.startsWith('weather.') && this._hass) {
+      const host = this._host();
+      if (host) {
+        openWeatherDialog(host, this._hass, entityId, this._weatherForecast);
+        return;
+      }
+    }
+    syncPortalThemeVariables(this._host());
+    moreInfo(this, entityId);
   }
 
   private navigateTo(target: string): void {

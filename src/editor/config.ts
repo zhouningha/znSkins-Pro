@@ -90,9 +90,32 @@ export function applySkin(el: HTMLElement, current: DashboardConfigRecord, skin:
   const next = deepClone(current);
   next.resource_pack = next.resource_pack || {};
   next.resource_pack.skin = skin;
+  // Bundled skins use in-JS assets; downloaded skins must point at /local/skins-pro/<id>/.
   if (SKINS.includes(skin)) {
     next.resource_pack.base_path = '__AUTO__';
+  } else {
+    next.resource_pack.base_path = `/local/skins-pro/${skin}/`;
+    next.downloaded_skins = [...new Set([...(next.downloaded_skins || []), skin])];
   }
+  // Sticky custom BG / absolute asset paths pin the previous skin's stage & theme.css.
+  if (next.background_image) next.background_image = '';
+  const assets = { ...(next.resource_pack.assets || {}) } as Record<string, string>;
+  for (const key of ['theme_css', 'stage', 'base'] as const) {
+    const val = assets[key];
+    if (typeof val !== 'string') continue;
+    if (val.startsWith('/') || /^https?:\/\//.test(val) || val.includes('/skins-pro/')) {
+      delete assets[key];
+      continue;
+    }
+    // Drop stale cache-buster queries (e.g. theme.css?v=gow-…) so the new skin folder loads.
+    if (key === 'theme_css' && val.startsWith('theme.css')) assets.theme_css = 'theme.css';
+  }
+  // Downloaded skins should not keep a prior skin's absolute/query asset map beyond theme.css.
+  if (!SKINS.includes(skin)) {
+    delete assets.stage;
+    delete assets.base;
+  }
+  next.resource_pack.assets = assets;
   fire(el, next);
   return next;
 }

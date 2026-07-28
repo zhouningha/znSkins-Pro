@@ -62,7 +62,20 @@ class SkinsProStrategy {
             ...('energy' in savedConfig ? { entity: String(sc('energy').entity || '') } : {}),
           },
           info: { ...autoConfig.info, ...sc('info') },
-          resource_pack: { ...autoConfig.resource_pack, ...sc('resource_pack') },
+          resource_pack: {
+            ...autoConfig.resource_pack,
+            ...sc('resource_pack'),
+            // Deep-merge assets — shallow replace would wipe DEFAULT_ASSETS when strategy
+            // only saved { theme_css: "theme.css?v=…" } and leave stage/base wrong.
+            assets: {
+              ...(autoConfig.resource_pack?.assets || {}),
+              ...(sc('resource_pack').assets || {}),
+            },
+            theme: {
+              ...(autoConfig.resource_pack?.theme || {}),
+              ...(sc('resource_pack').theme || {}),
+            },
+          },
           home_selection: { ...autoConfig.home_selection, ...sc('home_selection') },
           security_page: {
             ...autoConfig.security_page,

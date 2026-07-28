@@ -76,14 +76,19 @@ function bindAreaPickers(host: EditorHost): void {
 }
 
 function bindTextInputs(host: EditorHost): void {
+  let skinSelectTimer: number | undefined;
   host.root.querySelectorAll<HTMLInputElement>('input[data-text-path], select[data-text-path]').forEach((el) => {
     el.addEventListener('change', () => {
       const path = el.getAttribute('data-text-path') || '';
       const value: any = el.value;
       if (path === 'resource_pack.skin') {
-        host.state.config = applySkin(host.el, host.state.config, value);
-        host.onChange({ config: host.state.config });
-        host.reload();
+        // Debounce rapid skin flips so tablet only receives the final choice.
+        if (skinSelectTimer) window.clearTimeout(skinSelectTimer);
+        skinSelectTimer = window.setTimeout(() => {
+          host.state.config = applySkin(host.el, host.state.config, value);
+          host.onChange({ config: host.state.config });
+          host.reload();
+        }, 350);
         return;
       }
       host.state.config = setField(host.el, host.state.config, path, value);

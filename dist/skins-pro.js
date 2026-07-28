@@ -1,4 +1,4 @@
-/* Skins-Pro 2026-07-28T02:07:50.868Z */
+/* Skins-Pro 2026-07-28T02:20:20.063Z */
 const DEFAULT_ASSETS = {
     base: 'base-texture.jpg',
     stage: 'background.jpg',
@@ -2180,9 +2180,6 @@ if (!customElements.get('skins-pro-card-editor')) {
 const FADE_OUT_MS = 90;
 const FADE_IN_MS = 160;
 const PRELOAD_TIMEOUT_MS = 1800;
-const WARM_TIMEOUT_MS = 1200;
-const warmedSkins = new Set();
-let warmPassRunning = false;
 function wait(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
@@ -2216,67 +2213,19 @@ function preloadImage(url) {
         window.setTimeout(done, PRELOAD_TIMEOUT_MS);
     });
 }
-function skinAssetUrls(config) {
-    const urls = [
-        assetHref(config, 'theme_css'),
-        assetUrl(config, 'stage'),
-        assetUrl(config, 'base'),
-    ].filter(Boolean);
-    return [...new Set(urls)];
-}
 /** Prefetch theme.css + stage/base so the next paint has bytes in cache. */
 async function preloadSkinAssets(config) {
     if (!config)
         return;
-    const urls = skinAssetUrls(config);
+    const cssHref = assetHref(config, 'theme_css');
     const stage = assetUrl(config, 'stage');
     const base = assetUrl(config, 'base');
     await withTimeout(Promise.all([
-        ...urls.map((u) => prefetchUrl(u)),
+        prefetchUrl(cssHref),
         preloadImage(stage),
         preloadImage(base),
     ]), PRELOAD_TIMEOUT_MS);
-    const skin = selectedSkin(config);
-    if (skin)
-        warmedSkins.add(skin);
-}
-/**
- * Idle-warm downloaded skins so the first switch is already cached.
- * Safe to call repeatedly; each skin warms at most once per page life.
- */
-function warmKnownSkins(config) {
-    if (!config || warmPassRunning)
-        return;
-    const skins = [...new Set([
-            selectedSkin(config),
-            ...(config.downloaded_skins || []),
-        ].filter(Boolean))];
-    const pending = skins.filter((s) => !warmedSkins.has(s));
-    if (!pending.length)
-        return;
-    warmPassRunning = true;
-    void (async () => {
-        try {
-            for (const skin of pending) {
-                if (warmedSkins.has(skin))
-                    continue;
-                warmedSkins.add(skin);
-                const probe = {
-                    ...config,
-                    resource_pack: {
-                        ...config.resource_pack,
-                        skin,
-                        base_path: skin === 'modern' ? '__AUTO__' : `/local/skins-pro/${skin}/`,
-                    },
-                };
-                await withTimeout(preloadSkinAssets(probe), WARM_TIMEOUT_MS);
-                await wait(40);
-            }
-        }
-        finally {
-            warmPassRunning = false;
-        }
-    })();
+    void selectedSkin(config);
 }
 /** Quick fade-out — call only after assets are already warm. */
 async function beginSkinFade(host) {
@@ -4568,8 +4517,12 @@ function firstToken$1(computed, keys) {
     return '';
 }
 const MORE_INFO_THEME_STYLE_ID = 'sp-more-info-theme';
+let lastPortalSignature = '';
+function dialogOpenNow() {
+    return !!document.querySelector('ha-more-info-dialog, ha-dialog, ha-adaptive-dialog, wa-dialog, #sp-weather-dialog, #sp-lock-dialog');
+}
 /** Map current skin tokens onto HA more-info / dialog chrome (body portal). */
-function syncPortalThemeVariables(host) {
+function syncPortalThemeVariables(host, opts) {
     if (!host)
         return;
     const targets = [document.documentElement, document.body].filter(Boolean);
@@ -4610,6 +4563,25 @@ function syncPortalThemeVariables(host) {
         '--sp-border-glass', '--sp-radius-xl', '--sp-radius-lg', '--sp-shadow-md', '--sp-shadow-lg',
         '--glass-thin', '--glass-regular', '--glass-thick',
     ];
+    // Peek tokens first — skip expensive clear/write when nothing changed (every hass tick).
+    const peek = getComputedStyle(host);
+    const text = firstToken$1(peek, ['--sp-text-main', '--sp-text-primary', '--sp-text-stage']);
+    const muted = firstToken$1(peek, ['--sp-text-muted', '--sp-text-secondary', '--sp-text-stage-muted']);
+    const accent = firstToken$1(peek, ['--sp-accent']);
+    const panel = firstToken$1(peek, [
+        '--sp-panel-bg', '--sp-glass-bg', '--sp-glass-light', '--glass-regular', '--glass-thick', '--sp-device-bg',
+    ]);
+    const border = firstToken$1(peek, ['--sp-border-glass', '--sp-accent-border']);
+    const shadow = firstToken$1(peek, ['--sp-shadow-md', '--sp-shadow-lg', '--sp-shadow-card']);
+    const radius = firstToken$1(peek, ['--sp-radius-xl', '--sp-radius-lg', '--sp-radius-glass']);
+    const signature = `${text}|${muted}|${accent}|${panel}|${border}|${radius}`;
+    if (!opts?.force && signature && signature === lastPortalSignature) {
+        if (dialogOpenNow()) {
+            paintOpenMoreInfoDialogs({ text, muted, accent, panel, border, radius });
+        }
+        return;
+    }
+    lastPortalSignature = signature;
     // Drop previous skin's portal tokens BEFORE reading host — custom props inherit from
     // body into :host, so a GoW --sp-text-primary would otherwise pollute organic/AC.
     for (const name of [...hostTokenKeys, ...explicitTokens]) {
@@ -4631,16 +4603,6 @@ function syncPortalThemeVariables(host) {
         for (const target of targets)
             target.style.setProperty(name, value);
     }
-    // GoW / visionOS skins use --sp-text-primary + --glass-regular (no --sp-text-main / --sp-panel-bg).
-    const text = firstToken$1(computed, ['--sp-text-main', '--sp-text-primary', '--sp-text-stage']);
-    const muted = firstToken$1(computed, ['--sp-text-muted', '--sp-text-secondary', '--sp-text-stage-muted']);
-    const accent = firstToken$1(computed, ['--sp-accent']);
-    const panel = firstToken$1(computed, [
-        '--sp-panel-bg', '--sp-glass-bg', '--sp-glass-light', '--glass-regular', '--glass-thick', '--sp-device-bg',
-    ]);
-    const border = firstToken$1(computed, ['--sp-border-glass', '--sp-accent-border']);
-    const shadow = firstToken$1(computed, ['--sp-shadow-md', '--sp-shadow-lg', '--sp-shadow-card']);
-    const radius = firstToken$1(computed, ['--sp-radius-xl', '--sp-radius-lg', '--sp-radius-glass']);
     for (const target of targets) {
         if (text) {
             target.style.setProperty('--primary-text-color', text);
@@ -4673,9 +4635,11 @@ function syncPortalThemeVariables(host) {
             target.style.setProperty('--ha-dialog-border-radius', radius);
     }
     applyMoreInfoThemeStyles({ text, muted, accent, panel, border, radius });
-    // Dialog mounts async — re-apply onto the open surface shortly after.
-    window.setTimeout(() => paintOpenMoreInfoDialogs({ text, muted, accent, panel, border, radius }), 40);
-    window.setTimeout(() => paintOpenMoreInfoDialogs({ text, muted, accent, panel, border, radius }), 200);
+    // Only walk the dialog tree when something is open (avoids full-DOM scan every sync).
+    if (dialogOpenNow()) {
+        window.setTimeout(() => paintOpenMoreInfoDialogs({ text, muted, accent, panel, border, radius }), 40);
+        window.setTimeout(() => paintOpenMoreInfoDialogs({ text, muted, accent, panel, border, radius }), 200);
+    }
 }
 function applyMoreInfoThemeStyles(tokens) {
     let style = document.getElementById(MORE_INFO_THEME_STYLE_ID);
@@ -8099,19 +8063,17 @@ function renderSecurityCards(ctx) {
  * tokens (--sp-accent, --sp-glass-bg, backgrounds, icons).
  */
 const SHARED_CHROME_CSS = `
-/* ========== Skin switch: keep UI sharp while prefetching, then short crossfade ========== */
-:host {
-  transition: opacity 160ms ease, filter 160ms ease;
+/* ========== Skin switch: short crossfade only while transitioning ========== */
+:host([data-skin-transition]) {
+  transition: opacity 160ms ease;
 }
 :host([data-skin-transition="out"]),
 :host([data-skin-transition="hold"]) {
   opacity: 0;
-  filter: blur(1px);
   pointer-events: none;
 }
 :host([data-skin-transition="in"]) {
   opacity: 1;
-  filter: none;
 }
 
 /* ========== LAYOUT LOCK: kiosk / Android edge-to-edge ==========
@@ -8910,6 +8872,7 @@ class SkinsProCard extends i {
         this._floorsLoading = false;
         this._skinTransitioning = false;
         this._skinTransitionToken = 0;
+        this._portalSkinKey = '';
         this._energyHistoryDone = false;
         this._energyHistoryLoading = false;
         this._energySources = [];
@@ -9148,7 +9111,8 @@ class SkinsProCard extends i {
             if (token !== this._skinTransitionToken)
                 return;
             applyThemeVariables(host, this._config);
-            syncPortalThemeVariables(host);
+            this._portalSkinKey = `${selectedSkin(next)}|${next.resource_pack?.base_path || ''}|${this.getAttribute('data-sp-theme') || ''}`;
+            syncPortalThemeVariables(host, { force: true });
             await endSkinFade(host);
         }
         finally {
@@ -9734,15 +9698,19 @@ class SkinsProCard extends i {
     // ─── Lifecycle ──────────────────────────────────────────
     updated() {
         applyThemeVariables(this._host(), this._config);
-        syncPortalThemeVariables(this._host());
+        // Portal sync is expensive (clear/set dozens of CSS vars + DOM walk).
+        // Only refresh when skin/theme tokens may have changed — not on every hass tick.
+        const skinKey = this._config
+            ? `${selectedSkin(this._config)}|${this._config.resource_pack?.base_path || ''}|${this.getAttribute('data-sp-theme') || ''}`
+            : '';
+        if (skinKey && skinKey !== this._portalSkinKey) {
+            this._portalSkinKey = skinKey;
+            syncPortalThemeVariables(this._host());
+        }
         this._applyLayout();
         this._applyThemeAttribute();
         // Re-check after paint — covers first load when doorbell already pending.
         this._syncDoorbellDialog();
-        // Background-warm other downloaded skins so the next switch is already cached.
-        if (this._config && !this._skinTransitioning) {
-            warmKnownSkins(this._config);
-        }
         if (this._shouldAutoFullscreen() && !this._autoFullscreenDone) {
             applyFullscreenHeight(this._host());
             const applied = ensureKiosk();

@@ -37,7 +37,7 @@ import {
   loadSkinMetadata,
   BUNDLED_SKINS,
 } from './utils';
-import { beginSkinFade, endSkinFade, preloadSkinAssets, waitForShadowTheme, warmKnownSkins } from './utils/skin-transition';
+import { beginSkinFade, endSkinFade, preloadSkinAssets, waitForShadowTheme } from './utils/skin-transition';
 import {
   normalizeHiddenIds,
   readSecurityHiddenLocal,
@@ -190,6 +190,7 @@ export class SkinsProCard extends LitElement {
   private _floorsLoading = false;
   private _skinTransitioning = false;
   private _skinTransitionToken = 0;
+  private _portalSkinKey = '';
 
   @state() private _energyHistory?: number[];
   @state() private _energyYesterday?: string;
@@ -456,7 +457,8 @@ export class SkinsProCard extends LitElement {
       if (token !== this._skinTransitionToken) return;
 
       applyThemeVariables(host, this._config);
-      syncPortalThemeVariables(host);
+      this._portalSkinKey = `${selectedSkin(next)}|${next.resource_pack?.base_path || ''}|${this.getAttribute('data-sp-theme') || ''}`;
+      syncPortalThemeVariables(host, { force: true });
       await endSkinFade(host);
     } finally {
       if (token === this._skinTransitionToken) {
@@ -1066,15 +1068,19 @@ export class SkinsProCard extends LitElement {
 
   protected updated(): void {
     applyThemeVariables(this._host(), this._config);
-    syncPortalThemeVariables(this._host());
+    // Portal sync is expensive (clear/set dozens of CSS vars + DOM walk).
+    // Only refresh when skin/theme tokens may have changed — not on every hass tick.
+    const skinKey = this._config
+      ? `${selectedSkin(this._config)}|${this._config.resource_pack?.base_path || ''}|${this.getAttribute('data-sp-theme') || ''}`
+      : '';
+    if (skinKey && skinKey !== this._portalSkinKey) {
+      this._portalSkinKey = skinKey;
+      syncPortalThemeVariables(this._host());
+    }
     this._applyLayout();
     this._applyThemeAttribute();
     // Re-check after paint — covers first load when doorbell already pending.
     this._syncDoorbellDialog();
-    // Background-warm other downloaded skins so the next switch is already cached.
-    if (this._config && !this._skinTransitioning) {
-      warmKnownSkins(this._config);
-    }
     if (this._shouldAutoFullscreen() && !this._autoFullscreenDone) {
       applyFullscreenHeight(this._host());
       const applied = ensureKiosk();

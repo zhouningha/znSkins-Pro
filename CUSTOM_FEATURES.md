@@ -75,7 +75,7 @@
 - **首页搜索已移除（2026-07-21）：** 墙控不展示「搜索设备」条/弹层；以场景与首页快捷设备为主。勿再把搜索入口加回首页。
 - **主题底座（2026-07-20）：** `src/styles/shared-chrome.ts` 在皮肤 `theme.css` 之前注入；**LAYOUT LOCK**（`!important`）固定歌单/摄像头/安防的尺寸·位置·铺满（森友会基准）。开门弹层从 card host 复制 token 上色。换肤 = 只换主题元素/变量，禁止另搞一套显示规则。
 - **Akuvox 门禁 RTSP 单客户端（硬坑，2026-07-20）：** R20K（`192.168.1.45:554`）并发会话极少。安防「门禁监控」**只**走 go2rtc `akuvox_sub`（`/live/ch00_1`）。禁止同页再开 HA `camera.r20k_profile_name*` / ONVIF live / 第二个 go2rtc 名指向同一 URL。HA 会把 `onvif_…Profile_Token_2` 自动写回 `/config/go2rtc.yaml`——发现即删，勿与 `akuvox_sub` 并存。黑屏 + loading 优先查 `http://127.0.0.1:1984/api/streams` 是否双 producer；处理：DELETE 多余流 → restart go2rtc → 仍无帧则 `https://192.168.1.45/api/system/reboot`（digest）。安防固定三路：`akuvox_sub` / `tp_ipc_main` / `yw_sub`；`yw_main` 仅 monitoring。
-- **换肤过渡（2026-07-28）：** 先后台预缓存 `theme.css`/stage/base（界面仍清晰），再短淡出换皮并等 shadow CSS 就绪后淡入；空闲时 `warmKnownSkins` 预热 `downloaded_skins`。编辑器皮肤下拉 debounce 450ms。
+- **换肤过渡（2026-07-28）：** 换肤时预缓存目标皮肤再短淡入；**不**在日常 `updated` 里预热全部皮肤（会拖慢平板）。portal token 同步仅皮肤变化时执行。
 
 ## 官方升级冲突处理原则
 

@@ -63,9 +63,16 @@ function firstToken(computed: CSSStyleDeclaration, keys: string[]): string {
 }
 
 const MORE_INFO_THEME_STYLE_ID = 'sp-more-info-theme';
+let lastPortalSignature = '';
+
+function dialogOpenNow(): boolean {
+  return !!document.querySelector(
+    'ha-more-info-dialog, ha-dialog, ha-adaptive-dialog, wa-dialog, #sp-weather-dialog, #sp-lock-dialog',
+  );
+}
 
 /** Map current skin tokens onto HA more-info / dialog chrome (body portal). */
-export function syncPortalThemeVariables(host: HTMLElement | null | undefined): void {
+export function syncPortalThemeVariables(host: HTMLElement | null | undefined, opts?: { force?: boolean }): void {
   if (!host) return;
   const targets = [document.documentElement, document.body].filter(Boolean) as HTMLElement[];
   const explicitTokens = [
@@ -107,6 +114,26 @@ export function syncPortalThemeVariables(host: HTMLElement | null | undefined): 
     '--glass-thin', '--glass-regular', '--glass-thick',
   ];
 
+  // Peek tokens first — skip expensive clear/write when nothing changed (every hass tick).
+  const peek = getComputedStyle(host);
+  const text = firstToken(peek, ['--sp-text-main', '--sp-text-primary', '--sp-text-stage']);
+  const muted = firstToken(peek, ['--sp-text-muted', '--sp-text-secondary', '--sp-text-stage-muted']);
+  const accent = firstToken(peek, ['--sp-accent']);
+  const panel = firstToken(peek, [
+    '--sp-panel-bg', '--sp-glass-bg', '--sp-glass-light', '--glass-regular', '--glass-thick', '--sp-device-bg',
+  ]);
+  const border = firstToken(peek, ['--sp-border-glass', '--sp-accent-border']);
+  const shadow = firstToken(peek, ['--sp-shadow-md', '--sp-shadow-lg', '--sp-shadow-card']);
+  const radius = firstToken(peek, ['--sp-radius-xl', '--sp-radius-lg', '--sp-radius-glass']);
+  const signature = `${text}|${muted}|${accent}|${panel}|${border}|${radius}`;
+  if (!opts?.force && signature && signature === lastPortalSignature) {
+    if (dialogOpenNow()) {
+      paintOpenMoreInfoDialogs({ text, muted, accent, panel, border, radius });
+    }
+    return;
+  }
+  lastPortalSignature = signature;
+
   // Drop previous skin's portal tokens BEFORE reading host — custom props inherit from
   // body into :host, so a GoW --sp-text-primary would otherwise pollute organic/AC.
   for (const name of [...hostTokenKeys, ...explicitTokens]) {
@@ -124,17 +151,6 @@ export function syncPortalThemeVariables(host: HTMLElement | null | undefined): 
     if (!value) continue;
     for (const target of targets) target.style.setProperty(name, value);
   }
-
-  // GoW / visionOS skins use --sp-text-primary + --glass-regular (no --sp-text-main / --sp-panel-bg).
-  const text = firstToken(computed, ['--sp-text-main', '--sp-text-primary', '--sp-text-stage']);
-  const muted = firstToken(computed, ['--sp-text-muted', '--sp-text-secondary', '--sp-text-stage-muted']);
-  const accent = firstToken(computed, ['--sp-accent']);
-  const panel = firstToken(computed, [
-    '--sp-panel-bg', '--sp-glass-bg', '--sp-glass-light', '--glass-regular', '--glass-thick', '--sp-device-bg',
-  ]);
-  const border = firstToken(computed, ['--sp-border-glass', '--sp-accent-border']);
-  const shadow = firstToken(computed, ['--sp-shadow-md', '--sp-shadow-lg', '--sp-shadow-card']);
-  const radius = firstToken(computed, ['--sp-radius-xl', '--sp-radius-lg', '--sp-radius-glass']);
 
   for (const target of targets) {
     if (text) {
@@ -166,9 +182,11 @@ export function syncPortalThemeVariables(host: HTMLElement | null | undefined): 
   }
 
   applyMoreInfoThemeStyles({ text, muted, accent, panel, border, radius });
-  // Dialog mounts async — re-apply onto the open surface shortly after.
-  window.setTimeout(() => paintOpenMoreInfoDialogs({ text, muted, accent, panel, border, radius }), 40);
-  window.setTimeout(() => paintOpenMoreInfoDialogs({ text, muted, accent, panel, border, radius }), 200);
+  // Only walk the dialog tree when something is open (avoids full-DOM scan every sync).
+  if (dialogOpenNow()) {
+    window.setTimeout(() => paintOpenMoreInfoDialogs({ text, muted, accent, panel, border, radius }), 40);
+    window.setTimeout(() => paintOpenMoreInfoDialogs({ text, muted, accent, panel, border, radius }), 200);
+  }
 }
 
 function applyMoreInfoThemeStyles(tokens: {

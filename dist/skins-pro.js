@@ -1,4 +1,4 @@
-/* Skins-Pro 2026-07-28T02:20:20.063Z */
+/* Skins-Pro 2026-07-28T02:51:43.833Z */
 const DEFAULT_ASSETS = {
     base: 'base-texture.jpg',
     stage: 'background.jpg',
@@ -1350,7 +1350,7 @@ function moveListItem(el, current, path, index, delta) {
     fire(el, next);
     return next;
 }
-function applySkin(el, current, skin) {
+function applySkinConfig(current, skin) {
     const next = deepClone(current);
     next.resource_pack = next.resource_pack || {};
     next.resource_pack.skin = skin;
@@ -1384,6 +1384,10 @@ function applySkin(el, current, skin) {
         delete assets.base;
     }
     next.resource_pack.assets = assets;
+    return next;
+}
+function applySkin(el, current, skin) {
+    const next = applySkinConfig(current, skin);
     fire(el, next);
     return next;
 }
@@ -3927,7 +3931,7 @@ const AUTO_CLOSE_SEC = 5;
 /** Same go2rtc stream as security「门禁监控」— do not open a second Akuvox RTSP. */
 const DOORBELL_PREVIEW_STREAM = 'akuvox_sub';
 /** CSS vars copied from skins-pro-card :host onto body-mounted dialog. */
-const HOST_TOKEN_KEYS$1 = [
+const HOST_TOKEN_KEYS$2 = [
     '--sp-accent',
     '--sp-accent-hover',
     '--sp-accent-alpha',
@@ -4272,7 +4276,7 @@ function copyHostThemeTokens(host, target) {
     if (!host)
         return;
     const cs = getComputedStyle(host);
-    for (const key of HOST_TOKEN_KEYS$1) {
+    for (const key of HOST_TOKEN_KEYS$2) {
         const value = cs.getPropertyValue(key).trim();
         if (value)
             target.style.setProperty(key, value);
@@ -4752,7 +4756,7 @@ function applyKioskExitHeight(host) {
 
 const WEATHER_DIALOG_ID = 'sp-weather-dialog';
 /** CSS vars copied from skins-pro-card :host onto body-mounted dialog. */
-const HOST_TOKEN_KEYS = [
+const HOST_TOKEN_KEYS$1 = [
     '--sp-accent',
     '--sp-accent-hover',
     '--sp-accent-alpha',
@@ -4900,9 +4904,9 @@ function firstToken(computed, keys) {
     }
     return '';
 }
-function copyHostTokens(host, target) {
+function copyHostTokens$1(host, target) {
     const computed = getComputedStyle(host);
-    for (const key of HOST_TOKEN_KEYS) {
+    for (const key of HOST_TOKEN_KEYS$1) {
         target.style.removeProperty(key);
         const value = computed.getPropertyValue(key).trim();
         if (value)
@@ -4928,7 +4932,7 @@ function copyHostTokens(host, target) {
         target.style.setProperty('--glass-regular', panel);
     }
 }
-function ensureStyle() {
+function ensureStyle$1() {
     if (document.getElementById(`${WEATHER_DIALOG_ID}-style`))
         return;
     const style = document.createElement('style');
@@ -4950,7 +4954,7 @@ function closeWeatherDialog() {
         el.remove();
 }
 function openWeatherDialog(host, hass, entityId, forecast) {
-    ensureStyle();
+    ensureStyle$1();
     closeWeatherDialog();
     const state = hass.states?.[entityId];
     const attrs = (state?.attributes || {});
@@ -4979,7 +4983,7 @@ function openWeatherDialog(host, hass, entityId, forecast) {
         metrics.push({ label: '能见度', value: visibility });
     const root = document.createElement('div');
     root.id = WEATHER_DIALOG_ID;
-    copyHostTokens(host, root);
+    copyHostTokens$1(host, root);
     document.body.appendChild(root);
     const onClose = (event) => {
         event?.preventDefault();
@@ -5042,6 +5046,241 @@ function openWeatherDialog(host, hass, entityId, forecast) {
       </div>
     </div>
   `, root);
+}
+
+const DIALOG_ID = 'sp-skin-picker-dialog';
+const SKIN_LABELS = {
+    modern: 'Modern',
+    'animal-crossing': '动物森友会',
+    organic: '自然之家',
+    god_of_war_3_wall: '战神',
+    'retro-luxury': '复古奢华',
+    'fantasy-westward-journey': '梦幻西游',
+    'neo-tactile': 'Neo Tactile',
+};
+const HOST_TOKEN_KEYS = [
+    '--sp-accent',
+    '--sp-accent-alpha',
+    '--sp-accent-border',
+    '--sp-text-primary',
+    '--sp-text-main',
+    '--sp-text-muted',
+    '--sp-text-secondary',
+    '--sp-panel-bg',
+    '--sp-glass-bg',
+    '--sp-border-glass',
+    '--sp-radius-xl',
+    '--sp-radius-lg',
+    '--sp-radius-md',
+    '--sp-shadow-lg',
+    '--glass-regular',
+];
+const STYLE = `
+#${DIALOG_ID} {
+  position: fixed; inset: 0; z-index: 100000;
+  font-family: inherit; pointer-events: auto;
+  color: var(--sp-text-main, var(--sp-text-primary, #2d3734));
+}
+#${DIALOG_ID} .sk-scrim {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: rgba(45, 55, 52, 0.42);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+#${DIALOG_ID} .sk-card {
+  width: min(420px, 100%);
+  max-height: min(78vh, 640px);
+  overflow: auto;
+  display: grid; gap: 12px; padding: 20px;
+  border-radius: var(--sp-radius-xl, 24px);
+  background: var(--sp-panel-bg, var(--sp-glass-bg, var(--glass-regular, #EBEFEA)));
+  border: 1px solid var(--sp-border-glass, rgba(45,55,52,.12));
+  box-shadow: var(--sp-shadow-lg, 0 18px 48px rgba(45,55,52,.22));
+  box-sizing: border-box;
+}
+#${DIALOG_ID} .sk-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+#${DIALOG_ID} .sk-title {
+  margin: 0; font-size: 18px; font-weight: 700;
+}
+#${DIALOG_ID} .sk-close {
+  width: 36px; height: 36px; border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--sp-accent-alpha, rgba(45,55,52,.08));
+  color: inherit; display: grid; place-items: center;
+}
+#${DIALOG_ID} .sk-hint {
+  margin: 0; font-size: 12px; font-weight: 600;
+  color: var(--sp-text-muted, var(--sp-text-secondary, inherit));
+  opacity: 0.9;
+}
+#${DIALOG_ID} .sk-list { display: grid; gap: 8px; }
+#${DIALOG_ID} .sk-item {
+  min-height: 48px; padding: 12px 14px; border-radius: var(--sp-radius-md, 16px);
+  border: 1px solid var(--sp-border-glass, rgba(45,55,52,.1));
+  background: var(--sp-accent-alpha, rgba(45,55,52,.04));
+  color: inherit; font: inherit; font-size: 15px; font-weight: 700;
+  text-align: left; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+#${DIALOG_ID} .sk-item[data-active="true"] {
+  border-color: var(--sp-accent, #d99b68);
+  background: var(--sp-accent-alpha, rgba(217,155,104,.14));
+}
+#${DIALOG_ID} .sk-item:active { transform: scale(0.98); }
+#${DIALOG_ID} .sk-badge {
+  font-size: 11px; font-weight: 700;
+  color: var(--sp-accent, inherit); opacity: 0.9;
+}
+`;
+function copyHostTokens(host, target) {
+    const computed = getComputedStyle(host);
+    for (const key of HOST_TOKEN_KEYS) {
+        const value = computed.getPropertyValue(key).trim();
+        if (value)
+            target.style.setProperty(key, value);
+    }
+}
+function ensureStyle() {
+    if (document.getElementById(`${DIALOG_ID}-style`))
+        return;
+    const style = document.createElement('style');
+    style.id = `${DIALOG_ID}-style`;
+    style.textContent = STYLE;
+    document.head.appendChild(style);
+}
+function skinLabel(id) {
+    const fromMeta = skinString(id, 'title_zh') || skinString(id, 'title');
+    if (fromMeta)
+        return fromMeta;
+    return SKIN_LABELS[id] || id;
+}
+function listAvailableSkins(config) {
+    const downloaded = (config?.downloaded_skins || []).filter(Boolean);
+    return [...new Set([...SKINS, ...downloaded])];
+}
+function closeSkinPickerDialog() {
+    document.getElementById(DIALOG_ID)?.remove();
+}
+function openSkinPickerDialog(host, config, onPick) {
+    ensureStyle();
+    closeSkinPickerDialog();
+    const current = selectedSkin(config);
+    const skins = listAvailableSkins(config);
+    const root = document.createElement('div');
+    root.id = DIALOG_ID;
+    copyHostTokens(host, root);
+    document.body.appendChild(root);
+    const onClose = (event) => {
+        event?.preventDefault();
+        event?.stopPropagation();
+        closeSkinPickerDialog();
+    };
+    const pick = async (skin) => {
+        if (skin === current) {
+            closeSkinPickerDialog();
+            return;
+        }
+        closeSkinPickerDialog();
+        await onPick(skin);
+    };
+    D(b `
+    <div class="sk-scrim" @click=${onClose}>
+      <div class="sk-card" @click=${(e) => e.stopPropagation()}>
+        <div class="sk-head">
+          <h2 class="sk-title">切换主题</h2>
+          <button class="sk-close" type="button" aria-label="Close" @click=${onClose}>
+            <ha-icon icon="mdi:close"></ha-icon>
+          </button>
+        </div>
+        <p class="sk-hint">已安装主题 · 切换后会同步到所有设备</p>
+        <div class="sk-list">
+          ${skins.map((id) => b `
+            <button
+              class="sk-item"
+              type="button"
+              data-active=${id === current ? 'true' : 'false'}
+              @click=${() => void pick(id)}
+            >
+              <span>${skinLabel(id)}</span>
+              ${id === current ? b `<span class="sk-badge">当前</span>` : A}
+            </button>
+          `)}
+        </div>
+      </div>
+    </div>
+  `, root);
+}
+
+/**
+ * Persist resource_pack.skin (+ base_path/assets) into the Skins Pro strategy dashboard.
+ */
+async function saveSkinToHa(connection, patch, pathname = window.location.pathname) {
+    let lastError;
+    for (const urlPath of securityHideSavePaths(pathname)) {
+        try {
+            const current = await connection.sendMessagePromise({
+                type: 'lovelace/config',
+                url_path: urlPath,
+            });
+            if (!current?.strategy || typeof current.strategy !== 'object')
+                continue;
+            const strategy = current.strategy;
+            if (!String(strategy.type || '').includes('skins-pro'))
+                continue;
+            const prevPack = typeof strategy.resource_pack === 'object' && strategy.resource_pack
+                ? strategy.resource_pack
+                : {};
+            const prevAssets = typeof prevPack.assets === 'object' && prevPack.assets
+                ? prevPack.assets
+                : {};
+            const nextAssets = {
+                ...prevAssets,
+                ...(patch.assets || {}),
+            };
+            if (typeof nextAssets.theme_css === 'string' && String(nextAssets.theme_css).startsWith('theme.css')) {
+                nextAssets.theme_css = 'theme.css';
+            }
+            await connection.sendMessagePromise({
+                type: 'lovelace/config/save',
+                url_path: urlPath,
+                config: {
+                    ...current,
+                    strategy: {
+                        ...strategy,
+                        background_image: patch.background_image ?? '',
+                        downloaded_skins: patch.downloaded_skins
+                            ?? (Array.isArray(strategy.downloaded_skins) ? strategy.downloaded_skins : undefined),
+                        resource_pack: {
+                            ...prevPack,
+                            skin: patch.skin,
+                            base_path: patch.base_path,
+                            assets: nextAssets,
+                        },
+                    },
+                },
+            });
+            const verify = await connection.sendMessagePromise({
+                type: 'lovelace/config',
+                url_path: urlPath,
+            });
+            const strat = (verify?.strategy && typeof verify.strategy === 'object')
+                ? verify.strategy
+                : {};
+            const pack = (strat.resource_pack && typeof strat.resource_pack === 'object')
+                ? strat.resource_pack
+                : {};
+            if (String(pack.skin || '') === patch.skin)
+                return true;
+            lastError = new Error(`verify mismatch on ${urlPath}`);
+        }
+        catch (error) {
+            lastError = error;
+        }
+    }
+    console.warn('[Skins Pro] resource_pack.skin save failed', lastError);
+    return false;
 }
 
 const GROUP_LABEL_KEY = {
@@ -9030,6 +9269,9 @@ class SkinsProCard extends i {
         window.addEventListener('resize', this._handleWindowResize);
         window.addEventListener('pointerdown', this._unlockAudioOnce, true);
         window.addEventListener('touchstart', this._unlockAudioOnce, true);
+        window.__spOpenSkinPicker = () => {
+            this.openSkinPicker();
+        };
         if (this._hass && this._config?.weather?.entity && this._weatherForecastEntity !== this._config.weather.entity) {
             void this.loadWeatherForecast();
         }
@@ -9043,6 +9285,9 @@ class SkinsProCard extends i {
         window.removeEventListener('resize', this._handleWindowResize);
         window.removeEventListener('pointerdown', this._unlockAudioOnce, true);
         window.removeEventListener('touchstart', this._unlockAudioOnce, true);
+        const w = window;
+        if (w.__spOpenSkinPicker)
+            delete w.__spOpenSkinPicker;
         this.clearDeviceHideIdle();
         void this.unsubscribeWeatherForecast();
         if (this._doorbellPollTimer) {
@@ -9054,6 +9299,30 @@ class SkinsProCard extends i {
             this._doorbellOpenTimer = undefined;
         }
         this._clearDoorbellWarm();
+    }
+    /** Tablet kiosk long-press menu → theme picker (hard to mis-tap: 5s corner hold). */
+    openSkinPicker() {
+        if (!this._config || !this._hass)
+            return;
+        openSkinPickerDialog(this, this._config, async (skin) => {
+            const next = applySkinConfig(this._config, skin);
+            if (!next)
+                return;
+            // Optimistic local transition first.
+            await this._applySkinWithTransition(next);
+            const connection = this._hass?.connection;
+            if (!connection?.sendMessagePromise)
+                return;
+            const ok = await saveSkinToHa(connection, {
+                skin: String(next.resource_pack?.skin || skin),
+                base_path: String(next.resource_pack?.base_path || ''),
+                assets: (next.resource_pack?.assets || {}),
+                downloaded_skins: next.downloaded_skins,
+                background_image: String(next.background_image || ''),
+            });
+            if (!ok)
+                console.warn('[Skins Pro] skin saved locally; HA strategy sync failed');
+        });
     }
     setConfig(config) {
         if (!config || config.type !== 'custom:skins-pro-card') {

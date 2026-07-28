@@ -86,7 +86,7 @@ export function moveListItem(el: HTMLElement, current: DashboardConfigRecord, pa
   return next;
 }
 
-export function applySkin(el: HTMLElement, current: DashboardConfigRecord, skin: string): DashboardConfigRecord {
+export function applySkinConfig(current: DashboardConfigRecord, skin: string): DashboardConfigRecord {
   const next = deepClone(current);
   next.resource_pack = next.resource_pack || {};
   next.resource_pack.skin = skin;
@@ -116,6 +116,11 @@ export function applySkin(el: HTMLElement, current: DashboardConfigRecord, skin:
     delete assets.base;
   }
   next.resource_pack.assets = assets;
+  return next;
+}
+
+export function applySkin(el: HTMLElement, current: DashboardConfigRecord, skin: string): DashboardConfigRecord {
+  const next = applySkinConfig(current, skin);
   fire(el, next);
   return next;
 }

@@ -64,6 +64,9 @@ import { resolveGo2rtcBaseForPreview } from './components/camera-stream';
 import type { RenderContext } from './render/context';
 import { applyFullscreenHeight, applyKioskExitHeight, applyLayoutHeight, applyThemeVariables, syncPortalThemeVariables } from './render/layout';
 import { openWeatherDialog } from './components/weather-dialog';
+import { openSkinPickerDialog } from './components/skin-picker-dialog';
+import { applySkinConfig } from './editor/config';
+import { saveSkinToHa } from './utils/skin-save';
 import { getRealDevicesForRender } from './selectors/devices';
 import { CONTROLLABLE_DOMAINS } from './components/device-card';
 import { renderHomeView, renderSidebar, renderMobileNav } from './views/home';
@@ -372,6 +375,9 @@ export class SkinsProCard extends LitElement {
     window.addEventListener('resize', this._handleWindowResize);
     window.addEventListener('pointerdown', this._unlockAudioOnce, true);
     window.addEventListener('touchstart', this._unlockAudioOnce, true);
+    (window as Window & { __spOpenSkinPicker?: () => void }).__spOpenSkinPicker = () => {
+      this.openSkinPicker();
+    };
     if (this._hass && this._config?.weather?.entity && this._weatherForecastEntity !== this._config.weather.entity) {
       void this.loadWeatherForecast();
     }
@@ -385,6 +391,8 @@ export class SkinsProCard extends LitElement {
     window.removeEventListener('resize', this._handleWindowResize);
     window.removeEventListener('pointerdown', this._unlockAudioOnce, true);
     window.removeEventListener('touchstart', this._unlockAudioOnce, true);
+    const w = window as Window & { __spOpenSkinPicker?: () => void };
+    if (w.__spOpenSkinPicker) delete w.__spOpenSkinPicker;
     this.clearDeviceHideIdle();
     void this.unsubscribeWeatherForecast();
     if (this._doorbellPollTimer) {
@@ -396,6 +404,27 @@ export class SkinsProCard extends LitElement {
       this._doorbellOpenTimer = undefined;
     }
     this._clearDoorbellWarm();
+  }
+
+  /** Tablet kiosk long-press menu → theme picker (hard to mis-tap: 5s corner hold). */
+  public openSkinPicker(): void {
+    if (!this._config || !this._hass) return;
+    openSkinPickerDialog(this, this._config, async (skin) => {
+      const next = applySkinConfig(this._config as Record<string, unknown>, skin) as typeof this._config;
+      if (!next) return;
+      // Optimistic local transition first.
+      await this._applySkinWithTransition(next);
+      const connection = this._hass?.connection;
+      if (!connection?.sendMessagePromise) return;
+      const ok = await saveSkinToHa(connection, {
+        skin: String(next.resource_pack?.skin || skin),
+        base_path: String(next.resource_pack?.base_path || ''),
+        assets: (next.resource_pack?.assets || {}) as Record<string, string>,
+        downloaded_skins: next.downloaded_skins,
+        background_image: String(next.background_image || ''),
+      });
+      if (!ok) console.warn('[Skins Pro] skin saved locally; HA strategy sync failed');
+    });
   }
 
   public setConfig(config: DashboardConfig): void {

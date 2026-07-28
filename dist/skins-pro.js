@@ -1,4 +1,4 @@
-/* Skins-Pro 2026-07-28T02:51:43.833Z */
+/* Skins-Pro 2026-07-28T03:05:59.263Z */
 const DEFAULT_ASSETS = {
     base: 'base-texture.jpg',
     stage: 'background.jpg',
@@ -5283,6 +5283,55 @@ async function saveSkinToHa(connection, patch, pathname = window.location.pathna
     return false;
 }
 
+const activeCards = new Set();
+/** Walk light + shadow DOM — HA nests skins-pro-card inside several shadow roots. */
+function findSkinsProCard(root = document) {
+    if (!root)
+        return null;
+    const direct = root.querySelector?.('skins-pro-card');
+    if (direct)
+        return direct;
+    const nodes = root.querySelectorAll?.('*');
+    if (!nodes)
+        return null;
+    for (let i = 0; i < nodes.length; i += 1) {
+        const el = nodes[i];
+        if (el.shadowRoot) {
+            const found = findSkinsProCard(el.shadowRoot);
+            if (found)
+                return found;
+        }
+    }
+    return null;
+}
+function registerSkinPickerHost(card) {
+    activeCards.add(card);
+    bindGlobalSkinPicker();
+}
+function unregisterSkinPickerHost(card) {
+    activeCards.delete(card);
+    bindGlobalSkinPicker();
+}
+function resolveCard() {
+    for (const card of activeCards) {
+        if (card.isConnected)
+            return card;
+    }
+    return findSkinsProCard(document);
+}
+function bindGlobalSkinPicker() {
+    window.__spFindSkinsProCard = () => resolveCard();
+    window.__spOpenSkinPicker = () => {
+        const card = resolveCard();
+        if (!card || typeof card.openSkinPicker !== 'function')
+            return false;
+        card.openSkinPicker();
+        return true;
+    };
+}
+/** Install as soon as the module loads (before any card connects). */
+bindGlobalSkinPicker();
+
 const GROUP_LABEL_KEY = {
     lights: 'groupLights',
     switches: 'groupSwitches',
@@ -9269,9 +9318,8 @@ class SkinsProCard extends i {
         window.addEventListener('resize', this._handleWindowResize);
         window.addEventListener('pointerdown', this._unlockAudioOnce, true);
         window.addEventListener('touchstart', this._unlockAudioOnce, true);
-        window.__spOpenSkinPicker = () => {
-            this.openSkinPicker();
-        };
+        registerSkinPickerHost(this);
+        bindGlobalSkinPicker();
         if (this._hass && this._config?.weather?.entity && this._weatherForecastEntity !== this._config.weather.entity) {
             void this.loadWeatherForecast();
         }
@@ -9285,9 +9333,7 @@ class SkinsProCard extends i {
         window.removeEventListener('resize', this._handleWindowResize);
         window.removeEventListener('pointerdown', this._unlockAudioOnce, true);
         window.removeEventListener('touchstart', this._unlockAudioOnce, true);
-        const w = window;
-        if (w.__spOpenSkinPicker)
-            delete w.__spOpenSkinPicker;
+        unregisterSkinPickerHost(this);
         this.clearDeviceHideIdle();
         void this.unsubscribeWeatherForecast();
         if (this._doorbellPollTimer) {
@@ -9302,8 +9348,11 @@ class SkinsProCard extends i {
     }
     /** Tablet kiosk long-press menu → theme picker (hard to mis-tap: 5s corner hold). */
     openSkinPicker() {
-        if (!this._config || !this._hass)
+        if (!this._config || !this._hass) {
+            console.warn('[Skins Pro] openSkinPicker: card not ready (missing config/hass)');
             return;
+        }
+        bindGlobalSkinPicker();
         openSkinPickerDialog(this, this._config, async (skin) => {
             const next = applySkinConfig(this._config, skin);
             if (!next)
@@ -10212,6 +10261,7 @@ __decorate([
 const CARD_TYPE = 'skins-pro-card';
 const DASHBOARD_STRATEGY_TYPE = 'skins-pro';
 const DASHBOARD_STRATEGY_TAG = `ll-strategy-dashboard-${DASHBOARD_STRATEGY_TYPE}`;
+bindGlobalSkinPicker();
 const registered = new Set();
 function defineElement(name, constructor) {
     if (registered.has(name))

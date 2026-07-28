@@ -67,6 +67,7 @@ import { openWeatherDialog } from './components/weather-dialog';
 import { openSkinPickerDialog } from './components/skin-picker-dialog';
 import { applySkinConfig } from './editor/config';
 import { saveSkinToHa } from './utils/skin-save';
+import { bindGlobalSkinPicker, registerSkinPickerHost, unregisterSkinPickerHost } from './utils/skin-picker-bridge';
 import { getRealDevicesForRender } from './selectors/devices';
 import { CONTROLLABLE_DOMAINS } from './components/device-card';
 import { renderHomeView, renderSidebar, renderMobileNav } from './views/home';
@@ -375,9 +376,8 @@ export class SkinsProCard extends LitElement {
     window.addEventListener('resize', this._handleWindowResize);
     window.addEventListener('pointerdown', this._unlockAudioOnce, true);
     window.addEventListener('touchstart', this._unlockAudioOnce, true);
-    (window as Window & { __spOpenSkinPicker?: () => void }).__spOpenSkinPicker = () => {
-      this.openSkinPicker();
-    };
+    registerSkinPickerHost(this);
+    bindGlobalSkinPicker();
     if (this._hass && this._config?.weather?.entity && this._weatherForecastEntity !== this._config.weather.entity) {
       void this.loadWeatherForecast();
     }
@@ -391,8 +391,7 @@ export class SkinsProCard extends LitElement {
     window.removeEventListener('resize', this._handleWindowResize);
     window.removeEventListener('pointerdown', this._unlockAudioOnce, true);
     window.removeEventListener('touchstart', this._unlockAudioOnce, true);
-    const w = window as Window & { __spOpenSkinPicker?: () => void };
-    if (w.__spOpenSkinPicker) delete w.__spOpenSkinPicker;
+    unregisterSkinPickerHost(this);
     this.clearDeviceHideIdle();
     void this.unsubscribeWeatherForecast();
     if (this._doorbellPollTimer) {
@@ -408,7 +407,11 @@ export class SkinsProCard extends LitElement {
 
   /** Tablet kiosk long-press menu → theme picker (hard to mis-tap: 5s corner hold). */
   public openSkinPicker(): void {
-    if (!this._config || !this._hass) return;
+    if (!this._config || !this._hass) {
+      console.warn('[Skins Pro] openSkinPicker: card not ready (missing config/hass)');
+      return;
+    }
+    bindGlobalSkinPicker();
     openSkinPickerDialog(this, this._config, async (skin) => {
       const next = applySkinConfig(this._config as Record<string, unknown>, skin) as typeof this._config;
       if (!next) return;

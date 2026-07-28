@@ -4,10 +4,13 @@
 import { buildAutoConfig } from './config';
 import { SkinsProCard } from './skins-pro-card';
 import './skins-pro-card-editor';
+import { bindGlobalSkinPicker } from './utils/skin-picker-bridge';
 
 const CARD_TYPE = 'skins-pro-card';
 const DASHBOARD_STRATEGY_TYPE = 'skins-pro';
 const DASHBOARD_STRATEGY_TAG = `ll-strategy-dashboard-${DASHBOARD_STRATEGY_TYPE}`;
+
+bindGlobalSkinPicker();
 
 const registered = new Set<string>();
 

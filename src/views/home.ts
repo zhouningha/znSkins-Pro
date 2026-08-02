@@ -58,7 +58,10 @@ export function renderHomeView(
     `;
   })() : nothing;
 
-  const energyBars = renderBars(ctx.energyHistory || []);
+  const energyBars = renderBars(ctx.energyHistory || [], {
+    language: ctx.language,
+    barsStyle: 'height:clamp(32px,7vw,72px);margin-top:clamp(4px,1.2vw,12px);',
+  });
   // Cap column width: minmax(...,1fr) stretches a single card across the whole
   // devices row and leaves a huge empty middle (seen on official skins too).
   const homeDevicesStyle = window.matchMedia('(orientation: landscape)').matches
@@ -88,18 +91,20 @@ export function renderHomeView(
             style=${metaPositionStyle}
             @pointerdown=${(event: PointerEvent) => startHomeMetaDrag(event, ctx)}
           >
-            <section class="time-card" style="width:100%;box-sizing:border-box;">
-              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;min-width:0;">
-                <span class="time-main">${timeText(ctx.hass, ctx.language)}</span>
-                <span class="time-sub" style="font-size:var(--sp-font-sm);white-space:nowrap;">${dateText(ctx.hass, ctx.language)}</span>
-                ${alarmEntityId ? html`
-                <div class="time-icon" @click=${() => ctx.onHandleAction(alarmEntityId, 'more-info')} style="cursor:pointer;flex-shrink:0;">
-                  <ha-icon icon=${alarmIcon}></ha-icon>
-                </div>` : nothing}
+            <section class="glass-card home-meta-card">
+              <div class="time-card home-meta-time">
+                <div class="home-meta-time-row">
+                  <span class="time-main">${timeText(ctx.hass, ctx.language)}</span>
+                  <span class="time-sub home-meta-date">${dateText(ctx.hass, ctx.language)}</span>
+                  ${alarmEntityId ? html`
+                  <div class="time-icon" @click=${() => ctx.onHandleAction(alarmEntityId, 'more-info')}>
+                    <ha-icon icon=${alarmIcon}></ha-icon>
+                  </div>` : nothing}
+                </div>
               </div>
-            </section>
-            <section class="glass-card panel-environment" style="width:100%;box-sizing:border-box;margin-top:var(--sp-space-xs,6px);">
-              <div class="env-list env-list-inline" style="gap:clamp(2px,0.6vw,6px) clamp(6px,1vw,12px);margin-top:0;">${renderEnvironment(ctx)}</div>
+              <div class="panel-environment home-meta-env">
+                <div class="env-list env-list-inline home-meta-env-list">${renderEnvironment(ctx)}</div>
+              </div>
             </section>
           </div>
         </div>
@@ -312,12 +317,13 @@ function renderHomeRooms(ctx: RenderContext): TemplateResult | typeof nothing {
     const info = room.info_entity ? stateValue(ctx.hass, room.info_entity, ctx.language) : '';
     const fallbackInfo = ctx.areas?.length ? areaFallbackInfo(room, ctx.areas, ctx.hass, ctx.entityRegistry, ctx.deviceRegistry, ctx.language) : '--';
     const displayName = room.name || '--';
+    const summary = info || fallbackInfo || '';
     return html`
       <button class="room" @click=${() => room.target ? ctx.onNavigatePath(room.target!) : undefined}>
         ${renderImage(ctx.config, imageKey, displayName, '')}
         <div class="room-label">
           <h3>${displayName}</h3>
-          <p class="muted">${info || fallbackInfo || '--'}</p>
+          <p class="muted">${summary && summary !== '--' ? summary : ''}</p>
         </div>
       </button>
     `;

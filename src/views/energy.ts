@@ -67,7 +67,7 @@ function renderEnergyTotalCard(ctx: RenderContext, sources: EnergySourceData[]):
           </div>
         ` : nothing}
       </div>
-      <div class="bars compact-energy-bars">${renderBars(combined)}</div>
+      ${renderBars(combined, { language: ctx.language, barsClass: 'compact-energy-bars' })}
     </section>
   `;
 }
@@ -94,7 +94,7 @@ function renderDeviceCard(
         <div class="env-row"><div class="dot hum"><ha-icon icon="mdi:calendar-week"></ha-icon></div><div class="muted">${ctx.translate('weekToDate')}</div><div class="env-value">${src.weekToDate ?? '--'} ${src.unit}</div></div>
         <div class="env-row"><div class="dot temp"><ha-icon icon="mdi:calendar-month"></ha-icon></div><div class="muted">${ctx.translate('monthToDate')}</div><div class="env-value">${src.monthToDate ?? '--'} ${src.unit}</div></div>
       </div>
-      <div class="bars compact-energy-bars">${renderBars(src.history)}</div>
+      ${renderBars(src.history, { language: ctx.language, barsClass: 'compact-energy-bars' })}
     </section>
   `;
 }
@@ -180,7 +180,7 @@ export function renderHomeEnergyCard(
     <section class="glass-card panel-energy" style="height:auto;min-height:0;flex:0 0 auto;align-self:auto;">
       <div class="section-title"><h2>${ctx.translate('todayEnergy')}</h2></div>
       <div class="energy-value">${energyValue}<small> ${energyUnit}</small></div>
-      <div class="bars" style="height:clamp(32px,7vw,72px);margin-top:clamp(4px,1.2vw,12px);">${energyBars}</div>
+      ${energyBars}
       <div class="energy-footer"><span class="muted">${localizedText(ctx.config.energy?.compare_text, ctx.config.energy?.compare_text_zh, ctx.config.energy?.compare_text_en, ctx.language, ctx.translate('compareYesterday'))}</span><span class="down">${compareValue ? `${compareValue} ${energyUnit}` : '--'}</span></div>
     </section>
   `;

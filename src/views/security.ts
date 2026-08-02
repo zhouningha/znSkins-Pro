@@ -154,6 +154,8 @@ function renderSecurityCamPreview(ctx: RenderContext, item: SecurityMonitorSourc
       });
     }
   }
+  // VideoRTC (WebRTC→MSE). go2rtc stream.mjpeg is empty for these H264 sources;
+  // jpeg 1s remount flashed. Keep one producer (akuvox_sub / tp_ipc_main / yw_sub).
   return renderGo2rtcLivePreview(item.stream, 'camera-preview camera-live', item.go2rtc_url);
 }
 

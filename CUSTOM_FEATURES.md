@@ -118,6 +118,7 @@
 - 2026-07-20：安防三路均走 go2rtc WebRTC：`akuvox_sub` / `tp_ipc_main` / `yw_sub`（客厅子码流；HA `hui-image` live 延迟更高）。`yw_main` 仅留给 monitoring。
 - 2026-07-20：安防监控视觉跟随当前皮肤——预览改用 go2rtc `VideoRTC`（无 `stream.html` 原生控件），卡片强制 `position:relative` 容器；各皮肤 `theme.css` 补 `.camera-meta-overlay` / security 卡片玻璃样式（organic 曾缺导致画面撑满 stage）。
 - 2026-07-21：安防预览曾试 JPEG 轮询 / veil / 双缓冲以去掉播放三角，平板卡顿；**恢复原版 go2rtc VideoRTC**（`webrtc,mse,mjpeg`，controls=false）。流名不变（`akuvox_sub` / `tp_ipc_main` / `yw_sub`），不叠加 HA camera。平板上偶发播放三角可接受。
+- 2026-08-02：本机 go2rtc 1.9.x 对 H264 源的 `api/stream.mjpeg` 返回空；安防/门禁**不要**再绑 MJPEG（会掉进 1s `frame.jpeg` 闪烁或黑屏）。安防三路 + 开门/门铃弹层预览固定 **VideoRTC live**（同 producer）。开门弹层加载期用静帧 poster +「加载中」遮罩盖住 WebView 播放钮，出画后去掉（遮罩上不显示倒计时秒数；弹层下方状态区倒计时仍保留）。
 - 2026-07-20：organic 首页歌单切换须含 `.media-playlist` / `.media-playlist-nav` / `.media-playlist-label`（与动物森友会同 DOM）；缺样式时前后键会退回浏览器默认灰方块。
 - 2026-07-20：**shared-chrome + lock token**：基准逻辑/DOM 固定；`SHARED_CHROME_CSS` 兜底控件结构；`openLockDialog` 只复制 host CSS 变量上色。
 - 2026-07-20：战神摄像头曾独立直角 + `aspect-ratio:16/9`；改为 LAYOUT LOCK 在 `theme.css` **之后**强制森友会圆角（`--sp-radius-lg`），预览 `border-radius:inherit`，禁止皮肤再设 `0`。

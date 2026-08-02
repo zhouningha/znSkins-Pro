@@ -83,43 +83,42 @@ export function areaSummaryById(
   deviceRegistry: DeviceRegistryEntry[] | undefined,
   language: Language,
 ): string {
-  if (!areaId) return 'Home Assistant Area';
+  if (!areaId) return '';
 
   const entries = getAreaEntries(areaId, entityRegistry || [], deviceRegistry || []);
-  if (entries.length === 0) {
-    return t(language, 'noEntities');
-  }
+  if (entries.length === 0) return '';
 
   const byClass = (cls: string) =>
     entries.find((eid) => hass?.states[eid]?.attributes?.device_class === cls);
 
   const parts: string[] = [];
 
+  // Occupancy only when a presence/occupancy/motion sensor exists — never invent "N entities".
   const presence = byClass('presence') || byClass('occupancy') || byClass('motion');
   if (presence) {
-    const occupied = stateValue(hass, presence, language) === 'on';
+    const raw = hass?.states[presence]?.state;
+    const occupied = raw === 'on' || raw === 'home' || raw === 'detected';
     parts.push(t(language, occupied ? 'areaOccupied' : 'areaEmpty'));
   }
 
+  // Temp / humidity only when present.
   const temp = byClass('temperature');
   if (temp) {
-    parts.push(`${formatNumber(stateValue(hass, temp, language), 1)}°C`);
+    const v = stateValue(hass, temp, language);
+    if (v && v !== 'unavailable' && v !== 'unknown') {
+      parts.push(`${formatNumber(v, 1)}°C`);
+    }
   }
 
   const hum = byClass('humidity');
   if (hum) {
-    parts.push(`${formatNumber(stateValue(hass, hum, language), 0)}%`);
-  }
-
-  if (!temp) {
-    const illum = byClass('illuminance');
-    if (illum) {
-      parts.push(`${formatNumber(stateValue(hass, illum, language), 0)}lx`);
+    const v = stateValue(hass, hum, language);
+    if (v && v !== 'unavailable' && v !== 'unknown') {
+      parts.push(`${formatNumber(v, 0)}%`);
     }
   }
 
-  if (parts.length > 0) return parts.join(' · ');
-  return t(language, 'entityCount', { count: entries.length });
+  return parts.join(' · ');
 }
 
 export function areaCounts(

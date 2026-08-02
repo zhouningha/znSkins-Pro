@@ -91,50 +91,69 @@ const SHARED_CHROME_STYLE = html`<style id="sp-shared-chrome">${SHARED_CHROME_CS
 
 const KIOSK_HOME_SIDE_STYLE = html`
   <style>
-    :host([data-sp-kiosk]) .mc-app[data-view="home"] .stage-grid {
-      grid-template-columns: minmax(0, 1fr) clamp(240px, 23vw, 310px);
-      grid-template-rows: auto minmax(0, 1fr) auto;
+    /* AC baseline — mirrors shared-chrome (skip GoW wall panel). */
+    :host([data-sp-kiosk]:not([data-wall-panel="1080p"])) .mc-app[data-view="home"] .stage-grid {
+      grid-template-columns: minmax(0, 1fr) clamp(240px, 23vw, 310px) !important;
+      grid-template-rows: auto minmax(0, 1fr) auto !important;
     }
-    :host([data-sp-kiosk]) .mc-app[data-view="home"] .side {
-      height: 100%;
-      min-height: 0;
-      overflow: hidden;
-      display: grid;
-      grid-template-rows: minmax(118px, 1.05fr) minmax(112px, 0.95fr) minmax(96px, 0.8fr) minmax(150px, 1.9fr);
-      grid-auto-rows: 0;
-      gap: var(--sp-space-sm);
-      align-content: stretch;
+    :host([data-sp-kiosk]:not([data-wall-panel="1080p"])) .mc-app[data-view="home"] .side {
+      height: 100% !important;
+      min-height: 0 !important;
+      overflow: hidden !important;
+      display: grid !important;
+      grid-template-rows: max-content max-content max-content minmax(0, 1fr) !important;
+      grid-auto-rows: max-content !important;
+      gap: 8px !important;
+      align-content: start !important;
     }
-    :host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-camera,
-    :host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-energy,
-    :host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-media,
-    :host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-scenes {
-      height: 100%;
-      min-height: 0;
-      overflow: hidden;
-      align-self: stretch;
+    :host([data-sp-kiosk]:not([data-wall-panel="1080p"])) .mc-app[data-view="home"] .side > .panel-camera {
+      height: auto !important;
+      min-height: 0 !important;
+      overflow: hidden !important;
+      align-self: start !important;
+      display: flex !important;
+      flex-direction: column !important;
     }
-    :host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .maintenance-card {
-      display: none;
+    :host([data-sp-kiosk]:not([data-wall-panel="1080p"])) .mc-app[data-view="home"] .side > .panel-energy,
+    :host([data-sp-kiosk]:not([data-wall-panel="1080p"])) .mc-app[data-view="home"] .side > .panel-media {
+      height: auto !important;
+      min-height: 0 !important;
+      overflow: hidden !important;
+      align-self: start !important;
+      display: flex !important;
     }
-    :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-camera {
-      display: flex;
-      flex-direction: column;
+    :host([data-sp-kiosk]:not([data-wall-panel="1080p"])) .mc-app[data-view="home"] .side > .panel-scenes {
+      display: flex !important;
+      flex-direction: column !important;
+      height: 100% !important;
+      min-height: 0 !important;
+      margin-top: 0 !important;
+      overflow: hidden !important;
+      align-self: stretch !important;
+      visibility: visible !important;
     }
-    :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-camera .camera-preview {
-      flex: 1;
-      min-height: 0;
-      max-height: none;
-      aspect-ratio: auto;
+    :host([data-sp-kiosk]:not([data-wall-panel="1080p"])) .mc-app[data-view="home"] .side > .maintenance-card {
+      display: none !important;
+    }
+    :host([data-sp-kiosk]:not([data-wall-panel="1080p"])) .mc-app[data-view="home"] .panel-camera {
+      display: flex !important;
+      flex-direction: column !important;
+    }
+    :host([data-sp-kiosk]:not([data-wall-panel="1080p"])) .mc-app[data-view="home"] .panel-camera .camera-preview {
+      flex: none !important;
+      height: 160px !important;
+      min-height: 160px !important;
+      max-height: 160px !important;
+      aspect-ratio: 16 / 10 !important;
     }
     :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-energy .energy-value {
       font-size: var(--sp-font-lg);
       margin-top: 0;
     }
     :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-energy .bars {
-      flex: 1;
-      min-height: 38px;
-      height: auto;
+      flex: none !important;
+      min-height: 48px !important;
+      height: 48px !important;
       margin-top: var(--sp-space-xs);
     }
     :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-media .section-title,
@@ -302,17 +321,19 @@ export class SkinsProCard extends LitElement {
     unlockDoorbellAudio();
     console.info('[Skins Pro] doorbell dialog arm (live warm 2s)', { sessionKey, timerOn });
 
-    // Prewarm go2rtc live (WebRTC/MSE) off-screen for ~2s, then open overlay — avoids play glyph.
+    // Prewarm go2rtc producer via frame.jpeg (stream.mjpeg is empty on this HA).
     void resolveGo2rtcBaseForPreview(hass).then((base) => {
       if (!this._hass || this._hass.states?.[DOORBELL_ACTIVE_ENTITY]?.state !== 'on') return;
       this._clearDoorbellWarm();
       const host = document.createElement('div');
       host.dataset.spDoorbellWarm = '1';
       host.style.cssText = 'position:fixed;left:-9999px;top:0;width:480px;height:300px;opacity:0;pointer-events:none;overflow:hidden;';
-      const preview = document.createElement('sp-go2rtc-live-preview') as HTMLElement & { stream: string; baseUrl: string };
-      preview.stream = DOORBELL_PREVIEW_STREAM;
-      preview.baseUrl = base;
-      host.appendChild(preview);
+      const img = document.createElement('img');
+      img.alt = '';
+      img.decoding = 'async';
+      img.src = `${base.replace(/\/$/, '')}/api/frame.jpeg?src=${encodeURIComponent(DOORBELL_PREVIEW_STREAM)}&t=${Date.now()}`;
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+      host.appendChild(img);
       document.body.appendChild(host);
       this._doorbellWarmHost = host;
     }).catch(() => undefined);

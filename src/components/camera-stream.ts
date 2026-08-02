@@ -243,14 +243,26 @@ function ensureGo2rtcVideoTag(baseUrl: string): Promise<void> {
  * Live security preview via go2rtc VideoRTC (WebRTC → MSE → …), controls-free.
  * Contained in the themed camera-card — no stream.html iframe chrome.
  * Same three streams only; no HA webrtc-camera / advanced-camera-card.
+ *
+ * Note: go2rtc 1.9.x `api/stream.mjpeg` returns empty for raw H264 producers
+ * (no ffmpeg mjpeg). Prefer `live`. Fallback is dual-buffer `frame.jpeg` (not
+ * single-img 1s polling — that flashes).
  */
 export class SpGo2rtcLivePreview extends LitElement {
   @property() stream = '';
   @property() baseUrl = '';
+  /**
+   * `live` — VideoRTC WebRTC/MSE (default; may show native play glyph on some WebViews).
+   * `jpeg` — dual-buffer frame.jpeg poll (no glyph; used when live fails or forced).
+   * `mjpeg` — alias of `jpeg` (stream.mjpeg is empty on this go2rtc).
+   */
+  @property() mode: 'live' | 'mjpeg' | 'jpeg' = 'live';
 
-  @state() private _fallback: 'live' | 'mjpeg' | 'jpeg' = 'live';
-  @state() private _bust = 0;
+  @state() private _fallback: 'live' | 'jpeg' = 'live';
+  @state() private _front = 0;
+  @state() private _urls: [string, string] = ['', ''];
   private _jpegTimer?: number;
+  private _jpegLoading = false;
   private _player: Go2rtcVideoRtc | null = null;
   private _appliedSrc = '';
   private _mountToken = 0;
@@ -263,6 +275,9 @@ export class SpGo2rtcLivePreview extends LitElement {
     super.connectedCallback();
     // Always contain the player even if a skin theme omits .camera-preview { position:relative }.
     this.style.cssText = 'position:absolute;inset:0;display:block;width:100%;height:100%;overflow:hidden;background:#111;';
+    if (this.mode !== 'live' && this._fallback === 'live') {
+      this._startJpeg();
+    }
   }
 
   disconnectedCallback(): void {
@@ -275,13 +290,25 @@ export class SpGo2rtcLivePreview extends LitElement {
   }
 
   protected updated(changed: Map<string, unknown>): void {
+    if (changed.has('mode')) {
+      if (this.mode !== 'live') {
+        this._startJpeg();
+        return;
+      }
+      if (this._fallback !== 'live') {
+        if (this._jpegTimer) window.clearInterval(this._jpegTimer);
+        this._jpegTimer = undefined;
+        this._fallback = 'live';
+      }
+    }
     if (
       changed.has('stream')
       || changed.has('baseUrl')
       || changed.has('_fallback')
       || this._fallback === 'live'
     ) {
-      void this._syncPlayer();
+      if (this._fallback === 'live') void this._syncPlayer();
+      else if (changed.has('stream') || changed.has('baseUrl')) this._queueJpegFrame();
     }
   }
 
@@ -293,32 +320,40 @@ export class SpGo2rtcLivePreview extends LitElement {
     return `${this._base()}/api/ws?src=${encodeURIComponent(this.stream)}`;
   }
 
-  private _imgSrc(): string {
+  private _frameUrl(): string {
     const src = encodeURIComponent(this.stream);
-    const base = this._base();
-    if (this._fallback === 'jpeg') {
-      return `${base}/api/frame.jpeg?src=${src}&t=${this._bust}`;
-    }
-    return `${base}/api/stream.mjpeg?src=${src}`;
+    return `${this._base()}/api/frame.jpeg?src=${src}&t=${Date.now()}`;
   }
 
-  private _useImgFallback(kind: 'mjpeg' | 'jpeg'): void {
+  private _startJpeg(): void {
     this._player = null;
     this._appliedSrc = '';
-    this._fallback = kind;
-    if (kind === 'jpeg') {
-      this._bust = Date.now();
-      if (this._jpegTimer) window.clearInterval(this._jpegTimer);
-      this._jpegTimer = window.setInterval(() => {
-        this._bust = Date.now();
-      }, 1000);
-    }
+    this._fallback = 'jpeg';
+    this._queueJpegFrame();
+    if (this._jpegTimer) window.clearInterval(this._jpegTimer);
+    // Dual-buffer swap; ~2fps is enough for door/security stills without flicker.
+    this._jpegTimer = window.setInterval(() => this._queueJpegFrame(), 500);
   }
 
-  private _onImgError = (): void => {
-    if (this._fallback === 'mjpeg') this._useImgFallback('jpeg');
-    else if (this._fallback === 'jpeg') this._bust = Date.now();
-  };
+  private _queueJpegFrame(): void {
+    if (!this.stream || this._fallback !== 'jpeg' || this._jpegLoading) return;
+    const back = 1 - this._front;
+    const url = this._frameUrl();
+    this._jpegLoading = true;
+    const probe = new Image();
+    probe.onload = () => {
+      this._jpegLoading = false;
+      if (!this.isConnected || this._fallback !== 'jpeg') return;
+      const next: [string, string] = [...this._urls] as [string, string];
+      next[back] = url;
+      this._urls = next;
+      this._front = back;
+    };
+    probe.onerror = () => {
+      this._jpegLoading = false;
+    };
+    probe.src = url;
+  }
 
   private async _syncPlayer(): Promise<void> {
     if (!this.stream || this._fallback !== 'live') {
@@ -361,7 +396,8 @@ export class SpGo2rtcLivePreview extends LitElement {
       }
       el.play?.();
     } catch {
-      if (token === this._mountToken) this._useImgFallback('mjpeg');
+      // stream.mjpeg is empty on this go2rtc — use dual-buffer JPEG instead.
+      if (token === this._mountToken) this._startJpeg();
     }
   }
 
@@ -370,14 +406,22 @@ export class SpGo2rtcLivePreview extends LitElement {
     if (this._fallback === 'live') {
       return html`<div class="sp-go2rtc-slot" style="position:absolute;inset:0;overflow:hidden;"></div>`;
     }
+    const imgStyle =
+      'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;background:#111;transition:opacity 80ms linear;';
     return html`
       <img
-        class="sp-go2rtc-mjpeg"
-        src=${this._imgSrc()}
+        class="sp-go2rtc-jpeg"
+        src=${this._urls[0] || this._frameUrl()}
         alt=""
         decoding="async"
-        @error=${this._onImgError}
-        style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;background:#111;"
+        style="${imgStyle}opacity:${this._front === 0 ? 1 : 0};"
+      />
+      <img
+        class="sp-go2rtc-jpeg"
+        src=${this._urls[1] || ''}
+        alt=""
+        decoding="async"
+        style="${imgStyle}opacity:${this._front === 1 ? 1 : 0};"
       />
     `;
   }
@@ -387,23 +431,28 @@ if (!customElements.get('sp-go2rtc-live-preview')) {
   customElements.define('sp-go2rtc-live-preview', SpGo2rtcLivePreview);
 }
 
-/** @deprecated name kept for call sites — now WebRTC live with MJPEG fallback. */
+/** Dual-buffer JPEG stills — only when VideoRTC is unsuitable. */
 export function renderGo2rtcMjpegPreview(
   stream: string,
   className = 'camera-preview camera-live',
   baseUrl?: string,
 ): TemplateResult {
-  return renderGo2rtcLivePreview(stream, className, baseUrl);
+  return renderGo2rtcLivePreview(stream, className, baseUrl, 'jpeg');
 }
 
 export function renderGo2rtcLivePreview(
   stream: string,
   className = 'camera-preview camera-live',
   baseUrl?: string,
+  mode: 'live' | 'mjpeg' | 'jpeg' = 'live',
 ): TemplateResult {
   return html`
     <div class=${className} style="position:relative;overflow:hidden;">
-      <sp-go2rtc-live-preview .stream=${stream} .baseUrl=${baseUrl || ''}></sp-go2rtc-live-preview>
+      <sp-go2rtc-live-preview
+        .stream=${stream}
+        .baseUrl=${baseUrl || ''}
+        .mode=${mode}
+      ></sp-go2rtc-live-preview>
     </div>
   `;
 }

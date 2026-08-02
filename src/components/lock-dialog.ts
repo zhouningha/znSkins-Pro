@@ -94,6 +94,7 @@ const LOCK_DIALOG_STYLE = `
 #${LOCK_DIALOG_ID} .lock-dialog-preview .sp-go2rtc-slot,
 #${LOCK_DIALOG_ID} .lock-dialog-preview .sp-go2rtc-live,
 #${LOCK_DIALOG_ID} .lock-dialog-preview .sp-go2rtc-mjpeg,
+#${LOCK_DIALOG_ID} .lock-dialog-preview .sp-go2rtc-jpeg,
 #${LOCK_DIALOG_ID} .lock-dialog-preview img,
 #${LOCK_DIALOG_ID} .lock-dialog-preview video {
   position: absolute; inset: 0;
@@ -101,6 +102,26 @@ const LOCK_DIALOG_STYLE = `
   display: block; background: #050608;
   object-fit: cover; object-position: center;
   pointer-events: none;
+}
+/* Still frame under live — fills wait so WebView play glyph is never the only thing visible. */
+#${LOCK_DIALOG_ID} .lock-dialog-poster {
+  z-index: 1;
+}
+#${LOCK_DIALOG_ID} .lock-dialog-preview sp-go2rtc-live-preview {
+  z-index: 2;
+}
+/* Countdown veil covers native play glyph until first live frame. */
+#${LOCK_DIALOG_ID} .lock-dialog-preview-veil {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(8, 10, 14, 0.72);
+  color: #fff8e6;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+#${LOCK_DIALOG_ID} .lock-dialog-preview-veil .veil-label {
+  font-size: 14px; font-weight: 700; letter-spacing: 0.04em;
+  opacity: 0.95;
 }
 /* Kill native big-play glyph on WebView / Chromium video elements. */
 #${LOCK_DIALOG_ID} .lock-dialog-preview video::-webkit-media-controls {
@@ -183,8 +204,8 @@ export type LockDialogOptions = {
   preventScrimClose?: boolean;
   /** go2rtc stream name for live preview (e.g. akuvox_sub). */
   previewStream?: string;
-/** Prefer continuous MJPEG for doorbell dialog (no play glyph). WebRTC still available via live preview. */
-  previewMode?: 'mjpeg' | 'live';
+/** `live` = VideoRTC (default). `jpeg`/`mjpeg` = dual-buffer frame.jpeg (stream.mjpeg empty here). */
+  previewMode?: 'mjpeg' | 'jpeg' | 'live';
   /** Play repeating doorbell chime while open. */
   playSound?: boolean;
   /**
@@ -231,9 +252,6 @@ export function unlockDoorbellAudio(): void {
   }
 }
 
-function previewMjpegUrl(base: string, stream: string): string {
-  return `${base.replace(/\/$/, '')}/api/stream.mjpeg?src=${encodeURIComponent(stream)}`;
-}
 
 type ChimeHandle = { stop: () => void };
 
@@ -417,14 +435,18 @@ export function openLockDialog(
 
   const autoCloseSec = Math.max(1, options.autoCloseSec ?? AUTO_CLOSE_SEC);
   const previewStream = options.previewStream?.trim() || '';
-  /** Doorbell: continuous MJPEG (no play glyph). Manual lock: no preview. */
-  const previewMode = options.previewMode || (previewStream ? 'mjpeg' : 'live');
+  /** Door/doorbell: VideoRTC live (stream.mjpeg empty on this go2rtc). */
+  const previewMode = options.previewMode || 'live';
   let remainingMs = autoCloseSec * 1000;
   let timer: number | undefined;
   let unlocking = false;
   let lastPaintKey = '';
   let closed = false;
   let previewBase = '';
+  /** Cover WebView play glyph until live has a decoded frame. */
+  let previewReady = previewMode !== 'live';
+  let posterUrl = '';
+  let readyTimer: number | undefined;
   const started = performance.now();
   const chime = options.playSound
     ? startDoorbellChime(options.soundUrl)
@@ -434,19 +456,63 @@ export function openLockDialog(
   container.id = LOCK_DIALOG_ID;
   container.dataset.skin = skin;
   container.dataset.hasPreview = previewStream ? 'true' : 'false';
-  container.dataset.lockDialogBuild = 'doorbell-file-sound-202607241600';
+  container.dataset.lockDialogBuild = 'door-preview-veil-202608021735';
   copyHostThemeTokens(host, container);
 
   const close = () => {
     if (closed) return;
     closed = true;
     if (timer) window.clearInterval(timer);
+    if (readyTimer) window.clearInterval(readyTimer);
     chime.stop();
     container.querySelectorAll('sp-go2rtc-live-preview, sp-go2rtc-video, img').forEach((el) => {
       if (el instanceof HTMLImageElement) el.removeAttribute('src');
       el.remove();
     });
     container.remove();
+  };
+
+  const findPreviewVideo = (): HTMLVideoElement | null => {
+    const live = container.querySelector('sp-go2rtc-live-preview');
+    if (!live) return null;
+    const tag = live.querySelector('sp-go2rtc-video') as (HTMLElement & {
+      video?: HTMLVideoElement;
+      shadowRoot?: ShadowRoot | null;
+    }) | null;
+    const candidates = [
+      tag?.video,
+      tag?.shadowRoot?.querySelector('video'),
+      live.querySelector('video'),
+    ];
+    for (const video of candidates) {
+      if (video && video.videoWidth > 0) return video;
+    }
+    return null;
+  };
+
+  const markPreviewReady = () => {
+    if (previewReady || closed) return;
+    previewReady = true;
+    if (readyTimer) window.clearInterval(readyTimer);
+    readyTimer = undefined;
+    paint(true);
+  };
+
+  const watchPreviewReady = () => {
+    if (previewMode !== 'live' || !previewStream || readyTimer) return;
+    const watchStarted = performance.now();
+    readyTimer = window.setInterval(() => {
+      if (closed || previewReady) {
+        if (readyTimer) window.clearInterval(readyTimer);
+        readyTimer = undefined;
+        return;
+      }
+      const video = findPreviewVideo();
+      // First decoded frame, or give up covering after ~2.5s so veil never sticks.
+      if ((video && video.readyState >= 2) || performance.now() - watchStarted > 2500) {
+        markPreviewReady();
+      }
+    }, 100);
   };
 
   const cancel = async () => {
@@ -488,7 +554,7 @@ export function openLockDialog(
     const state = stateObj?.state || 'unavailable';
     const pct = Math.max(0, Math.min(100, (remainingMs / (autoCloseSec * 1000)) * 100));
     const secs = Math.max(1, Math.ceil(remainingMs / 1000));
-    const key = `${state}|${secs}|${Math.round(pct)}|${unlocking ? 1 : 0}|${previewBase ? 1 : 0}`;
+    const key = `${state}|${secs}|${Math.round(pct)}|${unlocking ? 1 : 0}|${previewBase ? 1 : 0}|${previewReady ? 1 : 0}`;
     if (!force && key === lastPaintKey) return;
     lastPaintKey = key;
 
@@ -500,9 +566,11 @@ export function openLockDialog(
       : t(language, 'lockAutoClose', { n: secs });
 
     const previewNode = previewStream && previewBase
-      ? (previewMode === 'mjpeg'
-        ? html`<img src=${previewMjpegUrl(previewBase, previewStream)} alt="" decoding="async" />`
-        : html`<sp-go2rtc-live-preview .stream=${previewStream} .baseUrl=${previewBase}></sp-go2rtc-live-preview>`)
+      ? html`<sp-go2rtc-live-preview
+          .stream=${previewStream}
+          .baseUrl=${previewBase}
+          .mode=${previewMode === 'live' ? 'live' : 'jpeg'}
+        ></sp-go2rtc-live-preview>`
       : '';
 
     render(html`
@@ -517,7 +585,17 @@ export function openLockDialog(
           ${previewStream
             ? html`
               <div class="lock-dialog-preview" aria-label=${t(language, 'doorbellPreview')}>
+                ${posterUrl
+                  ? html`<img class="lock-dialog-poster" src=${posterUrl} alt="" decoding="async" />`
+                  : ''}
                 ${previewNode}
+                ${previewMode === 'live' && !previewReady
+                  ? html`
+                    <div class="lock-dialog-preview-veil" aria-hidden="false">
+                      <div class="veil-label">${t(language, 'loadingQuote')}</div>
+                    </div>
+                  `
+                  : ''}
               </div>
             `
             : ''}
@@ -558,7 +636,10 @@ export function openLockDialog(
     void resolveGo2rtcBaseForPreview(hass).then((base) => {
       if (closed) return;
       previewBase = base;
+      // One still frame as poster while WebRTC connects (covers play glyph under veil).
+      posterUrl = `${base.replace(/\/$/, '')}/api/frame.jpeg?src=${encodeURIComponent(previewStream)}&t=${Date.now()}`;
       paint(true);
+      watchPreviewReady();
     });
   }
 

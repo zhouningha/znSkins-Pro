@@ -1,0 +1,11 @@
+---
+description: Fork 只推逻辑，不推皮肤素材大包
+alwaysApply: true
+---
+
+# Fork 推送范围
+
+- **要推**：`master` 上的 fork 逻辑（`src/`、`dist/skins-pro.js`、定制文档如 `CUSTOM_FEATURES.md`、小体积 theme checkpoint 等）。
+- **不要推**：`skin-assets/` 旁路 worktree、完整皮肤图片/背景大包、截图、APK 构建缓存等素材目录。
+- 安装方跟的是 fork **逻辑**；皮肤素材走 HA `/local/skins-pro/<skin>/` 或皮肤商店，不塞进 GitHub。
+- 推送后确认：`git rev-list --left-right --count master...origin/master` 应为 `0 0`。

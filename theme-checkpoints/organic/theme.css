@@ -260,10 +260,8 @@ button { font:inherit; }
 }
 .quote { margin-top:var(--sp-space-xs); font-size:var(--sp-font-xs); color:var(--sp-text-muted-bright); font-weight:400; }
 .weather-with-meta { display:flex; align-items:flex-start; margin-top:var(--sp-space-md); }
-.welcome-meta { margin-left:auto; align-items:flex-end; text-align:right; }
-.welcome-meta { display:flex; flex-direction:column; gap:var(--sp-space-xs); min-width:0; }
-.welcome-meta .time-card { width:100%; box-sizing:border-box; padding:var(--sp-space-sm) var(--sp-space-md); }
-.welcome-meta .panel-environment { width:100%; box-sizing:border-box; padding:var(--sp-space-sm) var(--sp-space-md); }
+.welcome-meta { margin-left:auto; align-items:flex-end; text-align:right; display:flex; flex-direction:column; gap:0; min-width:0; }
+.welcome-meta .home-meta-card { width:100%; box-sizing:border-box; }
 
 /* === Environment inline === */
 .env-list-inline { display:flex; flex-wrap:wrap; gap:var(--sp-space-3xs) var(--sp-space-sm); }
@@ -385,7 +383,7 @@ select option:checked { background:#DDE3DC; color:#2D3734; }
   color:var(--sp-text-dark); cursor:pointer; text-align:left;
   box-shadow:var(--sp-shadow-card); width:100%;
 }
-.camera-preview { aspect-ratio:3/2; background:var(--sp-camera-bg); min-height:100px; max-height:200px; }
+.camera-preview { aspect-ratio:16/10; background:var(--sp-camera-bg); min-height:100px; max-height:160px; }
 .camera-preview img { width:100%; height:100%; object-fit:cover; display:block; }
 .camera-preview ha-camera-stream,
 .camera-preview hui-image,
@@ -618,7 +616,7 @@ select option:checked { background:#DDE3DC; color:#2D3734; }
 .scene {
   min-height:78px; border:0; border-radius:var(--sp-radius-scene);
   color:var(--sp-text-main); padding:var(--sp-space-md);
-  background:linear-gradient(180deg,#EBEFEA,#E2E6E0);
+  background:linear-gradient(180deg,#C5D6CD,#AFC4B9);
   text-align:center; cursor:pointer;
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--sp-space-2xs);
   border-top-width:3px; border-style:solid; border-left:0; border-right:0; border-bottom:0; min-width:0;
@@ -874,7 +872,7 @@ select option:checked { background:#DDE3DC; color:#2D3734; }
   .room-label .muted { font-size: var(--sp-font-3xs); }
   .room-scene-chip { padding: 1px 8px; font-size: var(--sp-font-3xs); max-width: 80px; }
   .room-active-chip { padding: 1px 8px; font-size: var(--sp-font-3xs); }
-  .camera-preview { aspect-ratio: 16/9; min-height: 60px; }
+  .camera-preview { aspect-ratio: 16/10; min-height: 60px; }
 }
 
 @media (orientation: landscape) {
@@ -888,17 +886,23 @@ select option:checked { background:#DDE3DC; color:#2D3734; }
     min-height: 0;
     overflow: hidden;
     display: grid;
-    grid-template-rows: minmax(118px, 1.05fr) minmax(112px, 0.95fr) minmax(96px, 0.8fr) minmax(150px, 1.9fr);
-    grid-auto-rows: 0;
-    gap: var(--sp-space-sm);
-    align-content: stretch;
+    /* content-sized rows — shared-chrome locks this; keep local copy aligned */
+    grid-template-rows: max-content max-content max-content minmax(0, 1fr);
+    grid-auto-rows: max-content;
+    gap: 8px;
+    align-content: start;
   }
 
   :host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-camera,
   :host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-energy,
-  :host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-media,
+  :host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-media {
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+    align-self: start;
+  }
   :host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-scenes {
-    height: 100%;
+    height: auto;
     min-height: 0;
     overflow: hidden;
     align-self: stretch;
@@ -914,10 +918,11 @@ select option:checked { background:#DDE3DC; color:#2D3734; }
   }
 
   :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-camera .camera-preview {
-    flex: 1;
-    min-height: 0;
-    max-height: none;
-    aspect-ratio: auto;
+    flex: none;
+    height: 160px;
+    min-height: 160px;
+    max-height: 160px;
+    aspect-ratio: 16 / 10;
   }
 
   :host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-energy .energy-value {
@@ -967,12 +972,19 @@ select option:checked { background:#DDE3DC; color:#2D3734; }
    CLAYMORPHISM — raised clay elements
    inset dark bottom-right + inset light top-left + drop shadow
    ================================================================= */
-.chip,.action-btn,.filter-select,.weather-row,.scene,.media-cover,.media-cover-null,.media-btn,.media-playbtn,.media-volbtn,.sp-card button,.sp-del,.dot,.time-icon,.time-main,.time-sub,.section-title h2,.section-title .muted,.page-header h1,.weather-state-icon,.status,.state-word,.energy-value,.energy-value small,.energy-footer .muted,.down,.env-value,.env-row .muted {
+.chip,.action-btn,.filter-select,.weather-row,.media-cover,.media-cover-null,.media-btn,.media-playbtn,.media-volbtn,.sp-card button,.sp-del,.dot,.time-icon,.time-main,.time-sub,.section-title h2,.section-title .muted,.page-header h1,.weather-state-icon,.status,.state-word,.energy-value,.energy-value small,.energy-footer .muted,.down,.env-value,.env-row .muted {
   box-shadow:inset -2px -2px 5px rgba(45,55,52,.10),inset 2px 2px 5px rgba(255,255,255,.60),2px 3px 6px rgba(45,55,52,.12);
+}
+/* Scene chips: no clay drop-shadow (causes corner “圆角方块” on kiosk) */
+.scene,
+.panel-scenes .scene,
+.scene:active,
+.scene:hover {
+  box-shadow: none !important;
 }
 
 /* === Pressed (recessed) === */
-.chip:active,.action-btn:active,.action-btn:hover,.scene:active,.status:active,.media-btn:active,.media-playbtn:active,.media-volbtn:active,.sp-card button:active,.sp-del:active {
+.chip:active,.action-btn:active,.action-btn:hover,.status:active,.media-btn:active,.media-playbtn:active,.media-volbtn:active,.sp-card button:active,.sp-del:active {
   box-shadow:inset 2px 2px 5px rgba(45,55,52,.15),inset -2px -2px 5px rgba(255,255,255,.70);
 }
 
@@ -1028,4 +1040,232 @@ ha-control-switch {
 ha-control-slider {
   border-radius:var(--sp-radius-pill)!important;
   box-shadow:inset 2px 2px 5px rgba(45,55,52,.15),inset -2px -2px 5px rgba(255,255,255,.70);
+}
+
+/* =================================================================
+   PAPER SHELL — time+air one card; side energy+media+scenes one card
+   Devices keep light tinted papercut chips.
+   ================================================================= */
+:host {
+  /* Soft sage (lighter) — avoid white #EBEFEA and overly dark green */
+  --sp-glass-bg: #E2EBE6 !important;
+  --sp-panel-bg: #DCE7E1 !important;
+  --sp-device-bg: #E2EBE6 !important;
+  --sp-glass-light: #E8F0EB !important;
+  --sp-glass-dim: rgba(108, 135, 126, 0.12) !important;
+  --sp-item-icon-bg: #DCE7E1 !important;
+  --glass-thin: #E8F0EB !important;
+  --glass-regular: #E2EBE6 !important;
+  --glass-thick: #DCE7E1 !important;
+  --sp-shadow-scene: none !important;
+  --sp-organic-paper:
+    linear-gradient(165deg, #EEF4F0 0%, #E4EDE8 52%, #D9E5DE 100%);
+  --sp-organic-paper-warm:
+    linear-gradient(160deg, #F3EDE5 0%, #EBE4DA 48%, #E3DACD 100%);
+  --sp-organic-paper-side:
+    linear-gradient(180deg, #E8F0EB 0%, #DDE8E2 50%, #D2E0D8 100%);
+  --sp-organic-edge: rgba(108, 135, 126, 0.20);
+  --sp-organic-divider: rgba(108, 135, 126, 0.14);
+  --sp-organic-inset: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --sp-organic-shell-shadow: none;
+}
+
+/* ---- 时间 + 空气质量：一张偏陶土/青绿纸卡 ---- */
+.mc-app[data-view="home"] .welcome-meta {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+.mc-app[data-view="home"] .home-meta-card {
+  background:
+    linear-gradient(145deg, rgba(217, 155, 104, 0.14), transparent 46%),
+    var(--sp-organic-paper-warm) !important;
+  border: 1px solid var(--sp-organic-edge) !important;
+  border-radius: var(--sp-radius-glass, 26px) !important;
+  box-shadow: none !important;
+  gap: 6px !important;
+  color: #2D3734 !important;
+}
+.mc-app[data-view="home"] .home-meta-card .time-icon {
+  background: linear-gradient(160deg, rgba(217, 155, 104, 0.32), rgba(194, 132, 83, 0.18)) !important;
+  color: #C28453 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 2px 6px rgba(45,55,52,.12) !important;
+}
+.mc-app[data-view="home"] .home-meta-card .dot {
+  box-shadow:
+    inset -1px -1px 3px rgba(45, 55, 52, 0.10),
+    inset 1px 1px 3px rgba(255, 255, 255, 0.45),
+    0 1px 3px rgba(45, 55, 52, 0.10) !important;
+}
+
+/*
+  Side panels: each card uses sage paper (not #EBEFEA white).
+  Kiosk landscape keeps separate cards + gap — must paint each panel, not rely on transparent shell.
+*/
+.mc-app[data-view="home"] .side {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  color: #2D3734 !important;
+}
+.mc-app[data-view="home"] .side > .panel-energy,
+.mc-app[data-view="home"] .side > .panel-media,
+.mc-app[data-view="home"] .side > .panel-scenes,
+.mc-app[data-view="home"] .side > .panel-camera,
+.mc-app[data-view="home"] .side > .maintenance-card,
+.mc-app[data-view="home"] .side > .glass-card,
+:host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-energy,
+:host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-media,
+:host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-scenes,
+:host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-camera {
+  background: var(--sp-organic-paper-side) !important;
+  border: 1px solid var(--sp-organic-edge) !important;
+  border-radius: var(--sp-radius-glass, 26px) !important;
+  box-shadow: none !important;
+  color: #2D3734 !important;
+}
+
+/* Kill white title/control chips inside side cards */
+.mc-app[data-view="home"] .side .section-title h2,
+.mc-app[data-view="home"] .side .section-title .muted,
+.mc-app[data-view="home"] .side .time-main,
+.mc-app[data-view="home"] .side .time-sub,
+.mc-app[data-view="home"] .side .energy-value,
+.mc-app[data-view="home"] .side .energy-value small,
+.mc-app[data-view="home"] .side .energy-footer .muted,
+.mc-app[data-view="home"] .side .down,
+.mc-app[data-view="home"] .side .env-value,
+.mc-app[data-view="home"] .side .env-row .muted {
+  background: rgba(68, 96, 88, 0.10) !important;
+  box-shadow: none !important;
+}
+.mc-app[data-view="home"] .side .media-playlist,
+.mc-app[data-view="home"] .side .media-playlist-label,
+.mc-app[data-view="home"] .side .media-playlist-nav {
+  background: linear-gradient(180deg, #EEF4F0, #E2EBE6) !important;
+  border: 1px solid rgba(108, 135, 126, 0.16) !important;
+  color: #2D3734 !important;
+  box-shadow: none !important;
+}
+.mc-app[data-view="home"] .side .panel-media .media-btn,
+.mc-app[data-view="home"] .side .panel-media .media-volbtn,
+.mc-app[data-view="home"] .side .panel-media .media-cover-null {
+  background: linear-gradient(180deg, #E8F0EB, #DCE8E2) !important;
+  border: 1px solid rgba(108, 135, 126, 0.18) !important;
+  box-shadow: none !important;
+}
+.mc-app[data-view="home"] .side .panel-media .media-voltrack {
+  background: #C5D4CC !important;
+}
+.mc-app[data-view="home"] .side .panel-media .media-volfill {
+  background: linear-gradient(90deg, #6C877E, #D99B68) !important;
+}
+.mc-app[data-view="home"] .side .bars .energy-bar,
+.mc-app[data-view="home"] .side .bars span {
+  background: linear-gradient(180deg, #8BA89F, #6C877E) !important;
+  min-height: 0 !important;
+  opacity: 0.92 !important;
+}
+.mc-app[data-view="home"] .side .bars .energy-bar-level-0 {
+  opacity: 0.28 !important;
+  background: rgba(68, 96, 88, 0.25) !important;
+}
+
+/* Scene chips: deeper sage (not near-white #E8F0EB); clip clay corner blocks */
+.mc-app[data-view="home"] .side > .panel-scenes,
+:host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-scenes {
+  overflow: hidden !important;
+  /* panel itself a touch greener than energy/media so 场景不显白板 */
+  background: linear-gradient(180deg, #D4E2DA 0%, #C4D5CC 52%, #B4C7BD 100%) !important;
+}
+.mc-app[data-view="home"] .side .panel-scenes .scene-grid {
+  overflow: hidden !important;
+  align-content: start !important; /* avoid jamming chips into panel corners */
+}
+.mc-app[data-view="home"] .side .panel-scenes .scene,
+.mc-app[data-view="home"] .side .scene,
+:host([data-sp-kiosk]) .mc-app[data-view="home"] .side .scene,
+:host([data-sp-kiosk]) .mc-app[data-view="home"] .side .scene:active,
+:host([data-sp-kiosk]) .mc-app[data-view="home"] .side .scene:hover {
+  background: linear-gradient(180deg, #B8CDC2, #9FB6AB) !important;
+  border: 1px solid rgba(74, 88, 84, 0.28) !important;
+  border-top-width: 3px !important;
+  border-top-style: solid !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+  filter: none !important;
+  color: #2D3734 !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+.mc-app[data-view="home"] .side .scene strong,
+.mc-app[data-view="home"] .side .scene .muted,
+:host([data-sp-kiosk]) .mc-app[data-view="home"] .side .scene strong,
+:host([data-sp-kiosk]) .mc-app[data-view="home"] .side .scene .muted {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  width: auto !important;
+  max-width: 100% !important;
+  padding: 0 !important;
+}
+.mc-app[data-view="home"] .side .scene.morning { border-top-color: #6C877E !important; }
+.mc-app[data-view="home"] .side .scene.night { border-top-color: #4A5854 !important; }
+.mc-app[data-view="home"] .side .scene.movie { border-top-color: #D99B68 !important; }
+.mc-app[data-view="home"] .side .scene.game { border-top-color: #C28453 !important; }
+.mc-app[data-view="home"] .side .scene ha-icon { color: #4A5854 !important; }
+.mc-app[data-view="home"] .side .scene.movie ha-icon,
+.mc-app[data-view="home"] .side .scene.game ha-icon { color: #C28453 !important; }
+
+/* Lights / devices (bottom) — still separate chips with tint */
+.bottom-stack .device,
+.devices .device,
+.devices-page-grid .device {
+  border: 1px solid var(--sp-organic-edge) !important;
+  box-shadow: none !important;
+  background: var(--sp-organic-paper) !important;
+}
+.device-on-green {
+  background:
+    linear-gradient(145deg, rgba(139, 168, 159, 0.28), transparent 55%),
+    linear-gradient(180deg, #F1F5F2, #E3EBE6) !important;
+}
+.device-on-yellow {
+  background:
+    linear-gradient(145deg, rgba(217, 155, 104, 0.26), transparent 55%),
+    linear-gradient(180deg, #F7F3EE, #EDE6DC) !important;
+}
+.device-on-blue {
+  background:
+    linear-gradient(145deg, rgba(122, 158, 168, 0.28), transparent 55%),
+    linear-gradient(180deg, #F0F4F5, #E2E9EB) !important;
+}
+.device-on-purple {
+  background:
+    linear-gradient(145deg, rgba(150, 138, 168, 0.24), transparent 55%),
+    linear-gradient(180deg, #F3F1F5, #E7E4EB) !important;
+}
+.device-on-red,
+.device-on-brown {
+  background:
+    linear-gradient(145deg, rgba(194, 132, 83, 0.24), transparent 55%),
+    linear-gradient(180deg, #F6F0EA, #EBE3D8) !important;
+}
+.mc-app[data-view="scenes"] .devices-page-grid .device {
+  background:
+    linear-gradient(145deg, rgba(139, 168, 159, 0.18), transparent 50%),
+    var(--sp-organic-paper) !important;
+  border: 1px solid var(--sp-organic-edge) !important;
+  color: #2D3734 !important;
+}
+.mc-app[data-view="scenes"] .devices-page-grid .device .device-name,
+.mc-app[data-view="scenes"] .devices-page-grid .device .state-word {
+  color: #2D3734 !important;
+}
+.mc-app[data-view="scenes"] .devices-page-grid .device .muted {
+  color: #6C877E !important;
 }

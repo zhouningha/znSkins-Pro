@@ -5,6 +5,7 @@ import type { DashboardConfig, EntityRegistryEntry, HomeAssistant, RenderedDevic
 import type { Language } from '../i18n';
 import { assetKeyForDomain, deviceStateLabel, formatRelativeTime, selectedSkin } from '../utils';
 import { renderImage } from '../render/context';
+import { renderPercentBar } from './position-bar';
 import { renderThemedSwitch } from './themed-switch';
 
 const BRIGHTNESS_MODES = new Set(['brightness', 'color_temp', 'hs', 'rgb', 'rgbw', 'rgbww', 'xy']);
@@ -181,26 +182,26 @@ export function renderLightCard(
         <p class="muted">${lastTime}</p>
       </div>
       <div class="control-row" @click=${stopCardClick} @pointerdown=${stopCardClick}>
-        ${hasBrightness && isOn && briPct !== undefined ? html`
-        <ha-control-slider .value=${briPct} min="0" max="100" style="--control-slider-thickness:28px;--control-slider-border-radius:var(--sp-radius-pill, var(--sp-radius-infinite, 999px));flex:1;min-width:0;--control-slider-color:var(--sp-accent, var(--sp-accent-green, var(--primary-color, #7BC67E)));--control-slider-background:var(--sp-device-bg, rgba(128,128,128,.2))" @value-changed=${(e: CustomEvent) => { e.stopPropagation(); doService('turn_on', { brightness: Math.round((e.detail.value ?? 0) * 2.55) }); }} @click=${stopCardClick} @pointerdown=${stopCardClick}></ha-control-slider>
-        ` : ''}
-        ${hasColorTemp && isOn ? html`
-        <ha-control-slider
-          .value=${colorTempControl.currentKelvin}
-          min=${colorTempControl.minKelvin}
-          max=${colorTempControl.maxKelvin}
-          style="--control-slider-thickness:28px;--control-slider-border-radius:var(--sp-radius-pill, var(--sp-radius-infinite, 999px));flex:1;min-width:0;--control-slider-color:var(--sp-accent, var(--sp-accent-green, var(--primary-color, #7BC67E)))"
-          @value-changed=${(e: CustomEvent) => {
-            e.stopPropagation();
-            const kelvin = Math.round((e.detail.value ?? colorTempControl.currentKelvin) as number);
-            doService('turn_on', { color_temp_kelvin: kelvin });
-          }}
-          @click=${stopCardClick}
-          @pointerdown=${stopCardClick}
-        ></ha-control-slider>
-        ` : ''}
+        ${hasBrightness && isOn && briPct !== undefined ? renderPercentBar(
+          `bri:${device.entityId}`,
+          briPct,
+          (next) => doService('turn_on', { brightness: Math.round(next * 2.55) }),
+        ) : ''}
+        ${hasColorTemp && isOn ? (() => {
+          const { minKelvin, maxKelvin, currentKelvin } = colorTempControl;
+          const span = Math.max(1, maxKelvin - minKelvin);
+          const tempPct = Math.round(((currentKelvin - minKelvin) / span) * 100);
+          return renderPercentBar(
+            `ct:${device.entityId}`,
+            tempPct,
+            (next) => {
+              const kelvin = Math.round(minKelvin + (next / 100) * span);
+              doService('turn_on', { color_temp_kelvin: kelvin });
+            },
+          );
+        })() : ''}
         ${hasRgbColor && isOn ? html`
-        <label class="light-color-swatch" style="width:28px;height:28px;border-radius:50%;background:${currentHex};border:2px solid rgba(255,255,255,.6);flex-shrink:0;cursor:pointer;overflow:hidden;box-shadow:var(--sp-shadow-device);display:block" title=${currentHex} @click=${stopCardClick} @pointerdown=${stopCardClick}>
+        <label class="light-color-swatch" style="background:${currentHex};border:2px solid rgba(255,255,255,.6);cursor:pointer;overflow:hidden;box-shadow:var(--sp-shadow-device);display:block" title=${currentHex} @click=${stopCardClick} @pointerdown=${stopCardClick}>
           <input type="color" .value=${currentHex} style="opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0" @input=${(e: Event) => { e.stopPropagation(); const v = (e.target as HTMLInputElement).value; doService('turn_on', { rgb_color: hexToRgb(v) }); }} @click=${stopCardClick}>
         </label>
         ` : ''}

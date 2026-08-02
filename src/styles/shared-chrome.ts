@@ -265,6 +265,23 @@ export const SHARED_CHROME_CSS = `
   overflow: hidden !important;
   align-self: start !important;
 }
+/* Kiosk home: monitor stays content-sized (16:10); leftover side height → scenes. */
+:host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-camera {
+  align-self: start !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+:host([data-sp-kiosk]) .mc-app[data-view="home"] .side > .panel-camera .camera-preview {
+  flex: none !important;
+  height: 160px !important;
+  min-height: 160px !important;
+  max-height: 160px !important;
+  aspect-ratio: 16 / 10 !important;
+  contain: layout size !important;
+}
 .panel-camera .camera-preview,
 .panel-camera .camera-preview *,
 .camera-card .camera-preview,
@@ -396,7 +413,166 @@ export const SHARED_CHROME_CSS = `
   color: #fff !important;
 }
 
-/* Cover/valve position bar — LAYOUT LOCK (AC). Skins only color via --sp-accent. */
+/* ========== LAYOUT LOCK: device control row (light dim / cover / switch) ==========
+   Structure & geometry = Animal Crossing. Skins only recolor via tokens.
+   Prevents theme CSS from dropping .control-row flex and parking the knob wrong. */
+.device .control-row,
+.devices .control-row,
+.devices-page-grid .control-row {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  margin-top: 4px !important;
+  box-sizing: border-box !important;
+}
+.device .control-row .device-pos-track,
+.devices .control-row .device-pos-track,
+.devices-page-grid .control-row .device-pos-track {
+  flex: 1 1 auto !important;
+  min-width: 64px !important;
+  max-width: none !important;
+}
+.device .control-row .switch,
+.devices .control-row .switch,
+.devices-page-grid .control-row .switch {
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+}
+.device .control-row .light-color-swatch,
+.devices .control-row .light-color-swatch,
+.devices-page-grid .control-row .light-color-swatch {
+  flex: 0 0 auto !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  box-sizing: border-box !important;
+}
+
+/* Themed switch geometry — AC baseline; colors from --sp-switch-* / --sp-accent */
+.switch {
+  position: relative !important;
+  display: inline-block !important;
+  width: 42px !important;
+  height: 22px !important;
+  min-width: 42px !important;
+  min-height: 22px !important;
+  border-radius: 999px !important;
+  background: var(--sp-switch-bg, rgba(128,128,128,.22)) !important;
+  box-sizing: border-box !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+}
+.switch::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 3px !important;
+  left: 3px !important;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 999px !important;
+  background: var(--sp-switch-knob, #fff) !important;
+  box-shadow: var(--sp-shadow-switch, 0 2px 6px rgba(0,0,0,.25)) !important;
+  transition: left 0.15s ease !important;
+}
+.switch.on {
+  background: var(--sp-accent, var(--sp-accent-green, #7BC67E)) !important;
+}
+.switch.on::after {
+  left: 23px !important;
+}
+
+/* ========== LAYOUT LOCK: home time + air as ONE card ==========
+   Nested time/env never draw their own card chrome. */
+.home-meta-card {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 12px 14px !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+}
+.home-meta-card .time-card,
+.home-meta-card .panel-environment,
+.home-meta-card .home-meta-time,
+.home-meta-card .home-meta-env {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+.home-meta-time-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+.home-meta-date {
+  font-size: var(--sp-font-sm, 14px) !important;
+  white-space: nowrap !important;
+}
+.home-meta-card .time-icon {
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+}
+.home-meta-env-list {
+  gap: clamp(2px, 0.6vw, 6px) clamp(6px, 1vw, 12px) !important;
+  margin-top: 0 !important;
+}
+.welcome-meta {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  min-width: 0 !important;
+}
+
+/* ========== LAYOUT LOCK: home/rooms card label ==========
+   Soft bottom gradient (no frosted pill). Skins may recolor text via tokens. */
+.room-label {
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  padding: 28px 14px 12px !important;
+  border-radius: 0 0 var(--sp-radius-room, var(--sp-radius-lg, 24px)) var(--sp-radius-room, var(--sp-radius-lg, 24px)) !important;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.18) 42%, rgba(0, 0, 0, 0.52) 100%) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
+  text-align: left !important;
+}
+.room-label h3 {
+  color: #fff !important;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55) !important;
+  margin: 0 !important;
+}
+.room-label .muted,
+.room-label .room-stats {
+  color: rgba(255, 255, 255, 0.88) !important;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5) !important;
+  margin: 2px 0 0 !important;
+  /* Always reserve one subtitle line so room titles align across cards. */
+  min-height: 1.25em !important;
+  line-height: 1.25 !important;
+}
+
+/* Cover/valve/light percent bar — LAYOUT LOCK (AC). Skins color fill via --sp-accent. */
 .device-pos-track {
   flex: 1 1 auto !important;
   min-width: 64px !important;
@@ -416,7 +592,7 @@ export const SHARED_CHROME_CSS = `
   transition: width 0.12s ease-out;
 }
 
-/* Light brightness / color_temp — follow skin --sp-accent (GoW gold, not HA primary blue). */
+/* Fan etc. still on ha-control-slider — color from skin tokens only (not layout). */
 ha-control-slider {
   --control-slider-color: var(--sp-accent, var(--sp-accent-green, #7BC67E)) !important;
   --control-slider-background: var(--sp-device-bg, rgba(128,128,128,.22)) !important;
@@ -424,6 +600,9 @@ ha-control-slider {
   --control-slider-border-radius: var(--sp-radius-pill, var(--sp-radius-infinite, 999px)) !important;
   border-radius: var(--sp-radius-pill, var(--sp-radius-infinite, 999px)) !important;
   overflow: hidden !important;
+  flex: 1 1 auto !important;
+  min-width: 64px !important;
+  align-self: center !important;
 }
 
 /* Security card chrome — colors from tokens; structure/radius fixed (AC) */
@@ -443,13 +622,125 @@ ha-control-slider {
   border-radius: inherit !important;
 }
 
-/* Kiosk home: same side camera height as AC (do not let themes resize) */
-:host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-camera .camera-preview {
+/*
+  Kiosk landscape side — Animal Crossing baseline for ALL skins:
+  monitor/energy/media content-sized; leftover → scenes.
+  Skins may recolor panels; they must not hide scenes or invent another row recipe.
+  Exception: God of War wall data-wall-panel=1080p keeps its registered layout.
+*/
+@media (orientation: landscape) {
+  :host([data-sp-kiosk]:not([data-wall-panel="1080p"])) .mc-app[data-view="home"] .stage-grid {
+    grid-template-columns: minmax(0, 1fr) clamp(240px, 23vw, 310px) !important;
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
+  }
+  :host([data-sp-kiosk]:not([data-wall-panel="1080p"])) .mc-app[data-view="home"] .side {
+    display: grid !important;
+    grid-template-rows: max-content max-content max-content minmax(0, 1fr) !important;
+    grid-auto-rows: max-content !important;
+    gap: 8px !important;
+    align-content: start !important;
+    align-items: stretch !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+  :host([data-sp-kiosk]:not([data-wall-panel="1080p"])) .mc-app[data-view="home"] .side > .panel-camera,
+  :host([data-sp-kiosk]:not([data-wall-panel="1080p"])) .mc-app[data-view="home"] .side > .panel-energy,
+  :host([data-sp-kiosk]:not([data-wall-panel="1080p"])) .mc-app[data-view="home"] .side > .panel-media {
+    display: flex !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    align-self: start !important;
+  }
+  :host([data-sp-kiosk]:not([data-wall-panel="1080p"])) .mc-app[data-view="home"] .side > .panel-scenes {
+    display: flex !important;
+    flex-direction: column !important;
+    /* Fill leftover row under media (AC). Kill GoW margin-top:auto gap. */
+    height: 100% !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    margin-top: 0 !important;
+    align-self: stretch !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  :host([data-sp-kiosk]:not([data-wall-panel="1080p"])) .mc-app[data-view="home"] .side > .maintenance-card {
+    display: none !important;
+  }
+}
+:host([data-sp-kiosk]:not([data-wall-panel="1080p"])) .mc-app[data-view="home"] .panel-camera .camera-preview {
   flex: none !important;
   height: 160px !important;
   min-height: 160px !important;
   max-height: 160px !important;
   aspect-ratio: 16 / 10 !important;
+  contain: layout size !important;
+}
+/* Neutralize skin camera AR fights (3/2, 16/9). Card max-height stays per .camera-card lock. */
+.camera-preview,
+.panel-camera .camera-preview,
+.camera-card .camera-preview {
+  aspect-ratio: 16 / 10 !important;
+}
+
+/* Keep home energy bars visible (avoid collapsed chart leaving empty side gap). */
+:host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-energy .bars,
+:host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-energy .energy-chart .bars,
+:host([data-sp-kiosk]) .mc-app[data-view="home"] .panel-energy .compact-energy-bars {
+  display: flex !important;
+  align-items: flex-end !important;
+  min-height: 48px !important;
+  height: 48px !important;
+  flex: none !important;
+  margin-top: var(--sp-space-xs, 6px) !important;
+}
+
+/* ========== LAYOUT LOCK: energy bars (all skins) ==========
+   Some skins ship .bars but omit energy-bar-level-* heights; --sp-bar-min then
+   flattens every column. Heights come from inline style on .energy-bar. */
+.bars {
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 2px !important;
+  box-sizing: border-box !important;
+}
+.bars .energy-bar,
+.bars span.energy-bar {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  align-self: flex-end !important;
+  border-radius: 3px !important;
+  background: var(--sp-bar-gradient) !important;
+  opacity: 0.9 !important;
+  box-sizing: border-box !important;
+}
+.bars .energy-bar-level-0 {
+  opacity: 0.28 !important;
+  min-height: 3px !important;
+}
+.energy-chart {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+.energy-bar-axis {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-top: 4px !important;
+  padding: 0 1px !important;
+  font-size: var(--sp-font-3xs, 10px) !important;
+  line-height: 1.2 !important;
+  color: var(--sp-text-muted-dim, var(--sp-text-muted, rgba(0,0,0,.55))) !important;
+  opacity: 0.9 !important;
+  pointer-events: none !important;
+}
+.energy-bar-axis span {
+  min-width: 0 !important;
+  white-space: nowrap !important;
 }
 
 /* ========== LAYOUT LOCK: energy page (AC uses flex on .page-body; force grid) ========== */

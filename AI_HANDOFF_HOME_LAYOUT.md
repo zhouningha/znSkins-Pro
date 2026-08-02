@@ -44,7 +44,13 @@
 - strategy `generate()`：若 strategy 里已有 `energy` 键（即使是 `{}`），`entity` 以用户配置为准（空则空）。
 - `renderHomeEnergyCard`：无 `energy.entity`，或实体不存在且值为 `--` 时，返回 `nothing`。
 
-### 2.4 环境信息编辑排序（编辑器）
+### 2.5 首页侧栏监控高度（2026-08-01）
+
+- Kiosk 横屏侧栏：`grid-template-rows: minmax(0,1fr) max-content ×3`，**多余高度给监控**，能源/媒体/场景按内容高度，避免「场景被顶下去、和媒体拉开空档」。
+- 监控预览：`min-height:180px`、`max-height:240px`，可随侧栏略放大；不要写死 160px 且把 1fr 留给场景。
+- 首页能源柱状图：kiosk 下 `.bars` 固定约 48px 高，避免塌成看不见。
+
+---
 
 首页「二层」下温湿度/CO2 等顺序来自：
 

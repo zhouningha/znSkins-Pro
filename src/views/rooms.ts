@@ -103,7 +103,7 @@ export function renderAreaRooms(
           ${roomImg}
           <div class="room-label">
             <h3>${room.name}</h3>
-            <p class="muted">${room.summary}</p>
+            <p class="muted">${room.summary || ''}</p>
           </div>
         </button>
       `;
@@ -114,7 +114,7 @@ export function renderAreaRooms(
         ${roomImg}
         <div class="room-label">
           <h3>${room.name}</h3>
-          <p class="muted">${room.summary}</p>
+          <p class="muted">${room.summary || ''}</p>
           <p class="room-stats">${countLabel}</p>
         </div>
       </button>

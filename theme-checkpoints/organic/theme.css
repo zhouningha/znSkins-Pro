@@ -560,12 +560,24 @@ select option:checked { background:#DDE3DC; color:#2D3734; }
 /* === Env List === */
 .env-list,.scene-grid { display:grid; gap:var(--sp-space-md); margin-top:var(--sp-space-md); }
 .env-row { display:grid; grid-template-columns:28px minmax(0,1fr) auto; align-items:center; gap:var(--sp-space-sm); min-height:32px; }
-.dot { width:26px; height:26px; border-radius:var(--sp-radius-sm); display:grid; place-items:center; box-shadow:inset -2px -2px 5px rgba(45,55,52,.08),inset 2px 2px 5px rgba(255,255,255,.60); }
-.dot.temp { background:var(--sp-env-temp-bg); color:var(--sp-env-temp); }
-.dot.hum { background:var(--sp-env-hum-bg); color:var(--sp-env-hum); }
-.dot.pm { background:var(--sp-env-pm-bg); color:var(--sp-env-pm); }
-.env-value { min-width:0; max-width:100%; font-weight:700; text-align:right; overflow-wrap:anywhere; word-break:break-word; border-radius:var(--sp-radius-xs); padding:0 var(--sp-space-3xs); }
-.env-row .muted { width:fit-content; border-radius:var(--sp-radius-pill); padding:0 var(--sp-space-3xs); }
+/* Env icon wells use the same clay face as name/value pills — keep only icon ink semantic. */
+.dot {
+  width:26px; height:26px; border-radius:var(--sp-radius-sm); display:grid; place-items:center;
+  background:linear-gradient(180deg,#EBEFEA,#E2E6E0);
+  box-shadow:inset -2px -2px 5px rgba(45,55,52,.10),inset 2px 2px 5px rgba(255,255,255,.60),2px 3px 6px rgba(45,55,52,.12);
+}
+.dot.temp { background:linear-gradient(180deg,#EBEFEA,#E2E6E0); color:var(--sp-env-temp); }
+.dot.hum { background:linear-gradient(180deg,#EBEFEA,#E2E6E0); color:var(--sp-env-hum); }
+.dot.pm { background:linear-gradient(180deg,#EBEFEA,#E2E6E0); color:var(--sp-env-pm); }
+.env-value {
+  min-width:0; max-width:100%; font-weight:700; text-align:right; overflow-wrap:anywhere; word-break:break-word;
+  border-radius:var(--sp-radius-xs); padding:0 var(--sp-space-3xs);
+  background:linear-gradient(180deg,#EBEFEA,#E2E6E0);
+}
+.env-row .muted {
+  width:fit-content; border-radius:var(--sp-radius-pill); padding:0 var(--sp-space-3xs);
+  background:linear-gradient(180deg,#EBEFEA,#E2E6E0);
+}
 
 /* === Energy === */
 .energy-value { font-size:var(--sp-font-xxl); line-height:1; font-weight:700; margin-top:var(--sp-space-3xs); color:var(--sp-accent); width:fit-content; border-radius:var(--sp-radius-sm); padding:0 var(--sp-space-xs); }
@@ -1070,7 +1082,7 @@ ha-control-slider {
   --sp-organic-shell-shadow: none;
 }
 
-/* ---- 时间 + 空气质量：一张偏陶土/青绿纸卡 ---- */
+/* ---- 时间 + 空气质量：与侧栏今日用电/媒体同色青绿纸卡 ---- */
 .mc-app[data-view="home"] .welcome-meta {
   background: transparent !important;
   border: 0 !important;
@@ -1079,9 +1091,7 @@ ha-control-slider {
   gap: 0 !important;
 }
 .mc-app[data-view="home"] .home-meta-card {
-  background:
-    linear-gradient(145deg, rgba(217, 155, 104, 0.14), transparent 46%),
-    var(--sp-organic-paper-warm) !important;
+  background: var(--sp-organic-paper-side) !important;
   border: 1px solid var(--sp-organic-edge) !important;
   border-radius: var(--sp-radius-glass, 26px) !important;
   box-shadow: none !important;
@@ -1089,16 +1099,33 @@ ha-control-slider {
   color: #2D3734 !important;
 }
 .mc-app[data-view="home"] .home-meta-card .time-icon {
-  background: linear-gradient(160deg, rgba(217, 155, 104, 0.32), rgba(194, 132, 83, 0.18)) !important;
-  color: #C28453 !important;
+  background: linear-gradient(180deg, #EEF4F0, #E2EBE6) !important;
+  color: var(--sp-accent, #6C877E) !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 2px 6px rgba(45,55,52,.12) !important;
 }
-.mc-app[data-view="home"] .home-meta-card .dot {
+/* Sage clay face shared by icon + name/value — match side energy/media chips */
+.mc-app[data-view="home"] .home-meta-card .dot,
+.mc-app[data-view="home"] .home-meta-card .dot.temp,
+.mc-app[data-view="home"] .home-meta-card .dot.hum,
+.mc-app[data-view="home"] .home-meta-card .dot.pm,
+.mc-app[data-view="home"] .home-meta-card .env-value,
+.mc-app[data-view="home"] .home-meta-card .env-row .muted,
+.mc-app[data-view="home"] .home-meta-card .time-main,
+.mc-app[data-view="home"] .home-meta-card .time-sub,
+.mc-app[data-view="home"] .home-meta-card .chip {
+  background: linear-gradient(180deg, #EEF4F0, #E2EBE6) !important;
   box-shadow:
-    inset -1px -1px 3px rgba(45, 55, 52, 0.10),
-    inset 1px 1px 3px rgba(255, 255, 255, 0.45),
-    0 1px 3px rgba(45, 55, 52, 0.10) !important;
+    inset -2px -2px 5px rgba(45, 55, 52, 0.10),
+    inset 2px 2px 5px rgba(255, 255, 255, 0.60),
+    2px 3px 6px rgba(45, 55, 52, 0.12) !important;
 }
+.mc-app[data-view="home"] .home-meta-card .chip.active {
+  background: linear-gradient(180deg, #DDE8E2, #D2E0D8) !important;
+  box-shadow: inset 2px 2px 5px rgba(45,55,52,.12), inset -2px -2px 5px rgba(255,255,255,.70) !important;
+}
+.mc-app[data-view="home"] .home-meta-card .dot.temp { color: var(--sp-env-temp) !important; }
+.mc-app[data-view="home"] .home-meta-card .dot.hum { color: var(--sp-env-hum) !important; }
+.mc-app[data-view="home"] .home-meta-card .dot.pm { color: var(--sp-env-pm) !important; }
 
 /*
   Side panels: each card uses sage paper (not #EBEFEA white).
@@ -1138,7 +1165,11 @@ ha-control-slider {
 .mc-app[data-view="home"] .side .energy-footer .muted,
 .mc-app[data-view="home"] .side .down,
 .mc-app[data-view="home"] .side .env-value,
-.mc-app[data-view="home"] .side .env-row .muted {
+.mc-app[data-view="home"] .side .env-row .muted,
+.mc-app[data-view="home"] .side .dot,
+.mc-app[data-view="home"] .side .dot.temp,
+.mc-app[data-view="home"] .side .dot.hum,
+.mc-app[data-view="home"] .side .dot.pm {
   background: rgba(68, 96, 88, 0.10) !important;
   box-shadow: none !important;
 }

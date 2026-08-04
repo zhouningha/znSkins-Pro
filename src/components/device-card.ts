@@ -14,7 +14,7 @@ import { renderVacuumCard } from './vacuum';
 import { renderWaterHeaterCard } from './water-heater';
 import { renderAlarmControlPanelCard } from './alarm-control-panel';
 import { renderThemedSwitch } from './themed-switch';
-import { renderPositionBar, renderVolumeBar } from './position-bar';
+import { coverDisplayOpen, renderPositionBar, renderVolumeBar, toggleCoverOpenClose } from './position-bar';
 
 export const CONTROLLABLE_DOMAINS = new Set([
   'light', 'switch', 'fan', 'cover', 'valve', 'media_player', 'lock', 'climate',
@@ -81,11 +81,6 @@ export function renderDeviceCard(
     return renderAlarmControlPanelCard(config, hass, device, language, onHandleAction);
   }
 
-  const stateLabel = deviceStateLabel(device.state, language, hass, device.detail);
-  const active = ['on', 'playing', 'paused', 'cool', 'heat', 'armed', 'locked', 'open'].includes(device.state);
-  const statusClass = active ? `device-on-${device.color}` : (device.state === 'unavailable' ? 'device-unavailable' : 'device-off');
-  const skin = selectedSkin(config);
-  const assetKey = assetKeyForDomain(skin, device.entityId.split('.')[0] || 'sensor');
   const isMedia = device.detail === 'media_player';
   const isCover = device.detail === 'cover';
   const isValve = device.detail === 'valve';
@@ -102,6 +97,18 @@ export function renderDeviceCard(
     ? coverPos
     : (device.state === 'open' || device.state === 'opening' ? 100
       : device.state === 'closed' || device.state === 'closing' ? 0 : 50);
+  const coverOpen = isCover
+    ? coverDisplayOpen(device.entityId, coverPos, device.state)
+    : false;
+  const stateLabel = isCover
+    ? deviceStateLabel(coverOpen ? 'open' : 'closed', language, hass, 'cover')
+    : deviceStateLabel(device.state, language, hass, device.detail);
+  const active = isCover
+    ? coverOpen
+    : ['on', 'playing', 'paused', 'cool', 'heat', 'armed', 'locked', 'open'].includes(device.state);
+  const statusClass = active ? `device-on-${device.color}` : (device.state === 'unavailable' ? 'device-unavailable' : 'device-off');
+  const skin = selectedSkin(config);
+  const assetKey = assetKeyForDomain(skin, device.entityId.split('.')[0] || 'sensor');
   const action = isMedia
     ? 'play-pause'
     : (canSetPos
@@ -112,6 +119,25 @@ export function renderDeviceCard(
   const vol = isMedia ? (mediaState?.attributes?.volume_level as number | undefined) : undefined;
   const volPct = vol !== undefined ? Math.round(vol * 100) : undefined;
   const lastTime = deviceLastChanged(hass, device, language);
+
+  const onCardClick = (e: Event): void => {
+    // Covers with a position bar: tap card/status toggles open↔close; bar still sets percent.
+    if (isCover && canSetPos) {
+      const nextOpen = !coverOpen;
+      toggleCoverOpenClose(hass, device.entityId, coverOpen);
+      const root = e.currentTarget as HTMLElement;
+      const fill = root.querySelector('.device-pos-fill') as HTMLElement | null;
+      if (fill) fill.style.width = `${nextOpen ? 100 : 0}%`;
+      const statusEl = root.querySelector('.status');
+      if (statusEl) {
+        statusEl.textContent = deviceStateLabel(nextOpen ? 'open' : 'closed', language, hass, 'cover');
+      }
+      root.className = `device ${nextOpen ? `device-on-${device.color}` : 'device-off'}`;
+      return;
+    }
+    if (action === 'position') return;
+    onHandleAction(device.entityId, action);
+  };
 
   let control: TemplateResult | typeof nothing = nothing;
   if (action === 'play-pause') {
@@ -128,7 +154,11 @@ export function renderDeviceCard(
   }
 
   return html`
-    <button class="device ${statusClass}" @click=${action === 'position' ? undefined : () => onHandleAction(device.entityId, action)} style=${action === 'position' ? 'cursor:default' : ''}>
+    <button
+      class="device ${statusClass}"
+      @click=${onCardClick}
+      style=${action === 'position' && !isCover ? 'cursor:default' : ''}
+    >
       <div class="device-top">
         ${albumArt ? html`<img class="item-img" src=${albumArt} alt="">` : renderImage(config, assetKey, device.name, 'item-img')}
         <div class="tag-stack"><div class="status">${stateLabel}</div></div>

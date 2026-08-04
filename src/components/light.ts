@@ -162,6 +162,13 @@ export function renderLightCard(
   const lastTime = stateObj.last_changed
     ? formatRelativeTime(new Date(stateObj.last_changed), language)
     : device.subtitle;
+  // Dual bars have no labels — subtitle shows live brightness / Kelvin instead of stale "Xm ago".
+  const lightMetaParts: string[] = [];
+  if (isOn && hasBrightness && briPct !== undefined) lightMetaParts.push(`${briPct}%`);
+  if (isOn && hasColorTemp) lightMetaParts.push(`${colorTempControl.currentKelvin}K`);
+  const lightMeta = lightMetaParts.length > 0
+    ? lightMetaParts.join(' · ')
+    : (lastTime || device.subtitle);
 
   const doService = (service: string, data: Record<string, unknown>) => {
     void hass.callService('light', service, { entity_id: device.entityId, ...data });
@@ -179,7 +186,7 @@ export function renderLightCard(
       </div>
       <div class="device-copy">
         <p class="device-name">${device.name}</p>
-        <p class="muted">${lastTime}</p>
+        <p class="muted">${lightMeta}</p>
       </div>
       <div class="control-row" @click=${stopCardClick} @pointerdown=${stopCardClick}>
         ${hasBrightness && isOn && briPct !== undefined ? renderPercentBar(

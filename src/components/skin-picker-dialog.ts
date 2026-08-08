@@ -13,6 +13,7 @@ const SKIN_LABELS: Record<string, string> = {
   'retro-luxury': '复古奢华',
   'fantasy-westward-journey': '梦幻西游',
   'neo-tactile': 'Neo Tactile',
+  'super-mario': '超级玛丽',
 };
 
 const HOST_TOKEN_KEYS = [

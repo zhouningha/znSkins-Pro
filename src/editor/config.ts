@@ -1,6 +1,32 @@
+import { DEFAULT_ASSETS } from '../config/constants';
 import { SKINS } from '../skins/generated';
 
 export type DashboardConfigRecord = Record<string, any>;
+
+/** Asset keys that must reset to canonical filenames when switching skins. */
+const SKIN_LOCAL_ASSET_KEYS = [
+  'theme_css', 'stage', 'base', 'avatar', 'decor',
+  'room_living', 'room_bedroom', 'room_kitchen', 'room_garden',
+  'room_dining', 'room_office', 'room_garage',
+] as const;
+
+function isCanonicalSkinAsset(key: string, val: string): boolean {
+  const def = DEFAULT_ASSETS[key];
+  if (!def) return !val.includes('?') && !val.startsWith('/') && !/^https?:\/\//.test(val);
+  // Accept default name, optional cache-buster query on that exact file.
+  return val === def || val.startsWith(`${def}?`);
+}
+
+const SKIN_LABELS: Record<string, string> = {
+  modern: 'Modern',
+  'animal-crossing': '动物森友会',
+  organic: '自然之家',
+  god_of_war_3_wall: '战神',
+  'retro-luxury': '复古奢华',
+  'fantasy-westward-journey': '梦幻西游',
+  'neo-tactile': 'Neo Tactile',
+  'super-mario': '超级玛丽',
+};
 
 export function fire(el: HTMLElement, config: DashboardConfigRecord): void {
   el.dispatchEvent(new CustomEvent('config-changed', {
@@ -97,23 +123,29 @@ export function applySkinConfig(current: DashboardConfigRecord, skin: string): D
     next.resource_pack.base_path = `/local/skins-pro/${skin}/`;
     next.downloaded_skins = [...new Set([...(next.downloaded_skins || []), skin])];
   }
-  // Sticky custom BG / absolute asset paths pin the previous skin's stage & theme.css.
+  // Sticky custom BG / absolute / per-skin cache-bust paths pin the previous skin
+  // (e.g. theme-mario7.css, room-living.jpg?v=mario7) onto the next skin folder.
   if (next.background_image) next.background_image = '';
   const assets = { ...(next.resource_pack.assets || {}) } as Record<string, string>;
-  for (const key of ['theme_css', 'stage', 'base'] as const) {
+  for (const key of SKIN_LOCAL_ASSET_KEYS) {
     const val = assets[key];
-    if (typeof val !== 'string') continue;
-    if (val.startsWith('/') || /^https?:\/\//.test(val) || val.includes('/skins-pro/')) {
-      delete assets[key];
+    const def = DEFAULT_ASSETS[key];
+    if (typeof val !== 'string') {
+      if (def) assets[key] = def;
       continue;
     }
-    // Drop stale cache-buster queries (e.g. theme.css?v=gow-…) so the new skin folder loads.
-    if (key === 'theme_css' && val.startsWith('theme.css')) assets.theme_css = 'theme.css';
-  }
-  // Downloaded skins should not keep a prior skin's absolute/query asset map beyond theme.css.
-  if (!SKINS.includes(skin)) {
-    delete assets.stage;
-    delete assets.base;
+    if (
+      val.startsWith('/')
+      || /^https?:\/\//.test(val)
+      || val.includes('/skins-pro/')
+      || !isCanonicalSkinAsset(key, val)
+    ) {
+      if (def) assets[key] = def;
+      else delete assets[key];
+      continue;
+    }
+    // Drop cache-buster queries so the new skin folder loads its own files.
+    if (def) assets[key] = def;
   }
   next.resource_pack.assets = assets;
   return next;
@@ -128,7 +160,11 @@ export function applySkin(el: HTMLElement, current: DashboardConfigRecord, skin:
 export function buildSkinOptions(config: DashboardConfigRecord): string {
   const current = config.resource_pack?.skin || 'modern';
   const downloaded = ((config.downloaded_skins || []) as string[]).filter((s) => !SKINS.includes(s));
-  const bundled = (SKINS as readonly string[]).map((s) => `<option value="${s}"${s === current ? ' selected' : ''}>${s}</option>`).join('');
-  const extra = downloaded.map((s) => `<option value="${s}"${s === current ? ' selected' : ''}>${s}</option>`).join('');
+  const toOption = (s: string): string => {
+    const label = SKIN_LABELS[s] || s;
+    return `<option value="${s}"${s === current ? ' selected' : ''}>${label}</option>`;
+  };
+  const bundled = (SKINS as readonly string[]).map(toOption).join('');
+  const extra = downloaded.map(toOption).join('');
   return bundled + extra;
 }

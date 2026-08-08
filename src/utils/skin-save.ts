@@ -38,12 +38,20 @@ export async function saveSkinToHa(
         ? (prevPack.assets as Record<string, unknown>)
         : {};
 
-      const nextAssets = {
-        ...prevAssets,
-        ...(patch.assets || {}),
-      };
-      if (typeof nextAssets.theme_css === 'string' && String(nextAssets.theme_css).startsWith('theme.css')) {
-        nextAssets.theme_css = 'theme.css';
+      const prevSkin = String(prevPack.skin || '');
+      const skinChanged = prevSkin !== patch.skin;
+      // Switching skins: drop previous skin's sticky asset map (theme-mario7.css, ?v=mario…).
+      const nextAssets: Record<string, unknown> = skinChanged
+        ? { ...(patch.assets || {}), theme_css: 'theme.css' }
+        : { ...prevAssets, ...(patch.assets || {}) };
+      if (typeof nextAssets.theme_css === 'string') {
+        const css = String(nextAssets.theme_css);
+        // Renamed theme-mario7.css breaks other skins; theme.css?v=… is fine.
+        if (/^theme[-.].+\.css/.test(css) && !css.startsWith('theme.css')) {
+          nextAssets.theme_css = 'theme.css';
+        } else if (skinChanged && css.startsWith('theme.css')) {
+          nextAssets.theme_css = 'theme.css';
+        }
       }
 
       await connection.sendMessagePromise({

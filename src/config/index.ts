@@ -77,16 +77,15 @@ export function mergeConfig(config: DashboardConfig): DashboardConfig {
       ? [...config.nav, ...(DEFAULT_CONFIG.nav || []).filter((defaultItem) => !config.nav?.some((item) => (item.key || item.target) === (defaultItem.key || defaultItem.target)))]
       : DEFAULT_CONFIG.nav,
   };
-  // Strip sticky theme.css?v=gow-… left from a previous skin so the active skin folder loads cleanly.
-  const themeCss = merged.resource_pack?.assets?.theme_css;
-  if (typeof themeCss === 'string' && themeCss.startsWith('theme.css')) {
-    merged.resource_pack = {
-      ...merged.resource_pack,
-      assets: {
-        ...merged.resource_pack?.assets,
-        theme_css: 'theme.css',
-      },
-    };
+  // Strip sticky theme-mario7.css (renamed) left from a previous skin.
+  // Keep theme.css?v=… cache-busters — they still resolve to the active skin folder.
+  const assets = { ...(merged.resource_pack?.assets || {}) };
+  const themeCss = assets.theme_css;
+  if (typeof themeCss === 'string' && themeCss !== 'theme.css' && !themeCss.startsWith('theme.css?')) {
+    if (/^theme[-.].+\.css/.test(themeCss)) {
+      assets.theme_css = 'theme.css';
+      merged.resource_pack = { ...merged.resource_pack, assets };
+    }
   }
   return merged;
 }
